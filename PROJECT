@@ -6,14 +6,14 @@ domain: kci.rocks
 layout:
 - go.kubebuilder.io/v3
 projectName: db-operator
-repo: github.com/kloeckner-i/db-operator
+repo: github.com/db-operator/db-operator
 resources:
 - api:
     crdVersion: v1
   controller: true
   domain: kci.rocks
   kind: DbInstance
-  path: github.com/kloeckner-i/db-operator/api/v1alpha1
+  path: github.com/db-operator/db-operator/api/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
@@ -21,14 +21,14 @@ resources:
   controller: true
   domain: kci.rocks
   kind: Database
-  path: github.com/kloeckner-i/db-operator/api/v1alpha1
+  path: github.com/db-operator/db-operator/api/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   domain: kci.rocks
   kind: Database
-  path: github.com/kloeckner-i/db-operator/api/v1beta1
+  path: github.com/db-operator/db-operator/api/v1beta1
   version: v1beta1
   webhooks:
     conversion: true
@@ -39,7 +39,7 @@ resources:
     crdVersion: v1
   domain: kci.rocks
   kind: DbInstance
-  path: github.com/kloeckner-i/db-operator/api/v1beta1
+  path: github.com/db-operator/db-operator/api/v1beta1
   version: v1beta1
   webhooks:
     conversion: true

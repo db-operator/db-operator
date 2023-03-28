@@ -28,11 +28,11 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 
-	kcirocksv1alpha1 "github.com/kloeckner-i/db-operator/api/v1alpha1"
-	kcirocksv1beta1 "github.com/kloeckner-i/db-operator/api/v1beta1"
-	"github.com/kloeckner-i/db-operator/controllers"
-	"github.com/kloeckner-i/db-operator/pkg/config"
-	"github.com/kloeckner-i/db-operator/pkg/utils/thirdpartyapi"
+	kcirocksv1alpha1 "github.com/db-operator/db-operator/api/v1alpha1"
+	kcirocksv1beta1 "github.com/db-operator/db-operator/api/v1beta1"
+	"github.com/db-operator/db-operator/controllers"
+	"github.com/db-operator/db-operator/pkg/config"
+	"github.com/db-operator/db-operator/pkg/utils/thirdpartyapi"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.) to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
