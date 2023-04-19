@@ -22,6 +22,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: Setup GO
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.go_version }}
+
       - name: Check Code Style
         uses: golangci/golangci-lint-action@v3
         with:
