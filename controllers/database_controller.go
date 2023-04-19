@@ -595,7 +595,7 @@ func (r *DatabaseReconciler) createTemplatedSecrets(ctx context.Context, dbcr *k
 	// Adding values
 	newSecretData := fillTemplatedSecretData(dbcr, databaseSecret.Data, dbSecrets, ownership)
 	newSecretData = removeObsoleteSecret(dbcr, databaseSecret.Data, dbSecrets, ownership)
-	
+
 	for key, value := range newSecretData {
 		databaseSecret.Data[key] = value
 	}

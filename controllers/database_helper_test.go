@@ -26,8 +26,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var testDbcred = database.Credentials{Name: "testdb", Username: "testuser", Password: "password"}
-var ownership = []metav1.OwnerReference{}
+var (
+	testDbcred = database.Credentials{Name: "testdb", Username: "testuser", Password: "password"}
+	ownership  = []metav1.OwnerReference{}
+)
 
 func TestDeterminPostgresType(t *testing.T) {
 	postgresDbCr := newPostgresTestDbCr(newPostgresTestDbInstanceCr())
