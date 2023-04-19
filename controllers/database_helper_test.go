@@ -264,7 +264,7 @@ func TestBlockedTempatedKeysGeneratation(t *testing.T) {
 		Data: map[string][]byte{},
 	}
 
-	newSecret := fillTemplatedSecretData(postgresDbCr, dummySecret.Data, sercretData, ownership)
+	newSecret := appendTemplatedSecretData(postgresDbCr, dummySecret.Data, sercretData, ownership)
 	assert.Equal(t, newSecret, expectedData, "generated connections string is wrong")
 }
 
@@ -294,7 +294,7 @@ func TestObsoleteFieldsRemoving(t *testing.T) {
 		},
 	}
 
-	newSecret := fillTemplatedSecretData(postgresDbCr, dummySecret.Data, sercretData, ownership)
+	newSecret := appendTemplatedSecretData(postgresDbCr, dummySecret.Data, sercretData, ownership)
 	newSecret = removeObsoleteSecret(postgresDbCr, dummySecret.Data, sercretData, ownership)
 
 	assert.Equal(t, newSecret, expectedData, "generated connections string is wrong")

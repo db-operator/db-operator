@@ -300,7 +300,7 @@ func generateTemplatedSecrets(dbcr *kciv1beta1.Database, databaseCred database.C
 	return secrets, nil
 }
 
-func fillTemplatedSecretData(dbcr *kciv1beta1.Database, secretData map[string][]byte, newSecretFields map[string][]byte, ownership []metav1.OwnerReference) map[string][]byte {
+func appendTemplatedSecretData(dbcr *kciv1beta1.Database, secretData map[string][]byte, newSecretFields map[string][]byte, ownership []metav1.OwnerReference) map[string][]byte {
 	blockedTempatedKeys := getBlockedTempatedKeys()
 	for key, value := range newSecretFields {
 		if slices.Contains(blockedTempatedKeys, key) {
