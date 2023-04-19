@@ -192,25 +192,6 @@ func TestMysqlDefaultTemlatedSecretGeneratationWithoutProxy(t *testing.T) {
 	assert.Equal(t, connString, expectedData, "generated connections string is wrong")
 }
 
-func TestAddingTemplatedSecretsToSecret(t *testing.T) {
-	instance := newPostgresTestDbInstanceCr()
-	postgresDbCr := newPostgresTestDbCr(instance)
-	secretData := map[string][]byte{
-		"POSTGRES_DB":       []byte("postgres"),
-		"POSTGRES_USER":     []byte("root"),
-		"POSTGRES_PASSWORD": []byte("qwertyu9"),
-	}
-
-	connectionString := "it's a dummy connection string"
-
-	secret := addTemplatedSecretToSecret(postgresDbCr, secretData, "TMPL", connectionString, ownership)
-	secretData["CONNECTION_STRING"] = []byte(connectionString)
-	if val, ok := secret.Data["TMPL"]; ok {
-		assert.Equal(t, string(val), connectionString, "connections string in a secret contains unexpected values")
-		return
-	}
-}
-
 func TestPsqlCustomSecretGeneratation(t *testing.T) {
 	instance := newPostgresTestDbInstanceCr()
 	postgresDbCr := newPostgresTestDbCr(instance)
@@ -282,7 +263,7 @@ func TestBlockedTempatedKeysGeneratation(t *testing.T) {
 	}
 
 	newSecret := fillTemplatedSecretData(postgresDbCr, dummySecret.Data, sercretData, ownership)
-	assert.Equal(t, newSecret.Data, expectedData, "generated connections string is wrong")
+	assert.Equal(t, newSecret, expectedData, "generated connections string is wrong")
 }
 
 func TestObsoleteFieldsRemoving(t *testing.T) {
@@ -314,5 +295,5 @@ func TestObsoleteFieldsRemoving(t *testing.T) {
 	newSecret := fillTemplatedSecretData(postgresDbCr, dummySecret.Data, sercretData, ownership)
 	newSecret = removeObsoleteSecret(postgresDbCr, dummySecret.Data, sercretData, ownership)
 
-	assert.Equal(t, newSecret.Data, expectedData, "generated connections string is wrong")
+	assert.Equal(t, newSecret, expectedData, "generated connections string is wrong")
 }

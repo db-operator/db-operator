@@ -26,7 +26,6 @@ import (
 	"github.com/db-operator/db-operator/pkg/utils/database"
 	"github.com/db-operator/db-operator/pkg/utils/kci"
 	"github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/strings/slices"
 )
@@ -293,7 +292,7 @@ func generateTemplatedSecrets(dbcr *kciv1beta1.Database, databaseCred database.C
 	return secrets, nil
 }
 
-func fillTemplatedSecretData(dbcr *kciv1beta1.Database, secretData map[string][]byte, newSecretFields map[string]string, ownership []metav1.OwnerReference) (newSecret *v1.Secret) {
+func fillTemplatedSecretData(dbcr *kciv1beta1.Database, secretData map[string][]byte, newSecretFields map[string]string, ownership []metav1.OwnerReference) map[string][]byte {
 	blockedTempatedKeys := getBlockedTempatedKeys()
 	for key, value := range newSecretFields {
 		if slices.Contains(blockedTempatedKeys, key) {
@@ -303,18 +302,13 @@ func fillTemplatedSecretData(dbcr *kciv1beta1.Database, secretData map[string][]
 				key,
 			)
 		} else {
-			newSecret = addTemplatedSecretToSecret(dbcr, secretData, key, value, ownership)
+			secretData[key] = []byte(value)
 		}
 	}
-	return
+	return secretData
 }
 
-func addTemplatedSecretToSecret(dbcr *kciv1beta1.Database, secretData map[string][]byte, secretName string, secretValue string, ownership []metav1.OwnerReference) *v1.Secret {
-	secretData[secretName] = []byte(secretValue)
-	return kci.SecretBuilder(dbcr.Spec.SecretName, dbcr.GetNamespace(), secretData, ownership)
-}
-
-func removeObsoleteSecret(dbcr *kciv1beta1.Database, secretData map[string][]byte, newSecretFields map[string]string, ownership []metav1.OwnerReference) *v1.Secret {
+func removeObsoleteSecret(dbcr *kciv1beta1.Database, secretData map[string][]byte, newSecretFields map[string]string, ownership []metav1.OwnerReference) map[string][]byte {
 	blockedTempatedKeys := getBlockedTempatedKeys()
 
 	for key := range secretData {
@@ -326,6 +320,5 @@ func removeObsoleteSecret(dbcr *kciv1beta1.Database, secretData map[string][]byt
 			}
 		}
 	}
-
-	return kci.SecretBuilder(dbcr.Spec.SecretName, dbcr.GetNamespace(), secretData, ownership)
+	return secretData
 }
