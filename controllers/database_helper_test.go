@@ -136,7 +136,7 @@ func TestPsqlDefaultTemplatedSecretGeneratationWithProxy(t *testing.T) {
 
 	protocol := "postgresql"
 	expectedData := map[string]string{
-		"CONNECTION_STRING": fmt.Sprintf("%s://%s:%s@%s:%d/%s", protocol, c.UserName, c.Password, c.DatabaseHost, c.DatabasePort, c.DatabaseName),
+		"CONNECTION_STRING": byte[](fmt.Sprintf("%s://%s:%s@%s:%d/%s", protocol, c.UserName, c.Password, c.DatabaseHost, c.DatabasePort, c.DatabaseName)),
 	}
 
 	connString, err := generateTemplatedSecrets(postgresDbCr, testDbcred)
@@ -161,7 +161,7 @@ func TestPsqlDefaultTemplatedSecretGeneratationWithoutProxy(t *testing.T) {
 
 	protocol := "postgresql"
 	expectedData := map[string]string{
-		"CONNECTION_STRING": fmt.Sprintf("%s://%s:%s@%s:%d/%s", protocol, c.UserName, c.Password, c.DatabaseHost, c.DatabasePort, c.DatabaseName),
+		"CONNECTION_STRING": byte[](fmt.Sprintf("%s://%s:%s@%s:%d/%s", protocol, c.UserName, c.Password, c.DatabaseHost, c.DatabasePort, c.DatabaseName)),
 	}
 
 	connString, err := generateTemplatedSecrets(postgresDbCr, testDbcred)
@@ -183,7 +183,7 @@ func TestMysqlDefaultTemlatedSecretGeneratationWithoutProxy(t *testing.T) {
 	}
 	protocol := "mysql"
 	expectedData := map[string]string{
-		"CONNECTION_STRING": fmt.Sprintf("%s://%s:%s@%s:%d/%s", protocol, c.UserName, c.Password, c.DatabaseHost, c.DatabasePort, c.DatabaseName),
+		"CONNECTION_STRING": byte[](fmt.Sprintf("%s://%s:%s@%s:%d/%s", protocol, c.UserName, c.Password, c.DatabaseHost, c.DatabasePort, c.DatabaseName)),
 	}
 
 	connString, err := generateTemplatedSecrets(mysqlDbCr, testDbcred)
@@ -214,8 +214,8 @@ func TestPsqlCustomSecretGeneratation(t *testing.T) {
 	}
 	protocol := "postgresql"
 	expectedData := map[string]string{
-		"CHECK_1": fmt.Sprintf("%s%s://%s:%s@%s:%d/%s%s", prefix, protocol, c.UserName, c.Password, c.DatabaseHost, c.DatabasePort, c.DatabaseName, postfix),
-		"CHECK_2": fmt.Sprintf("%s://%s:%s@%s:%d/%s", protocol, c.UserName, c.Password, c.DatabaseHost, c.DatabasePort, c.DatabaseName),
+		"CHECK_1": byte[](fmt.Sprintf("%s%s://%s:%s@%s:%d/%s%s", prefix, protocol, c.UserName, c.Password, c.DatabaseHost, c.DatabasePort, c.DatabaseName, postfix)),
+		"CHECK_2": byte[](fmt.Sprintf("%s://%s:%s@%s:%d/%s", protocol, c.UserName, c.Password, c.DatabaseHost, c.DatabasePort, c.DatabaseName)),
 	}
 
 	templatedSecrets, err := generateTemplatedSecrets(postgresDbCr, testDbcred)
