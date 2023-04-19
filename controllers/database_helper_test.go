@@ -216,12 +216,12 @@ func TestPsqlCustomSecretGeneratation(t *testing.T) {
 		"CHECK_2": fmt.Sprintf("%s://%s:%s@%s:%d/%s", protocol, c.UserName, c.Password, c.DatabaseHost, c.DatabasePort, c.DatabaseName),
 	}
 
-	connString, err := generateTemplatedSecrets(postgresDbCr, testDbcred)
+	templatedSecrets, err := generateTemplatedSecrets(postgresDbCr, testDbcred)
 	if err != nil {
 		t.Logf("unexpected error: %s", err)
 		t.Fail()
 	}
-	assert.Equal(t, connString, expectedData, "generated connections string is wrong")
+	assert.Equal(t, templatedSecrets, expectedData, "generated connections string is wrong")
 }
 
 func TestWrongTemplatedSecretGeneratation(t *testing.T) {
