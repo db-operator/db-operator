@@ -5,3 +5,4 @@
 !**/*.sum
 /bin
 /testbin
+db-operator
