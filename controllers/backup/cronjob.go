@@ -20,7 +20,7 @@ import (
 	"errors"
 	"fmt"
 
-	kindav1beta11 "github.com/db-operator/db-operator/api/v1beta1"
+	kindav1beta1 "github.com/db-operator/db-operator/api/v1beta1"
 	"github.com/db-operator/db-operator/pkg/config"
 	"github.com/db-operator/db-operator/pkg/utils/kci"
 	"github.com/sirupsen/logrus"
@@ -147,7 +147,7 @@ func getResourceRequirements(conf *config.Config) v1.ResourceRequirements {
 	return resourceRequirements
 }
 
-func postgresBackupContainer(conf *config.Config, dbcr *kindav1beta11.Database) (v1.Container, error) {
+func postgresBackupContainer(conf *config.Config, dbcr *kindav1beta1.Database) (v1.Container, error) {
 	env, err := postgresEnvVars(conf, dbcr)
 	if err != nil {
 		return v1.Container{}, err
@@ -163,7 +163,7 @@ func postgresBackupContainer(conf *config.Config, dbcr *kindav1beta11.Database) 
 	}, nil
 }
 
-func mysqlBackupContainer(conf *config.Config, dbcr *kindav1beta11.Database) (v1.Container, error) {
+func mysqlBackupContainer(conf *config.Config, dbcr *kindav1beta1.Database) (v1.Container, error) {
 	env, err := mysqlEnvVars(dbcr)
 	if err != nil {
 		return v1.Container{}, err
@@ -192,7 +192,7 @@ func volumeMounts() []v1.VolumeMount {
 	}
 }
 
-func volumes(dbcr *kindav1beta11.Database) []v1.Volume {
+func volumes(dbcr *kindav1beta1.Database) []v1.Volume {
 	return []v1.Volume{
 		{
 			Name: "gcloud-secret",
@@ -213,7 +213,7 @@ func volumes(dbcr *kindav1beta11.Database) []v1.Volume {
 	}
 }
 
-func postgresEnvVars(conf *config.Config, dbcr *kindav1beta11.Database) ([]v1.EnvVar, error) {
+func postgresEnvVars(conf *config.Config, dbcr *kindav1beta1.Database) ([]v1.EnvVar, error) {
 	instance, err := dbcr.GetInstanceRef()
 	if err != nil {
 		logrus.Errorf("can not build backup environment variables - %s", err)
@@ -262,7 +262,7 @@ func postgresEnvVars(conf *config.Config, dbcr *kindav1beta11.Database) ([]v1.En
 	return envList, nil
 }
 
-func mysqlEnvVars(dbcr *kindav1beta11.Database) ([]v1.EnvVar, error) {
+func mysqlEnvVars(dbcr *kindav1beta1.Database) ([]v1.EnvVar, error) {
 	instance, err := dbcr.GetInstanceRef()
 	if err != nil {
 		logrus.Errorf("can not build backup environment variables - %s", err)
@@ -307,7 +307,7 @@ func mysqlEnvVars(dbcr *kindav1beta11.Database) ([]v1.EnvVar, error) {
 	}, nil
 }
 
-func getBackupHost(dbcr *kindav1beta11.Database) (string, error) {
+func getBackupHost(dbcr *kindav1beta1.Database) (string, error) {
 	host := ""
 
 	instance, err := dbcr.GetInstanceRef()
