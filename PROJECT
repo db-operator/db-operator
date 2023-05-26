@@ -54,4 +54,7 @@ resources:
   kind: DBUser
   path: github.com/db-operator/db-operator/api/v1beta1
   version: v1beta1
+  webhooks:
+    validation: true
+    webhookVersion: v1
 version: "3"
