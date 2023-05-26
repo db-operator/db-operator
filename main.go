@@ -50,7 +50,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(kindarocksv1alpha1.AddToScheme(scheme))
-	utilruntime.Must(kindarocksv1beta11.AddToScheme(scheme))
+	utilruntime.Must(kindarocksv1beta1.AddToScheme(scheme))
 	utilruntime.Must(kindarocksv1beta1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 
@@ -123,11 +123,11 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Database")
 		os.Exit(1)
 	}
-	if err = (&kindarocksv1beta11.Database{}).SetupWebhookWithManager(mgr); err != nil {
+	if err = (&kindarocksv1beta1.Database{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Database")
 		os.Exit(1)
 	}
-	if err = (&kindarocksv1beta11.DbInstance{}).SetupWebhookWithManager(mgr); err != nil {
+	if err = (&kindarocksv1beta1.DbInstance{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "DbInstance")
 		os.Exit(1)
 	}
