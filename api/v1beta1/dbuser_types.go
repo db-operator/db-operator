@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 kloeckner.i GmbH
+ * Copyright 2023 Nikolai Rodionov (allanger)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,22 +20,24 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // DBUserSpec defines the desired state of DBUser
 type DBUserSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of DBUser. Edit dbuser_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// DatabaseRef should contain a name of a Database to create a user there
+	DatabaseRef string `json:"databaseRef"`
+	// Username to use for creating a user
+	Username string `json:"username"`
+	// AccessType that should be given to a user
+	// Currently only readOnly and readWrite are supported by the operator
+	AccessType string `json:"accessType"`
 }
 
 // DBUserStatus defines the observed state of DBUser
 type DBUserStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	Phase        string      `json:"phase"`
+	Status       bool        `json:"status"`
+	InstanceRef  *DbInstance `json:"instanceRef"`
+	DatabaseName string      `json:"database"`
+	UserName     string      `json:"user"`
 }
 
 //+kubebuilder:object:root=true
