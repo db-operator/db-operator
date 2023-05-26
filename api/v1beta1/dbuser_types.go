@@ -17,12 +17,15 @@
 package v1beta1
 
 import (
+	"fmt"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // DBUserSpec defines the desired state of DBUser
 type DBUserSpec struct {
 	// DatabaseRef should contain a name of a Database to create a user there
+	// Database should be in the same namespace with the user
 	DatabaseRef string `json:"databaseRef"`
 	// Username to use for creating a user
 	Username string `json:"username"`
@@ -63,4 +66,24 @@ type DBUserList struct {
 
 func init() {
 	SchemeBuilder.Register(&DBUser{}, &DBUserList{})
+}
+
+// Access types that are supported by the operator
+const (
+	READONLY  = "readOnly"
+	READWRITE = "readWrite"
+)
+
+// IsAccessTypeSupported returns an error if access type is not supported
+func IsAccessTypeSupported(wantedAccessType string) error {
+	supportedAccessTypes := []string{READONLY, READWRITE}
+	for _, supportedAccessType := range supportedAccessTypes {
+		if supportedAccessType == wantedAccessType {
+			return nil
+		}
+	}
+	return fmt.Errorf("the provided access type is not supported by the operator: %s - please chose one of these: %v",
+		wantedAccessType,
+		supportedAccessTypes,
+	)
 }

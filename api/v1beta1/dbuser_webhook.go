@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 kloeckner.i GmbH
+ * Copyright 2023 Nikolai Rodionov (allanger)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,9 +32,6 @@ func (r *DBUser) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-// TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-
-// TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 //+kubebuilder:webhook:path=/validate-kinda-rocks-v1beta1-dbuser,mutating=false,failurePolicy=fail,sideEffects=None,groups=kinda.rocks,resources=dbusers,verbs=create;update,versions=v1beta1,name=vdbuser.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Validator = &DBUser{}
@@ -42,23 +39,25 @@ var _ webhook.Validator = &DBUser{}
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *DBUser) ValidateCreate() error {
 	dbuserlog.Info("validate create", "name", r.Name)
+	if err := IsAccessTypeSupported(r.Spec.AccessType); err != nil {
+		return err
+	}
 
-	// TODO(user): fill in your validation logic upon object creation.
 	return nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *DBUser) ValidateUpdate(old runtime.Object) error {
 	dbuserlog.Info("validate update", "name", r.Name)
+	if err := IsAccessTypeSupported(r.Spec.AccessType); err != nil {
+		return err
+	}
 
-	// TODO(user): fill in your validation logic upon object update.
 	return nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (r *DBUser) ValidateDelete() error {
 	dbuserlog.Info("validate delete", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object deletion.
 	return nil
 }
