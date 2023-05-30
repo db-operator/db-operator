@@ -28,6 +28,7 @@ import (
 
 	kindarocksv1beta1 "github.com/db-operator/db-operator/api/v1beta1"
 	"github.com/go-logr/logr"
+	"github.com/sirupsen/logrus"
 )
 
 // DBUserReconciler reconciles a DBUser object
@@ -69,6 +70,24 @@ func (r *DBUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return reconcileResult, err
 	}
 
+	// Check if DBUser is marked to be deleted
+	if dbucr.GetDeletionTimestamp() != nil {
+		dbucr.Status.Phase = dbUserPhaseDelete
+		if containsString(dbucr.ObjectMeta.Finalizers, "dbuser."+dbucr.Name) {
+			if err := r.deleteDBUser(ctx, dbucr); err != nil {
+				logrus.Errorf("DB: namespace=%s, name=%s failed deleting database - %s", dbucr.Namespace, dbucr.Name, err)
+			}
+
+		}
+	}
+
+	// Update object status always when function exit abnormally or through a panic.
+	defer func() {
+		if err := r.Status().Update(ctx, dbucr); err != nil {
+			logrus.Errorf("failed to update status - %s", err)
+		}
+	}()
+
 	return reconcileResult, nil
 }
 
@@ -77,4 +96,8 @@ func (r *DBUserReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&kindarocksv1beta1.DBUser{}).
 		Complete(r)
+}
+
+func (r *DBUserReconciler) deleteDBUser(context.Context, DBUserReconciler) error {
+	return nil
 }
