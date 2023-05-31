@@ -39,7 +39,9 @@ type AdminCredentials struct {
 // Database is interface for CRUD operate of different types of databases
 type Database interface {
 	createDatabase(admin AdminCredentials) error
+	createOrUpdateUser(admin AdminCredentials) error
 	createUser(admin AdminCredentials) error
+	updateUser(admin AdminCredentials) error
 	deleteDatabase(admin AdminCredentials) error
 	deleteUser(admin AdminCredentials) error
 	CheckStatus() error

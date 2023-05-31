@@ -16,14 +16,35 @@
 
 package database
 
-// Create executes queries to create database and user
-func Create(db Database, admin AdminCredentials) error {
+// CreateDatabase executes queries to create database
+func CreateDatabase(db Database, admin AdminCredentials) error {
 	err := db.createDatabase(admin)
 	if err != nil {
 		return err
 	}
+	return nil
+}
 
-	err = db.createUser(admin)
+// CreateOrUpdateUser executes queries to create or update user
+func CreateOrUpdateUser(db Database, admin AdminCredentials) error {
+	err := db.createOrUpdateUser(admin)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// CreateUser executes queries to a create user
+func CreateUser(db Database, admin AdminCredentials) error {
+	err := db.createOrUpdateUser(admin)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func UpdateUser(db Database, admin AdminCredentials) error {
+	err := db.createOrUpdateUser(admin)
 	if err != nil {
 		return err
 	}

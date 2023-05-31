@@ -26,7 +26,7 @@ import (
 // log is for logging in this package.
 var dbuserlog = logf.Log.WithName("dbuser-resource")
 
-func (r *DBUser) SetupWebhookWithManager(mgr ctrl.Manager) error {
+func (r *DbUser) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
 		Complete()
@@ -34,10 +34,10 @@ func (r *DBUser) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 //+kubebuilder:webhook:path=/validate-kinda-rocks-v1beta1-dbuser,mutating=false,failurePolicy=fail,sideEffects=None,groups=kinda.rocks,resources=dbusers,verbs=create;update,versions=v1beta1,name=vdbuser.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Validator = &DBUser{}
+var _ webhook.Validator = &DbUser{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *DBUser) ValidateCreate() error {
+func (r *DbUser) ValidateCreate() error {
 	dbuserlog.Info("validate create", "name", r.Name)
 	if err := IsAccessTypeSupported(r.Spec.AccessType); err != nil {
 		return err
@@ -47,7 +47,7 @@ func (r *DBUser) ValidateCreate() error {
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *DBUser) ValidateUpdate(old runtime.Object) error {
+func (r *DbUser) ValidateUpdate(old runtime.Object) error {
 	dbuserlog.Info("validate update", "name", r.Name)
 	if err := IsAccessTypeSupported(r.Spec.AccessType); err != nil {
 		return err
@@ -57,7 +57,7 @@ func (r *DBUser) ValidateUpdate(old runtime.Object) error {
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *DBUser) ValidateDelete() error {
+func (r *DbUser) ValidateDelete() error {
 	dbuserlog.Info("validate delete", "name", r.Name)
 	return nil
 }

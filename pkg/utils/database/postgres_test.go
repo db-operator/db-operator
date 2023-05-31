@@ -93,15 +93,15 @@ func TestPostgresCreateUser(t *testing.T) {
 	admin := getPostgresAdmin()
 	p := testPostgres()
 
-	err := p.createUser(admin)
+	err := p.createOrUpdateUser(admin)
 	assert.NoErrorf(t, err, "Unexpected error %v", err)
 
-	err = p.createUser(admin)
+	err = p.createOrUpdateUser(admin)
 	assert.NoErrorf(t, err, "Unexpected error %v", err)
 
 	p.User = "testuser\""
 
-	err = p.createUser(admin)
+	err = p.createOrUpdateUser(admin)
 	assert.Error(t, err, "Should get error")
 }
 

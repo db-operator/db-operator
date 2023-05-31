@@ -154,7 +154,7 @@ func (m Mysql) deleteDatabase(admin AdminCredentials) error {
 	return nil
 }
 
-func (m Mysql) createUser(admin AdminCredentials) error {
+func (m Mysql) createOrUpdateUser(admin AdminCredentials) error {
 	create := fmt.Sprintf("CREATE USER `%s` IDENTIFIED BY '%s';", m.User, m.Password)
 	grant := fmt.Sprintf("GRANT ALL PRIVILEGES ON `%s`.* TO '%s'@'%%';", m.Database, m.User)
 	update := fmt.Sprintf("ALTER USER `%s` IDENTIFIED BY '%s';", m.User, m.Password)
@@ -164,6 +164,50 @@ func (m Mysql) createUser(admin AdminCredentials) error {
 		if err != nil {
 			return err
 		}
+	} else {
+		err := m.executeQuery(update, admin)
+		if err != nil {
+			return err
+		}
+	}
+
+	err := m.executeQuery(grant, admin)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m Mysql) createUser(admin AdminCredentials) error {
+	create := fmt.Sprintf("CREATE USER `%s` IDENTIFIED BY '%s';", m.User, m.Password)
+	grant := fmt.Sprintf("GRANT ALL PRIVILEGES ON `%s`.* TO '%s'@'%%';", m.Database, m.User)
+
+	if !m.isUserExist(admin) {
+		err := m.executeQuery(create, admin)
+		if err != nil {
+			return err
+		}
+	} else {
+		err := fmt.Errorf("user already exists: %s", m.User)
+		return err
+	}
+
+	err := m.executeQuery(grant, admin)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m Mysql) updateUser(admin AdminCredentials) error {
+	update := fmt.Sprintf("ALTER USER `%s` IDENTIFIED BY '%s';", m.User, m.Password)
+	grant := fmt.Sprintf("GRANT ALL PRIVILEGES ON `%s`.* TO '%s'@'%%';", m.Database, m.User)
+
+	if !m.isUserExist(admin) {
+		err := fmt.Errorf("user doesn't exist yet: %s", m.User)
+		return err
 	} else {
 		err := m.executeQuery(update, admin)
 		if err != nil {

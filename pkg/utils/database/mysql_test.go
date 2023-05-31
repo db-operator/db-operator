@@ -37,7 +37,7 @@ func TestMysqlCheckStatus(t *testing.T) {
 	admin := getMysqlAdmin()
 	assert.Error(t, m.CheckStatus())
 
-	m.createUser(admin)
+	m.createOrUpdateUser(admin)
 	assert.Error(t, m.CheckStatus())
 
 	m.createDatabase(admin)
@@ -80,14 +80,14 @@ func TestMysqlCreateDatabase(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestMysqlCreateUser(t *testing.T) {
+func TestMysqlcreateOrUpdateUser(t *testing.T) {
 	admin := getMysqlAdmin()
 	m := testMysql()
 
-	err := m.createUser(admin)
+	err := m.createOrUpdateUser(admin)
 	assert.NoError(t, err)
 
-	err = m.createUser(admin)
+	err = m.createOrUpdateUser(admin)
 	assert.NoError(t, err)
 
 	assert.Equal(t, true, m.isUserExist(admin))

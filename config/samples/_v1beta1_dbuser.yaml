@@ -1,5 +1,5 @@
 apiVersion: kinda.rocks/v1beta1
-kind: DBUser
+kind: DbUser
 metadata:
   labels:
     app.kubernetes.io/name: dbuser

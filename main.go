@@ -131,15 +131,18 @@ func main() {
 		setupLog.Error(err, "unable to create webhook", "webhook", "DbInstance")
 		os.Exit(1)
 	}
-	if err = (&controllers.DBUserReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+	if err = (&controllers.DbUserReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Log:      ctrl.Log.WithName("controllers").WithName("DbUser"),
+		Recorder: mgr.GetEventRecorderFor("database-controller"),
+		Interval: time.Duration(i),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "DBUser")
+		setupLog.Error(err, "unable to create controller", "controller", "DbUser")
 		os.Exit(1)
 	}
-	if err = (&kindarocksv1beta1.DBUser{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "DBUser")
+	if err = (&kindarocksv1beta1.DbUser{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "DbUser")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

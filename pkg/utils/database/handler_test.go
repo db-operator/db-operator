@@ -29,15 +29,15 @@ func TestCreatePostgres(t *testing.T) {
 
 	admin := getPostgresAdmin()
 
-	err := Create(p, admin)
+	err := CreateDatabase(p, admin)
 	assert.Errorf(t, err, "Should get error %v", err)
 
 	p.Database = "testdb"
-	err = Create(p, admin)
+	err = CreateDatabase(p, admin)
 	assert.Errorf(t, err, "Should get error %v", err)
 
 	p.User = "testuser"
-	err = Create(p, admin)
+	err = CreateOrUpdateUser(p, admin)
 	assert.NoErrorf(t, err, "Unexpected error %v", err)
 }
 
@@ -48,15 +48,15 @@ func TestCreateMysql(t *testing.T) {
 
 	admin := getMysqlAdmin()
 
-	err := Create(m, admin)
+	err := CreateDatabase(m, admin)
 	assert.Errorf(t, err, "Should get error %v", err)
 
 	m.Database = "testdb"
-	err = Create(m, admin)
+	err = CreateDatabase(m, admin)
 	assert.Errorf(t, err, "Should get error %v", err)
 
 	m.User = "testuser"
-	err = Create(m, admin)
+	err = CreateOrUpdateUser(m, admin)
 	assert.NoErrorf(t, err, "Unexpected error %v", err)
 }
 

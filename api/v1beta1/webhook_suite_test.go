@@ -107,7 +107,7 @@ var _ = BeforeSuite(func() {
 	err = (&DbInstance{}).SetupWebhookWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = (&DBUser{}).SetupWebhookWithManager(mgr)
+	err = (&DbUser{}).SetupWebhookWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:webhook

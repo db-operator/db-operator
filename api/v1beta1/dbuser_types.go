@@ -22,8 +22,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// DBUserSpec defines the desired state of DBUser
-type DBUserSpec struct {
+// DbUserSpec defines the desired state of DbUser
+type DbUserSpec struct {
 	// DatabaseRef should contain a name of a Database to create a user there
 	// Database should be in the same namespace with the user
 	DatabaseRef string `json:"databaseRef"`
@@ -32,40 +32,43 @@ type DBUserSpec struct {
 	// AccessType that should be given to a user
 	// Currently only readOnly and readWrite are supported by the operator
 	AccessType string `json:"accessType"`
+	// SecretName name that should be used to save user's credentials
+	SecretName string `json:"secretName"`
 }
 
-// DBUserStatus defines the observed state of DBUser
-type DBUserStatus struct {
-	Phase        string      `json:"phase"`
-	Status       bool        `json:"status"`
-	InstanceRef  *DbInstance `json:"instanceRef"`
-	DatabaseName string      `json:"database"`
-	UserName     string      `json:"user"`
+// DbUserStatus defines the observed state of DbUser
+type DbUserStatus struct {
+	Phase        string `json:"phase"`
+	Status       bool   `json:"status"`
+	DatabaseName string `json:"database"`
+	UserName     string `json:"user"`
+	// It's required to let the operator update users
+	Created bool `json:"created"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// DBUser is the Schema for the dbusers API
-type DBUser struct {
+// DbUser is the Schema for the dbusers API
+type DbUser struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   DBUserSpec   `json:"spec,omitempty"`
-	Status DBUserStatus `json:"status,omitempty"`
+	Spec   DbUserSpec   `json:"spec,omitempty"`
+	Status DbUserStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// DBUserList contains a list of DBUser
-type DBUserList struct {
+// DbUserList contains a list of DbUser
+type DbUserList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []DBUser `json:"items"`
+	Items           []DbUser `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&DBUser{}, &DBUserList{})
+	SchemeBuilder.Register(&DbUser{}, &DbUserList{})
 }
 
 // Access types that are supported by the operator
