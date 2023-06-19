@@ -1,4 +1,4 @@
-FROM registry.hub.docker.com/library/golang:1.20.5-alpine3.18 as builder
+FROM registry.hub.docker.com/library/golang:1.20.6-alpine3.18 as builder
 
 RUN apk update && apk upgrade && \
     apk add --no-cache bash build-base
@@ -14,7 +14,7 @@ RUN go mod download
 COPY . .
 
 ARG GOARCH
-RUN GOOS=linux GOARCH=$GOARCH CGO_ENABLED=0 go build -tags build -o /usr/local/bin/db-operator cmd/main.go
+RUN GOOS=linux GOARCH=$GOARCH CGO_ENABLED=0 go build -tags build -o /usr/local/bin/db-operator main.go
 
 FROM registry.hub.docker.com/library/alpine:3.18
 LABEL org.opencontainers.image.authors="Nikolai Rodionov<allanger@zohomail.com>"

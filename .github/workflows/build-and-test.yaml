@@ -1,3 +1,4 @@
+---
 name: Build and Test
 on:
   push:
@@ -11,19 +12,90 @@ env:
   go_version: "1.21"
   go_os: linux
   go_arch: amd64
-  main_go_path: .
+  main_go_path: ./cmd/main.go
+
 jobs:
-  lint: ## https://github.com/golangci/golangci-lint-action#how-to-use
+  build-image:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set the image metadata
+        run: ./scripts/set_image_metadata
+
+      # -- Push the latest to the devel registry only
+      - name: Set the latest tag (only if pushed to main)
+        if: (github.event_name == 'push' && (contains(github.ref, '/heads/main')))
+        run: |
+          export OLD_TAGS="${TAGS}"
+          sed -i '/^#/d' "${GITHUB_ENV}"
+          echo "TAGS=latest ${OLD_TAGS}" >> "${GITHUB_ENV}"
+
+      - name: Build an image
+        id: build-image
+        uses: redhat-actions/buildah-build@v2
+        with:
+          image: db-operator-devel
+          tags: ${{ env.TAGS }}
+          platforms: linux/amd64, linux/arm64/v8
+          containerfiles: |
+            ./Containerfile
+          labels: ${{ env.ANNOTATIONS }}
+
+      - name: Push the image to GHCR
+        id: push-to-ghcr
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: ${{ steps.build-image.outputs.image }}
+          tags: ${{ steps.build-image.outputs.tags }}
+          registry: ghcr.io/${{ github.repository_owner }}
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Set the version tag (only if released)
+        id: retag-version
+        if: (github.event_name == 'release' && (github.event.action == 'published' || github.event.action == 'edited'))
+        run: |
+          buildah tag \
+          ${{ steps.build-image.outputs.image }}:${{ github.sha }} \
+          ghcr.io/${{ github.repository_owner }}/db-operator:latest
+          buildah tag \
+          ${{ steps.build-image.outputs.image }}:${{ github.sha }} \
+          ghcr.io/${{ github.repository_owner }}/db-operator:${{ github.event.release.tag_name }}
+
+
+      - name: Push the release image to GHCR
+        if: (github.event_name == 'release' && (github.event.action == 'published' || github.event.action == 'edited'))
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          tags: ghcr.io/${{ github.repository_owner }}/db-operator:latest ghcr.io/${{ github.repository_owner }}/db-operator:${{ github.event.release.tag_name }}
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+  lint: # https://github.com/golangci/golangci-lint-action#how-to-use
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Find the go version
+        run: echo "GO_VERSION=$(make get_go_version)" >> $GITHUB_ENV
+
       - name: Setup GO
         uses: actions/setup-go@v3
         with:
-          go-version: ${{ env.go_version }}
+          go-version: ${{ env.GO_VERSION }}
+
       - name: Check Code Style
-        run: make lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: v1.52.2  # https://github.com/golangci/golangci-lint/releases
+          args: --timeout 5m0s
+
   unit-test:
     runs-on: ubuntu-latest
     needs: lint
@@ -32,18 +104,26 @@ jobs:
         uses: actions/checkout@v3
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup GO
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: ${{ env.go_version }}
+          go-version: ${{ env.GO_VERSION }}
       # The existing apparmor profile for mysql needs to be removed.
       # https://github.com/actions/virtual-environments/issues/181
       # https://github.com/moby/moby/issues/7512#issuecomment-51845976
@@ -133,6 +213,10 @@ jobs:
           sudo apt-get remove mysql-server --purge
           sudo apt-get install apparmor-profiles
           sudo apparmor_parser -R /etc/apparmor.d/usr.sbin.mysqld
+<<<<<<< HEAD
+=======
+
+>>>>>>> f0e919d (Add Red Hat buildah-build action)
       - name: Run the unit tests
         run: ./scripts/test_database -d mysql -i ${{ matrix.image }} -f ./resources/test/docker-compose-mysql-tmpl.yml
   mariadb-test:
@@ -206,7 +290,7 @@ jobs:
         run: ./scripts/test_database -d postgres -i ${{ matrix.image }} -f ./resources/test/docker-compose-postgres-tmpl.yml
   # -------------------------------------------------------------------
   # -- Azure Flexible Postgres test
-  # -- Azure doesn't give you a super-admin user, so there is an init 
+  # -- Azure doesn't give you a super-admin user, so there is an init
   # -- script that imitates the Azure Flexible Server behaviour
   # -------------------------------------------------------------------
   postgres-az-test:
