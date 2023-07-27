@@ -1,0 +1,2 @@
+I also want to add a script that will be cleaning up the registry,
+so images with non-existent commits SHAs are removed.
