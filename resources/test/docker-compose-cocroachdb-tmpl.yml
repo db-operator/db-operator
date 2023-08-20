@@ -1,0 +1,10 @@
+version: "3.3"
+services:
+  cocroachdb:
+    image: ${IMAGE}
+    ports:
+      - 5432:26257
+    environment:
+      COCKROACH_PASSWORD: "test1234"
+      COCKROACH_USER: "postgres"
+    command: start-single-node --insecure

@@ -220,3 +220,34 @@ jobs:
       - name: Run the unit tests
         run: ./scripts/test_database -d postgres -i ${{ matrix.image }} -f ./resources/test/docker-compose-postgres-tmpl.yml
 
+  cockroachdb-test:
+    runs-on: ubuntu-latest
+    needs: lint
+    strategy:
+      matrix:
+        image:
+          - cockroachdb/cockroach:latest-v22.1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.go_version }}
+      
+      - name: Run the unit tests
+        run: ./scripts/test_database -d postgres -i ${{ matrix.image }} -f ./resources/test/docker-compose-postgres-tmpl.yml
