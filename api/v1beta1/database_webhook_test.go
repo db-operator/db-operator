@@ -54,6 +54,7 @@ func TestUnitTemplatesValidator(t *testing.T) {
 	invalidTemplates := v1beta1.Templates{
 		{ Name: "TEMPLATE_1", Template: "{{ .InvalidField }}"},
 		{ Name: "TEMPLATE_2", Template: "{{ .Secret invalid }}"},
+		{ Name: "TEMPLATE_3", Template: "{{ .Secret }}"},
 	}
 
 	err = v1beta1.ValidateTemplates(invalidTemplates)

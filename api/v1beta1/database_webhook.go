@@ -62,11 +62,16 @@ func (r *Database) ValidateCreate() error {
 	}
 
 	if r.Spec.SecretsTemplates != nil {
-		fmt.Printf(`secretsTemplates are deprecated, it will be removed in the next API version. Please, consider switching to templates`)
+		databaselog.Info("secretsTemplates are deprecated, it will be removed in the next API version. Please, consider switching to templates")
 		if err := ValidateSecretTemplates(r.Spec.SecretsTemplates); err != nil {
 			return err
 		}
+	}
 
+	if r.Spec.Templates != nil {
+		if err := ValidateTemplates(r.Spec.Templates); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -81,9 +86,15 @@ func (r *Database) ValidateUpdate(old runtime.Object) error {
 	}
 
 	if r.Spec.SecretsTemplates != nil {
-		fmt.Printf(`secretsTemplates are deprecated, it will be removed in the next API version. Please, consider switching to templates`)
+		databaselog.Info("secretsTemplates are deprecated, it will be removed in the next API version. Please, consider switching to templates")
 		err := ValidateSecretTemplates(r.Spec.SecretsTemplates)
 		if err != nil {
+			return err
+		}
+	}
+
+	if r.Spec.Templates != nil {
+		if err := ValidateTemplates(r.Spec.Templates); err != nil {
 			return err
 		}
 	}
@@ -119,34 +130,50 @@ func ValidateSecretTemplates(templates map[string]string) error {
 	return nil
 }
 
+var helpers []string = []string{"Protocol", "Host", "Port", "Password", "Username", "Password", "Database"}
+var functions []string = []string{"Secret", "ConfigMap", "Query"}
+
 func ValidateTemplates(templates Templates) error {
 	for _, template := range templates {
-		fmt.Printf("%s - %s\n", template.Name, template.Template)
-		helpers := []string{"Protocol", "Host", "Port", "Password", "Username", "Password", "Database"}
-		functions := []string{"Secret", "ConfigMap", "Query"}
+
 		// This regexp is getting fields from mustache templates so then they can be compared to allowed fields
 		reg := "{{\\s*\\.([\\w\\.]+)\\s*(.*?)\\s*}}"
 		r, _ := regexp.Compile(reg)
+
 		fields := r.FindAllStringSubmatch(template.Template, -1)
 		for _, field := range fields {
-			fmt.Printf("1-%s\n2-%s\n", field[1], field[2])
-			if slices.Contains(helpers, field[1]){
+			if validHelperField(field[1]) {
 				continue
-			} else if slices.Contains(functions, field[1]){
-				functionReg := "\".*\""
-				fr, _ := regexp.Compile(functionReg)
-				if !fr.MatchString(field[2]) {
-					err := fmt.Errorf("%s is invalid: Functions must be wrapped in quotes, example: {{ .Secret \\\"PASSWORD\\\" }}", template.Name)
+			} else if validFunctionField(field[1]) {
+				if !validFunctionArg(field[2]) {
+					err := fmt.Errorf("%s is invalid: Functions arguments must be not emty and  wrapped in quotes, example: {{ .Secret \\\"PASSWORD\\\" }}", template.Name)
 					return err
 				}
-		  } else {
-				err := fmt.Errorf("%s is invalid: %v is a field that is not allowed for templating, please use one of these: %v, %v", 
-				template.Name, field[1], helpers, functions)
+			} else {
+				err := fmt.Errorf("%s is invalid: %v is a field that is not allowed for templating, please use one of these: %v, %v",
+					template.Name, field[1], helpers, functions)
 				return err
 			}
 		}
 	}
 	return nil
+}
+
+func validHelperField(field string) bool {
+	return slices.Contains(helpers, field)
+}
+
+func validFunctionField(field string) bool {
+	return slices.Contains(functions, field)
+}
+
+func validFunctionArg(field string) bool {
+	if len(field) == 0 {
+		return false
+	}
+	functionReg := "\".*\""
+	fr, _ := regexp.Compile(functionReg)
+	return fr.MatchString(field)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
