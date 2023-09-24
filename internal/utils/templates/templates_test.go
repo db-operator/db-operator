@@ -413,9 +413,9 @@ func TestUnitPortGetterProxy(t *testing.T) {
 	assert.Equal(t, expectedPort, hostname)
 }
 
-func TestUnitBuildDefault(t *testing.T) {
+func TestUnitRenderDefault(t *testing.T) {
 	expectedResult := map[string][]byte{
-		templates.DEFAULT_NAME: []byte("psql://testusername:testpassword@hostname:1122/database"),
+		templates.DEFAULT_TEMPLATE_NAME: []byte("psql://testusername:testpassword@hostname:1122/database"),
 	}
 	for key, val := range secretPostgres.Data {
 		expectedResult[key] = val
@@ -426,7 +426,7 @@ func TestUnitBuildDefault(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if err := templateds.BuildVars(v1beta1.Templates{}); err != nil {
+	if err := templateds.Render(v1beta1.Templates{}); err != nil {
 		t.Error(err)
 	}
 	assert.Equal(t, expectedResult, templateds.SecretK8sObj.Data)
@@ -435,14 +435,14 @@ func TestUnitBuildDefault(t *testing.T) {
 	}
 }
 
-func TestUnitBuildErrDupSecret(t *testing.T) {
+func TestUnitRenderErrDupSecret(t *testing.T) {
 	databaseNew := databaseK8s.DeepCopy()
 	databaseNew.Status.InstanceRef = postgresInstance
 	templateds, err := templates.NewTemplateDataSource(databaseNew, secretPostgres, configmapK8s, db, database.NewDummyUser("mainUser"))
 	if err != nil {
 		t.Error(err)
 	}
-	err = templateds.BuildVars(v1beta1.Templates{
+	err = templateds.Render(v1beta1.Templates{
 		&v1beta1.Template{
 			Name:     "POSTGRES_PASSWORD",
 			Template: "DUMMY",
@@ -452,7 +452,7 @@ func TestUnitBuildErrDupSecret(t *testing.T) {
 	assert.ErrorContains(t, err, "POSTGRES_PASSWORD already exists in the secret")
 }
 
-func TestUnitBuildAppendCustomSecret(t *testing.T) {
+func TestUnitRenderAppendCustomSecret(t *testing.T) {
 	expectedResult := map[string][]byte{
 		"STRING":         []byte("STRING"),
 		"PASSWORD":       []byte("testpassword"),
@@ -469,7 +469,7 @@ func TestUnitBuildAppendCustomSecret(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if err := templateds.BuildVars(v1beta1.Templates{
+	if err := templateds.Render(v1beta1.Templates{
 		&v1beta1.Template{
 			Name:     "STRING",
 			Template: "STRING",
@@ -504,7 +504,7 @@ func TestUnitBuildAppendCustomSecret(t *testing.T) {
 	)
 }
 
-func TestUnitBuildCleanupSecret(t *testing.T) {
+func TestUnitRenderCleanupSecret(t *testing.T) {
 	expectedResult := map[string][]byte{
 		"PASSWORD": []byte("testpassword"),
 	}
@@ -520,7 +520,7 @@ func TestUnitBuildCleanupSecret(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if err := templateds.BuildVars(v1beta1.Templates{
+	if err := templateds.Render(v1beta1.Templates{
 		&v1beta1.Template{
 			Name:     "STRING",
 			Template: "STRING",
@@ -534,7 +534,7 @@ func TestUnitBuildCleanupSecret(t *testing.T) {
 	}); err != nil {
 		t.Error(err)
 	}
-	if err := templateds.BuildVars(v1beta1.Templates{
+	if err := templateds.Render(v1beta1.Templates{
 		&v1beta1.Template{
 			Name:     "PASSWORD",
 			Template: "{{ .Secret \"POSTGRES_PASSWORD\" }}",
@@ -549,14 +549,14 @@ func TestUnitBuildCleanupSecret(t *testing.T) {
 	)
 }
 
-func TestUnitBuildErrDupConfigMap(t *testing.T) {
+func TestUnitRenderErrDupConfigMap(t *testing.T) {
 	databaseNew := databaseK8s.DeepCopy()
 	databaseNew.Status.InstanceRef = postgresInstance
 	templateds, err := templates.NewTemplateDataSource(databaseNew, secretPostgres, configmapK8s, db, database.NewDummyUser("mainUser"))
 	if err != nil {
 		t.Error(err)
 	}
-	err = templateds.BuildVars(v1beta1.Templates{
+	err = templateds.Render(v1beta1.Templates{
 		&v1beta1.Template{
 			Name:     "SSL_MODE",
 			Template: "DUMMY",
@@ -566,7 +566,7 @@ func TestUnitBuildErrDupConfigMap(t *testing.T) {
 	assert.ErrorContains(t, err, "SSL_MODE already exists in the configmap")
 }
 
-func TestUnitBuildAppendCustomConfigMap(t *testing.T) {
+func TestUnitRenderAppendCustomConfigMap(t *testing.T) {
 	expectedResult := map[string]string{
 		"STRING":         "STRING",
 		"PASSWORD":       "testpassword",
@@ -583,7 +583,7 @@ func TestUnitBuildAppendCustomConfigMap(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if err := templateds.BuildVars(v1beta1.Templates{
+	if err := templateds.Render(v1beta1.Templates{
 		&v1beta1.Template{
 			Name:     "STRING",
 			Template: "STRING",
@@ -613,7 +613,7 @@ func TestUnitBuildAppendCustomConfigMap(t *testing.T) {
 	)
 }
 
-func TestUnitBuildCleanupConfigmMap(t *testing.T) {
+func TestUnitRenderCleanupConfigmMap(t *testing.T) {
 	expectedResult := map[string]string{
 		"PASSWORD": "testpassword",
 	}
@@ -630,7 +630,7 @@ func TestUnitBuildCleanupConfigmMap(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if err = templateds.BuildVars(v1beta1.Templates{
+	if err = templateds.Render(v1beta1.Templates{
 		&v1beta1.Template{
 			Name:     "STRING",
 			Template: "STRING",
@@ -644,7 +644,7 @@ func TestUnitBuildCleanupConfigmMap(t *testing.T) {
 	}); err != nil {
 		t.Error(err)
 	}
-	if err := templateds.BuildVars(v1beta1.Templates{
+	if err := templateds.Render(v1beta1.Templates{
 		&v1beta1.Template{
 			Name:     "PASSWORD",
 			Template: "{{ .Secret \"POSTGRES_PASSWORD\" }}",

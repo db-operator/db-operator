@@ -28,54 +28,40 @@ import (
 	"github.com/db-operator/db-operator/pkg/utils/database"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
+
 	"k8s.io/utils/strings/slices"
 )
 
 const (
-	DEFAULT_TEMPLATE        = "{{ .Protocol }}://{{ .Username }}:{{ .Password }}@{{ .Hostname }}:{{ .Port }}/{{ .Database }}"
-	DEFAULT_NAME            = "CONNECTION_STRING"
+	DEFAULT_TEMPLATE_VALUE  = "{{ .Protocol }}://{{ .Username }}:{{ .Password }}@{{ .Hostname }}:{{ .Port }}/{{ .Database }}"
+	DEFAULT_TEMPLATE_NAME   = "CONNECTION_STRING"
 	TEMPLATE_ANNOTATION_KEY = "kinda.rocks/db-operator-templated-keys"
 )
 
-func (tds *TemplateDataSources) BuildVars(templates v1beta1.Templates) error {
+var DEFAULT_TEMPLATES []*v1beta1.Template = []*v1beta1.Template{
+	{
+		Name:     DEFAULT_TEMPLATE_NAME,
+		Template: DEFAULT_TEMPLATE_VALUE,
+		Secret:   true,
+	},
+}
+
+func (tds *TemplateDataSources) Render(templates v1beta1.Templates) error {
 	if len(templates) == 0 {
-		templates = []*v1beta1.Template{
-			{
-				Name:     DEFAULT_NAME,
-				Template: DEFAULT_TEMPLATE,
-				Secret:   true,
-			},
-		}
+		templates = DEFAULT_TEMPLATES
 	}
+
 	var currentTemplatesSec []string
 	var currentTemplatesCm []string
 	var result = map[string][]byte{}
 	// Get the last applied data
-	var lastAppliedSecret []string
-	val, ok := tds.SecretK8sObj.ObjectMeta.Annotations[TEMPLATE_ANNOTATION_KEY]
-	if ok {
-		lastAppliedSecret = strings.Split(val, ",")
-	}
-	var lastAppliedConfigMap []string
-	val, ok = tds.ConfigMapK8sObj.ObjectMeta.Annotations[TEMPLATE_ANNOTATION_KEY]
-	if ok {
-		lastAppliedConfigMap = strings.Split(val, ",")
-	}
+	lastAppliedSecret := getPreviouslyApplied(tds.SecretK8sObj.GetAnnotations())
+	lastAppliedConfigMap := getPreviouslyApplied(tds.ConfigMapK8sObj.GetAnnotations())
 
 	// Populate the blocked data
 	// It's requred to get keys that were not added by templates
-	var blockedSecretData []string
-	for key := range tds.SecretK8sObj.Data {
-		if !slices.Contains(lastAppliedSecret, key) {
-			blockedSecretData = append(blockedSecretData, key)
-		}
-	}
-	var blockedConfigmapData []string
-	for key := range tds.ConfigMapK8sObj.Data {
-		if !slices.Contains(lastAppliedConfigMap, key) {
-			blockedConfigmapData = append(blockedConfigmapData, key)
-		}
-	}
+	blockedSecretData := getBlockedData(tds.SecretK8sObj.Data, lastAppliedSecret)
+	blockedConfigMapData := getBlockedData(tds.ConfigMapK8sObj.Data, lastAppliedConfigMap)
 
 	for _, tmpl := range templates {
 		t, err := template.New(tmpl.Name).Parse(tmpl.Template)
@@ -91,14 +77,14 @@ func (tds *TemplateDataSources) BuildVars(templates v1beta1.Templates) error {
 
 		result[tmpl.Name] = tmplRes.Bytes()
 		if tmpl.Secret {
-			if !slices.Contains(blockedSecretData, tmpl.Name) {
+			if !isBlocked(blockedSecretData, tmpl.Name) {
 				currentTemplatesSec = append(currentTemplatesSec, tmpl.Name)
 				tds.SecretK8sObj.Data[tmpl.Name] = tmplRes.Bytes()
 			} else {
 				return fmt.Errorf("%s already exists in the secret", tmpl.Name)
 			}
 		} else {
-			if !slices.Contains(blockedConfigmapData, tmpl.Name) {
+			if !isBlocked(blockedConfigMapData, tmpl.Name) {
 				currentTemplatesCm = append(currentTemplatesCm, tmpl.Name)
 				tds.ConfigMapK8sObj.Data[tmpl.Name] = tmplRes.String()
 			} else {
@@ -106,20 +92,44 @@ func (tds *TemplateDataSources) BuildVars(templates v1beta1.Templates) error {
 			}
 
 		}
-		for _, entry := range lastAppliedSecret {
-			if !slices.Contains(currentTemplatesSec, entry) {
-				delete(tds.SecretK8sObj.Data, entry)
-			}
-		}
-		for _, entry := range lastAppliedConfigMap {
-			if !slices.Contains(currentTemplatesCm, entry) {
-				delete(tds.ConfigMapK8sObj.Data, entry)
-			}
-		}
+		cleanUpData(tds.SecretK8sObj.Data, lastAppliedSecret, currentTemplatesSec)
+		cleanUpData(tds.ConfigMapK8sObj.Data, lastAppliedConfigMap, currentTemplatesCm)
+
 		tds.SecretK8sObj.ObjectMeta.Annotations[TEMPLATE_ANNOTATION_KEY] = strings.Join(currentTemplatesSec, ",")
 		tds.ConfigMapK8sObj.ObjectMeta.Annotations[TEMPLATE_ANNOTATION_KEY] = strings.Join(currentTemplatesCm, ",")
 	}
 	return nil
+}
+
+func getPreviouslyApplied(annotations map[string]string) []string {
+	result := []string{}
+	val, ok := annotations[TEMPLATE_ANNOTATION_KEY]
+	if ok {
+		result = strings.Split(val, ",")
+	}
+	return result
+}
+
+func getBlockedData[T string | []byte](data map[string]T, previouslyApplied []string) []string {
+	var result []string
+	for key := range data {
+		if !slices.Contains(previouslyApplied, key) {
+			result = append(result, key)
+		}
+	}
+	return result
+}
+
+func cleanUpData[T string | []byte](data map[string]T, previouslyApplied, currentlyApplied []string) {
+	for _, entry := range previouslyApplied {
+		if !slices.Contains(currentlyApplied, entry) {
+			delete(data, entry)
+		}
+	}
+}
+
+func isBlocked(blockedKeys []string, key string) bool {
+	return slices.Contains(blockedKeys, key)
 }
 
 // TemplateDataSource  should be only the database resource
