@@ -190,6 +190,7 @@ jobs:
     strategy:
       matrix:
         image:
+          - postgres:16
           - postgres:15
           - postgres:14
           - postgres:13
