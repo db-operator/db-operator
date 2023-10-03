@@ -64,32 +64,32 @@ func (Dummy) GetDatabaseAddress() DatabaseAddress {
 }
 
 // ParseAdminCredentials implements Database.
-func (Dummy) ParseAdminCredentials(data map[string][]byte) (AdminCredentials, error) {
+func (Dummy) ParseAdminCredentials(data map[string][]byte) (*DatabaseUser, error) {
 	panic("unimplemented")
 }
 
 // createDatabase implements Database.
-func (Dummy) createDatabase(admin AdminCredentials) error {
+func (Dummy) createDatabase(admin *DatabaseUser) error {
 	panic("unimplemented")
 }
 
 // createOrUpdateUser implements Database.
-func (Dummy) createOrUpdateUser(admin AdminCredentials, user *DatabaseUser) error {
+func (Dummy) createOrUpdateUser(admin *DatabaseUser, user *DatabaseUser) error {
 	panic("unimplemented")
 }
 
 // createUser implements Database.
-func (Dummy) createUser(admin AdminCredentials, user *DatabaseUser) error {
+func (Dummy) createUser(admin *DatabaseUser, user *DatabaseUser) error {
 	panic("unimplemented")
 }
 
 // deleteDatabase implements Database.
-func (Dummy) deleteDatabase(admin AdminCredentials) error {
+func (Dummy) deleteDatabase(admin *DatabaseUser) error {
 	panic("unimplemented")
 }
 
 // deleteUser implements Database.
-func (Dummy) deleteUser(admin AdminCredentials, user *DatabaseUser) error {
+func (Dummy) deleteUser(admin *DatabaseUser, user *DatabaseUser) error {
 	panic("unimplemented")
 }
 
@@ -99,11 +99,11 @@ func (Dummy) execAsUser(query string, user *DatabaseUser) error {
 }
 
 // setUserPermission implements Database.
-func (Dummy) setUserPermission(admin AdminCredentials, user *DatabaseUser) error {
+func (Dummy) setUserPermission(admin *DatabaseUser, user *DatabaseUser) error {
 	panic("unimplemented")
 }
 
 // updateUser implements Database.
-func (Dummy) updateUser(admin AdminCredentials, user *DatabaseUser) error {
+func (Dummy) updateUser(admin *DatabaseUser, user *DatabaseUser) error {
 	panic("unimplemented")
 }
