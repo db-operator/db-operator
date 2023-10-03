@@ -32,8 +32,7 @@ type DatabaseSpec struct {
 	SecretsTemplates  map[string]string `json:"secretsTemplates,omitempty"`
 	Postgres          Postgres          `json:"postgres,omitempty"`
 	Cleanup           bool              `json:"cleanup,omitempty"`
-	// Templates to add custom entries to ConfigMaps and Secrets
-	Templates         Templates         `json:"templates,omitempty"`
+	Credentials       Credentials       `json:"credentials"`
 }
 
 // Postgres struct should be used to provide resource that only applicable to postgres
@@ -45,6 +44,13 @@ type Postgres struct {
 	Schemas []string `json:"schemas,omitempty"`
 	// Let user create database from template
 	Template string `json:"template,omitempty"`
+}
+
+// Credentials should be used to setup everything relates to k8s secrets and configmaps
+// TODO(@allanger): Field .spec.secretName should be moved here in the v1beta2 version
+type Credentials struct {
+	// Templates to add custom entries to ConfigMaps and Secrets
+	Templates Templates `json:"templates,omitempty"`
 }
 
 type Templates []*Template

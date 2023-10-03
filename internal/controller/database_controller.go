@@ -626,7 +626,7 @@ func (r *DatabaseReconciler) renderTemplates(ctx context.Context, dbcr *kindav1b
 		return err
 	}
 
-	if err := templateds.Render(dbcr.Spec.Templates); err != nil {
+	if err := templateds.Render(dbcr.Spec.Credentials.Templates); err != nil {
 		return err
 	}
 

@@ -57,7 +57,7 @@ var _ webhook.Validator = &Database{}
 func (r *Database) ValidateCreate() error {
 	databaselog.Info("validate create", "name", r.Name)
 
-	if r.Spec.SecretsTemplates != nil && r.Spec.Templates != nil {
+	if r.Spec.SecretsTemplates != nil && r.Spec.Credentials.Templates != nil {
 		return errors.New("using both: secretsTemplates and templates, is not allowed")
 	}
 
@@ -68,8 +68,8 @@ func (r *Database) ValidateCreate() error {
 		}
 	}
 
-	if r.Spec.Templates != nil {
-		if err := ValidateTemplates(r.Spec.Templates); err != nil {
+	if r.Spec.Credentials.Templates != nil {
+		if err := ValidateTemplates(r.Spec.Credentials.Templates); err != nil {
 			return err
 		}
 	}
@@ -81,7 +81,7 @@ func (r *Database) ValidateCreate() error {
 func (r *Database) ValidateUpdate(old runtime.Object) error {
 	databaselog.Info("validate update", "name", r.Name)
 
-	if r.Spec.SecretsTemplates != nil && r.Spec.Templates != nil {
+	if r.Spec.SecretsTemplates != nil && r.Spec.Credentials.Templates != nil {
 		return errors.New("using both: secretsTemplates and templates, is not allowed")
 	}
 
@@ -93,8 +93,8 @@ func (r *Database) ValidateUpdate(old runtime.Object) error {
 		}
 	}
 
-	if r.Spec.Templates != nil {
-		if err := ValidateTemplates(r.Spec.Templates); err != nil {
+	if r.Spec.Credentials.Templates != nil {
+		if err := ValidateTemplates(r.Spec.Credentials.Templates); err != nil {
 			return err
 		}
 	}
