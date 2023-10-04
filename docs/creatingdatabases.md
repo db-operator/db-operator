@@ -2,7 +2,7 @@
 
 ## Before start
 
-First of all, in order to create a **Database** resource, a **DbInstance** resource is necessary. This defines the target server where the database must be created. **Database** resources require **DbInstance**. One or more **DbInstance(s)** are necessary for creating **Database(s)**
+First, in order to create a **Database** resource, a **DbInstance** resource is necessary. This defines the target server where the database must be created. **Database** resources require **DbInstance**. One or more **DbInstance(s)** are necessary for creating **Database(s)**
 
 Check if DbInstance exists on cluster and running.
 ```
@@ -44,10 +44,62 @@ spec:
   backup:
     enable: false # turn it to true when you want to use back up feature. currently only support postgres
     cron: "0 0 * * *"
+  credentials: 
+    templates:
+      - name: USER_PASSWORD
+        template: "{{ .Username }}-{{ .Password }}"
+        secret: true
   secretsTemplates:
     CONNECTION_STRING: "jdbc:{{ .Protocol }}://{{ .UserName }}:{{ .Password }}@{{ .DatabaseHost }}:{{ .DatabasePort }}/{{ .DatabaseName }}" 
     PASSWORD_USER: "{{ .Password }}_{{ .UserName }}"
 ```
+With `credentials.templates` you can add new entries to database ConfigMap and Secret. This feature uses go templates, so you can build custom string using either predefined helper functions:
+
+- Protocol: Depends on the db engine. Possible values are mysql/postgresql
+- Host: The same value as for db host in the connection configmap 
+- Port: The same value as for db port in the connection configmap 
+- Database: The same value as for db name in the creds secret
+- Username: The same value as for database user in the creds secret
+- Password: The same value as for password in the creds secret
+
+Or getting data directly from a data source, possible options are.
+
+- Secret: Query data from the Secret
+- ConfigMap: Query data from the ConfigMap 
+- Query: Get data directly from the database
+
+When using `Secret` and `ConfigMap` you can query the previously created secret to template a new one, e.g.:
+
+```yaml
+spec:
+  credentials:
+    templates:
+      - name: TMPL_1
+        template: "test"
+        secret: false
+      - name: TMPL_2
+        template: "{{ .ConfigMap \"TMPL_1\"}}"
+        secret: true
+      - name: TMPL_3
+        template: "{{ .Secret \"TMPL_2\"}}"
+        secret: false
+```
+
+When using `Query` you need to make sure that you query returns only one value. For example:
+
+```yaml
+...
+    templates:
+      - name: POSTGRES_VERSION
+        secret: false
+        template: "{{ .Query \"SHOW server_version;\" }}"
+
+```
+
+
+Make sure to set `.templates[].secret` to `true` when templating sensitive data, db-operator will not detect it automatically. By default, secret is set to `false`, so new entry will be added to the ConfigMap
+
+> `secretsTemplates` are deprecated and will be completely replaced by `credentials.templates` in the `v1beta2`, so please, make sure to migrate, or let the webhook take care of it later. You can't use both: secretsTemplates and credentials.templates at the same time, please choose only one option
 
 With `secretsTemplates` you can add fields to the database secret that are composed by any string and by any of the following templated values: 
 ```YAML
@@ -58,7 +110,8 @@ With `secretsTemplates` you can add fields to the database secret that are compo
 - DatabasePort: The same value as for db port in the connection configmap 
 - DatabaseName: The same value as for db host in the creds secret
 ```
-If no secretsTemplates are specified, the default one will be used: 
+
+If no `credentials.templates` and `secretsTemplates` are specified, a default connection string example will be added to the secret: 
 ```YAML
 CONNECTION_STRING: "jdbc:{{ .Protocol }}://{{ .UserName }}:{{ .Password }}@{{ .DatabaseHost }}:{{ .DatabasePort }}/{{ .DatabaseName }}" 
 ```
@@ -136,7 +189,7 @@ data:
   ...
 ```
 
-By default ConfigMaps and Secrets are created without an Owner Reference, so they won't be removed if the `Database` resource is removed. If you want it to be deleted too, you need to turn on the cleanup function.
+By default, ConfigMap and Secret are created without an Owner Reference, so they won't be removed if the `Database` resource is removed. If you want it to be deleted too, you need to turn on the cleanup function.
 ```YAML
 apiVersion: "kinda.rocks/v1beta1"
 kind: "Database"

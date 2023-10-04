@@ -1,0 +1,9 @@
+{
+    "languageToolLinter.languageTool.ignoredWordsInWorkspace": [
+        "checkingdatabasestatus",
+        "configmap",
+        "connectingtothedatabase",
+        "creatingdatabases",
+        "dbinstance"
+    ]
+}
