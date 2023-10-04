@@ -144,14 +144,14 @@ func ValidateTemplates(templates Templates) error {
 		for _, field := range fields {
 			if validHelperField(field[1]) {
 				continue
-			} else if validFunctionField(field[1]) {
-				if !validFunctionArg(field[2]) {
-					err := fmt.Errorf("%s is invalid: Functions arguments must be not emty and  wrapped in quotes, example: {{ .Secret \\\"PASSWORD\\\" }}", template.Name)
-					return err
-				}
-			} else {
+			} 
+			if !validFunctionField(field[1]) {
 				err := fmt.Errorf("%s is invalid: %v is a field that is not allowed for templating, please use one of these: %v, %v",
 					template.Name, field[1], helpers, functions)
+				return err
+			}
+			if !validFunctionArg(field[2]) {
+				err := fmt.Errorf("%s is invalid: Functions arguments must be not emty and  wrapped in quotes, example: {{ .Secret \\\"PASSWORD\\\" }}", template.Name)
 				return err
 			}
 		}
