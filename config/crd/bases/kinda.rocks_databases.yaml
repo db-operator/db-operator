@@ -431,7 +431,6 @@ spec:
                 type: object
             required:
             - backup
-            - credentials
             - deletionProtected
             - instance
             - secretName
