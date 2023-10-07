@@ -10,7 +10,7 @@ on:
 
 env:
   product_name: db-operator
-  go_version: "1.18"
+  go_version: "1.21"
   go_os: linux
   go_arch: amd64
   main_go_path: .

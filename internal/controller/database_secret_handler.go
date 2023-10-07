@@ -17,6 +17,7 @@
 package controllers
 
 import (
+	"context"
 	"strings"
 
 	kindav1beta1 "github.com/db-operator/db-operator/api/v1beta1"
@@ -39,7 +40,7 @@ type secretEventHandler struct {
 	client.Client
 }
 
-func (e *secretEventHandler) Update(evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
+func (e *secretEventHandler) Update(context context.Context, evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
 	logrus.Info("Start processing Database Secret Update Event")
 
 	switch v := evt.ObjectNew.(type) {
@@ -72,15 +73,15 @@ func (e *secretEventHandler) Update(evt event.UpdateEvent, q workqueue.RateLimit
 	}
 }
 
-func (e *secretEventHandler) Delete(event.DeleteEvent, workqueue.RateLimitingInterface) {
+func (e *secretEventHandler) Delete(context.Context,event.DeleteEvent, workqueue.RateLimitingInterface) {
 	logrus.Error("secretEventHandler.Delete(...) event has been FIRED but NOT implemented!")
 }
 
-func (e *secretEventHandler) Generic(event.GenericEvent, workqueue.RateLimitingInterface) {
+func (e *secretEventHandler) Generic(context.Context, event.GenericEvent, workqueue.RateLimitingInterface) {
 	logrus.Error("secretEventHandler.Generic(...) event has been FIRED but NOT implemented!")
 }
 
-func (e *secretEventHandler) Create(evt event.CreateEvent, q workqueue.RateLimitingInterface) {
+func (e *secretEventHandler) Create(ctx context.Context, evt event.CreateEvent, q workqueue.RateLimitingInterface) {
 	logrus.Error("secretEventHandler.Create(...) event has been FIRED but NOT implemented!")
 }
 

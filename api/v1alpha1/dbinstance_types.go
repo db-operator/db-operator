@@ -187,10 +187,7 @@ func (dbin *DbInstance) GetBackendType() (string, error) {
 
 // IsMonitoringEnabled returns boolean value if monitoring is enabled for the instance
 func (dbin *DbInstance) IsMonitoringEnabled() bool {
-	if dbin.Spec.Monitoring.Enabled == false {
-		return false
-	}
-	return true
+	return dbin.Spec.Monitoring.Enabled
 }
 
 // ConvertTo converts this v1alpha1 to v1beta1. (upgrade)

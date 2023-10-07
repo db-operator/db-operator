@@ -68,7 +68,8 @@ func (m Mysql) getDbConn(user, password string) (*sql.DB, error) {
 
 	switch m.Backend {
 	case "google":
-		db, err = mysql.DialPassword(m.Host, user, password)
+		// TODO: DialPassword is deprecated, it should be gone
+		db, err = mysql.DialPassword(m.Host, user, password) //nolint:all
 		if err != nil {
 			logrus.Debugf("failed to validate db connection: %s", err)
 			return db, err

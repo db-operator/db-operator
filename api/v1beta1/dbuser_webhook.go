@@ -23,6 +23,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 // log is for logging in this package.
@@ -39,31 +40,31 @@ func (r *DbUser) SetupWebhookWithManager(mgr ctrl.Manager) error {
 var _ webhook.Validator = &DbUser{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *DbUser) ValidateCreate() error {
+func (r *DbUser) ValidateCreate() (admission.Warnings, error) {
 	dbuserlog.Info("validate create", "name", r.Name)
 	if err := IsAccessTypeSupported(r.Spec.AccessType); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return nil, nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *DbUser) ValidateUpdate(old runtime.Object) error {
+func (r *DbUser) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	dbuserlog.Info("validate update", "name", r.Name)
 	if err := IsAccessTypeSupported(r.Spec.AccessType); err != nil {
-		return err
+		return nil, err
 	}
 	_, ok := old.(*DbUser)
 	if !ok {
-		return fmt.Errorf("couldn't get the previous version of %s", r.Name)
+		return nil, fmt.Errorf("couldn't get the previous version of %s", r.Name)
 	}
 
-	return nil
+	return nil, nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *DbUser) ValidateDelete() error {
+func (r *DbUser) ValidateDelete() (admission.Warnings, error) {
 	dbuserlog.Info("validate delete", "name", r.Name)
-	return nil
+	return nil, nil
 }

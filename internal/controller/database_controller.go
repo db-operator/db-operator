@@ -26,7 +26,6 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	kindav1beta1 "github.com/db-operator/db-operator/api/v1beta1"
 	"github.com/db-operator/db-operator/internal/controller/backup"
@@ -259,11 +258,10 @@ func (r *DatabaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		}, // Reconcile Database and Secret Update Events
 		GenericFunc: func(e event.GenericEvent) bool { return true }, // Reconcile any Generic Events (operator POD or cluster restarted)
 	}
-
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&kindav1beta1.Database{}).
 		WithEventFilter(eventFilter).
-		Watches(&source.Kind{Type: &corev1.Secret{}}, &secretEventHandler{r.Client}).
+		Watches(&corev1.Secret{}, &secretEventHandler{r.Client}).
 		Complete(r)
 }
 

@@ -27,6 +27,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 // log is for logging in this package.
@@ -54,48 +55,48 @@ func (r *Database) Default() {
 var _ webhook.Validator = &Database{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *Database) ValidateCreate() error {
+func (r *Database) ValidateCreate() (admission.Warnings, error) {
 	databaselog.Info("validate create", "name", r.Name)
 
 	if r.Spec.SecretsTemplates != nil && r.Spec.Credentials.Templates != nil {
-		return errors.New("using both: secretsTemplates and templates, is not allowed")
+		return nil, errors.New("using both: secretsTemplates and templates, is not allowed")
 	}
 
 	if r.Spec.SecretsTemplates != nil {
 		databaselog.Info("secretsTemplates are deprecated, it will be removed in the next API version. Please, consider switching to templates")
 		if err := ValidateSecretTemplates(r.Spec.SecretsTemplates); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	if r.Spec.Credentials.Templates != nil {
 		if err := ValidateTemplates(r.Spec.Credentials.Templates); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	return nil, nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *Database) ValidateUpdate(old runtime.Object) error {
+func (r *Database) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	databaselog.Info("validate update", "name", r.Name)
 
 	if r.Spec.SecretsTemplates != nil && r.Spec.Credentials.Templates != nil {
-		return errors.New("using both: secretsTemplates and templates, is not allowed")
+		return nil, errors.New("using both: secretsTemplates and templates, is not allowed")
 	}
 
 	if r.Spec.SecretsTemplates != nil {
 		databaselog.Info("secretsTemplates are deprecated, it will be removed in the next API version. Please, consider switching to templates")
 		err := ValidateSecretTemplates(r.Spec.SecretsTemplates)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	if r.Spec.Credentials.Templates != nil {
 		if err := ValidateTemplates(r.Spec.Credentials.Templates); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -103,14 +104,14 @@ func (r *Database) ValidateUpdate(old runtime.Object) error {
 	immutableErr := "cannot change %s, the field is immutable"
 	oldDatabase, _ := old.(*Database)
 	if r.Spec.Instance != oldDatabase.Spec.Instance {
-		return fmt.Errorf(immutableErr, "spec.instance")
+		return nil, fmt.Errorf(immutableErr, "spec.instance")
 	}
 
 	if r.Spec.Postgres.Template != oldDatabase.Spec.Postgres.Template {
-		return fmt.Errorf(immutableErr, "spec.postgres.template")
+		return nil, fmt.Errorf(immutableErr, "spec.postgres.template")
 	}
 
-	return nil
+	return nil, nil
 }
 
 func ValidateSecretTemplates(templates map[string]string) error {
@@ -144,7 +145,7 @@ func ValidateTemplates(templates Templates) error {
 		for _, field := range fields {
 			if validHelperField(field[1]) {
 				continue
-			} 
+			}
 			if !validFunctionField(field[1]) {
 				err := fmt.Errorf("%s is invalid: %v is a field that is not allowed for templating, please use one of these: %v, %v",
 					template.Name, field[1], helpers, functions)
@@ -177,9 +178,9 @@ func validFunctionArg(field string) bool {
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *Database) ValidateDelete() error {
+func (r *Database) ValidateDelete() (admission.Warnings, error) {
 	databaselog.Info("validate delete", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object deletion.
-	return nil
+	return nil, nil
 }
