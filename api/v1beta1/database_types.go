@@ -22,6 +22,7 @@ import (
 
 	"github.com/db-operator/db-operator/pkg/consts"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // DatabaseSpec defines the desired state of Database
@@ -124,6 +125,18 @@ func (db *Database) GetProtocol() (string, error) {
 	default:
 		return "", fmt.Errorf("unknown engine %s", db.Status.Engine)
 	}
+}
+
+func (db *Database) IsCleanup() bool {
+	return db.Spec.Cleanup
+}
+
+func (db *Database) IsDeleted() bool {
+	return db.GetDeletionTimestamp() != nil
+}
+
+func (db *Database) ToClientObject() client.Object {
+	return db
 }
 
 // AccessSecretName returns string value to define name of the secret resource for accessing instance

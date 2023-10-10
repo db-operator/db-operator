@@ -31,7 +31,6 @@ import (
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -60,8 +59,8 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	reconcilePeriod := r.Interval * time.Second
 	reconcileResult := reconcile.Result{RequeueAfter: reconcilePeriod}
 
-	dbucr := &kindav1beta1.DbUser{}
-	err := r.Get(ctx, req.NamespacedName, dbucr)
+	dbusercr := &kindav1beta1.DbUser{}
+	err := r.Get(ctx, req.NamespacedName, dbusercr)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			// Requested object not found, could have been deleted after reconcile request.
@@ -75,138 +74,129 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	// Update object status always when function exit abnormally or through a panic.
 	defer func() {
-		if err := r.Status().Update(ctx, dbucr); err != nil {
+		if err := r.Status().Update(ctx, dbusercr); err != nil {
 			logrus.Errorf("failed to update status - %s", err)
 		}
 	}()
 
 	// Get the DB by the reference provided in the manifest
 	dbcr := &kindav1beta1.Database{}
-	if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: dbucr.Spec.DatabaseRef}, dbcr); err != nil {
-		return r.manageError(ctx, dbucr, err, false)
+	if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: dbusercr.Spec.DatabaseRef}, dbcr); err != nil {
+		return r.manageError(ctx, dbusercr, err, false)
 	}
 
 	// Check if DbUser is marked to be deleted
-	ownership := []metav1.OwnerReference{}
-	ownership = append(ownership, metav1.OwnerReference{
-		APIVersion: dbucr.APIVersion,
-		Kind:       dbucr.Kind,
-		Name:       dbucr.Name,
-		UID:        dbucr.GetUID(),
-	},
-	)
-
-	userSecret, err := r.getDbUserSecret(ctx, dbucr)
+	userSecret, err := r.getDbUserSecret(ctx, dbusercr)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			dbName := fmt.Sprintf("%s-%s", dbucr.Namespace, dbucr.Spec.DatabaseRef)
-			secretData, err := dbhelper.GenerateDatabaseSecretData(dbucr.ObjectMeta, dbcr.Status.Engine, dbName)
+			dbName := fmt.Sprintf("%s-%s", dbusercr.Namespace, dbusercr.Spec.DatabaseRef)
+			secretData, err := dbhelper.GenerateDatabaseSecretData(dbusercr.ObjectMeta, dbcr.Status.Engine, dbName)
 			if err != nil {
 				logrus.Errorf("can not generate credentials for database - %s", err)
-				return r.manageError(ctx, dbucr, err, false)
+				return r.manageError(ctx, dbusercr, err, false)
 			}
-			newDbUserSecret := kci.SecretBuilder(dbucr.Spec.SecretName, dbucr.Namespace, secretData, ownership)
+			newDbUserSecret := kci.SecretBuilder(dbusercr.Spec.SecretName, dbusercr.Namespace, secretData)
 			err = r.Create(ctx, newDbUserSecret)
 			if err != nil {
 				// failed to create secret
-				return r.manageError(ctx, dbucr, err, false)
+				return r.manageError(ctx, dbusercr, err, false)
 			}
 			userSecret = newDbUserSecret
 		} else {
 			logrus.Errorf("could not get database secret - %s", err)
-			return r.manageError(ctx, dbucr, err, true)
+			return r.manageError(ctx, dbusercr, err, true)
 		}
 	}
 
 	creds, err := parseDbUserSecretData(dbcr.Status.Engine, userSecret.Data)
 	if err != nil {
-		return r.manageError(ctx, dbucr, err, false)
+		return r.manageError(ctx, dbusercr, err, false)
 	}
 
 	// If we don't check for changes, status should be false on each reconciliation
-	if !r.CheckChanges || isDbUserChanged(dbucr, userSecret) {
-		dbucr.Status.Status = false
+	if !r.CheckChanges || isDbUserChanged(dbusercr, userSecret) {
+		dbusercr.Status.Status = false
 	}
 	instance := &kindav1beta1.DbInstance{}
 	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
-		return r.manageError(ctx, dbucr, err, false)
+		return r.manageError(ctx, dbusercr, err, false)
 	}
 
-	db, dbuser, err := dbhelper.DeterminDatabaseType(dbcr, creds, instance)
+	db, dbuser, err := dbhelper.FetchDatabaseData(dbcr, creds, instance)
 	if err != nil {
 		// failed to determine database type
-		return r.manageError(ctx, dbucr, err, false)
+		return r.manageError(ctx, dbusercr, err, false)
 	}
 	adminSecretResource, err := r.getAdminSecret(ctx, dbcr)
 	if err != nil {
 		// failed to get admin secret
-		return r.manageError(ctx, dbucr, err, false)
+		return r.manageError(ctx, dbusercr, err, false)
 	}
 
 	adminCred, err := db.ParseAdminCredentials(adminSecretResource.Data)
 	if err != nil {
 		// failed to parse database admin secret
-		return r.manageError(ctx, dbucr, err, false)
+		return r.manageError(ctx, dbusercr, err, false)
 	}
 
-	dbuser.AccessType = dbucr.Spec.AccessType
+	dbuser.AccessType = dbusercr.Spec.AccessType
 	dbuser.Password = creds.Password
-	dbuser.Username = fmt.Sprintf("%s-%s", dbucr.GetObjectMeta().GetNamespace(), dbucr.GetObjectMeta().GetName())
+	dbuser.Username = fmt.Sprintf("%s-%s", dbusercr.GetObjectMeta().GetNamespace(), dbusercr.GetObjectMeta().GetName())
 
-	if dbucr.GetDeletionTimestamp() != nil {
-		if commonhelper.ContainsString(dbucr.ObjectMeta.Finalizers, "dbuser."+dbucr.Name) {
+	if dbusercr.GetDeletionTimestamp() != nil {
+		if commonhelper.ContainsString(dbusercr.ObjectMeta.Finalizers, "dbuser."+dbusercr.Name) {
 			if err := database.DeleteUser(db, dbuser, adminCred); err != nil {
-				logrus.Errorf("DBUser: namespace=%s, name=%s failed deleting a user - %s", dbucr.Namespace, dbucr.Name, err)
-				return r.manageError(ctx, dbucr, err, false)
+				logrus.Errorf("DBUser: namespace=%s, name=%s failed deleting a user - %s", dbusercr.Namespace, dbusercr.Name, err)
+				return r.manageError(ctx, dbusercr, err, false)
 			}
-			kci.RemoveFinalizer(&dbucr.ObjectMeta, "dbuser."+dbucr.Name)
-			err = r.Update(ctx, dbucr)
+			kci.RemoveFinalizer(&dbusercr.ObjectMeta, "dbuser."+dbusercr.Name)
+			err = r.Update(ctx, dbusercr)
 			if err != nil {
 				logrus.Errorf("error resource updating - %s", err)
-				return r.manageError(ctx, dbucr, err, false)
+				return r.manageError(ctx, dbusercr, err, false)
 			}
-			kci.RemoveFinalizer(&dbcr.ObjectMeta, "dbuser."+dbucr.Name)
+			kci.RemoveFinalizer(&dbcr.ObjectMeta, "dbuser."+dbusercr.Name)
 			err = r.Update(ctx, dbcr)
 			if err != nil {
 				logrus.Errorf("error resource updating - %s", err)
-				return r.manageError(ctx, dbucr, err, false)
+				return r.manageError(ctx, dbusercr, err, false)
 			}
 
 		}
 	} else {
 		if !dbcr.Status.Status {
 			err := fmt.Errorf("database %s is not ready yet", dbcr.Name)
-			return r.manageError(ctx, dbucr, err, true)
+			return r.manageError(ctx, dbusercr, err, true)
 		}
 
-		//Init the DbUser struct depending on a type
-		if !dbucr.Status.Status {
-			if !dbucr.Status.Created {
-				r.Log.Info(fmt.Sprintf("creating a user: %s", dbucr.GetObjectMeta().GetName()))
+		// Init the DbUser struct depending on a type
+		if !dbusercr.Status.Status {
+			if !dbusercr.Status.Created {
+				r.Log.Info(fmt.Sprintf("creating a user: %s", dbusercr.GetObjectMeta().GetName()))
 				if err := database.CreateUser(db, dbuser, adminCred); err != nil {
-					return r.manageError(ctx, dbucr, err, false)
+					return r.manageError(ctx, dbusercr, err, false)
 				}
-				kci.AddFinalizer(&dbucr.ObjectMeta, "dbuser."+dbucr.Name)
-				err = r.Update(ctx, dbucr)
+				kci.AddFinalizer(&dbusercr.ObjectMeta, "dbuser."+dbusercr.Name)
+				err = r.Update(ctx, dbusercr)
 				if err != nil {
 					logrus.Errorf("error resource updating - %s", err)
-					return r.manageError(ctx, dbucr, err, false)
+					return r.manageError(ctx, dbusercr, err, false)
 				}
-				kci.AddFinalizer(&dbcr.ObjectMeta, "dbuser."+dbucr.Name)
+				kci.AddFinalizer(&dbcr.ObjectMeta, "dbuser."+dbusercr.Name)
 				err = r.Update(ctx, dbcr)
 				if err != nil {
 					logrus.Errorf("error resource updating - %s", err)
-					return r.manageError(ctx, dbucr, err, false)
+					return r.manageError(ctx, dbusercr, err, false)
 				}
-				dbucr.Status.Created = true
+				dbusercr.Status.Created = true
 			} else {
-				r.Log.Info(fmt.Sprintf("updating a user %s", dbucr.GetObjectMeta().GetName()))
+				r.Log.Info(fmt.Sprintf("updating a user %s", dbusercr.GetObjectMeta().GetName()))
 				if err := database.UpdateUser(db, dbuser, adminCred); err != nil {
-					return r.manageError(ctx, dbucr, err, false)
+					return r.manageError(ctx, dbusercr, err, false)
 				}
 			}
-			dbucr.Status.Status = true
-			dbucr.Status.DatabaseName = dbucr.Spec.DatabaseRef
+			dbusercr.Status.Status = true
+			dbusercr.Status.DatabaseName = dbusercr.Spec.DatabaseRef
 		}
 	}
 
@@ -239,7 +229,6 @@ func (r *DbUserReconciler) getDbUserSecret(ctx context.Context, dbucr *kindav1be
 	}
 
 	return secret, nil
-
 }
 
 func (r *DbUserReconciler) manageError(ctx context.Context, dbucr *kindav1beta1.DbUser, issue error, requeue bool) (reconcile.Result, error) {

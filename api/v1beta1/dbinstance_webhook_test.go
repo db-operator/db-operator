@@ -14,6 +14,7 @@ func TestUnitEngineValid(t *testing.T) {
 	err = v1beta1.ValidateEngine("mysql")
 	assert.NoError(t, err)
 }
+
 func TestUnitEngineInvalid(t *testing.T) {
 	err := v1beta1.ValidateEngine("dummy")
 	assert.Error(t, err)

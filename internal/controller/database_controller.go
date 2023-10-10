@@ -20,6 +20,7 @@ package controllers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -31,9 +32,11 @@ import (
 	"github.com/db-operator/db-operator/internal/controller/backup"
 	commonhelper "github.com/db-operator/db-operator/internal/helpers/common"
 	dbhelper "github.com/db-operator/db-operator/internal/helpers/database"
+	kubehelper "github.com/db-operator/db-operator/internal/helpers/kube"
 	proxyhelper "github.com/db-operator/db-operator/internal/helpers/proxy"
 	"github.com/db-operator/db-operator/internal/utils/templates"
 	"github.com/db-operator/db-operator/pkg/config"
+	"github.com/db-operator/db-operator/pkg/consts"
 	"github.com/db-operator/db-operator/pkg/utils/database"
 	"github.com/db-operator/db-operator/pkg/utils/kci"
 	"github.com/db-operator/db-operator/pkg/utils/proxy"
@@ -43,7 +46,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	crdv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -62,9 +64,12 @@ type DatabaseReconciler struct {
 	Interval        time.Duration
 	Conf            *config.Config
 	WatchNamespaces []string
+	CheckChanges    bool
+	kubeHelper      *kubehelper.KubeHelper
 }
 
 var (
+	dbPhaseReconcile            = "Reconciling"
 	dbPhaseCreate               = "Creating"
 	dbPhaseInstanceAccessSecret = "InstanceAccessSecretCreating"
 	dbPhaseProxy                = "ProxyCreating"
@@ -84,9 +89,9 @@ var (
 
 func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = r.Log.WithValues("database", req.NamespacedName)
-
 	reconcilePeriod := r.Interval * time.Second
 	reconcileResult := reconcile.Result{RequeueAfter: reconcilePeriod}
+
 	// Fetch the Database custom resource
 	dbcr := &kindav1beta1.Database{}
 	err := r.Get(ctx, req.NamespacedName, dbcr)
@@ -111,124 +116,220 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	promDBsStatus.WithLabelValues(dbcr.Namespace, dbcr.Spec.Instance, dbcr.Name).Set(boolToFloat64(dbcr.Status.Status))
 	promDBsPhase.WithLabelValues(dbcr.Namespace, dbcr.Spec.Instance, dbcr.Name).Set(dbPhaseToFloat64(dbcr.Status.Phase))
 
-	// Check if the Database is marked to be deleted, which is
-	// indicated by the deletion timestamp being set.
-	isDatabaseMarkedToBeDeleted := dbcr.GetDeletionTimestamp() != nil
-	if isDatabaseMarkedToBeDeleted {
-		dbcr.Status.Phase = dbPhaseDelete
-		// Run finalization logic for database. If the
-		// finalization logic fails, don't remove the finalizer so
-		// that we can retry during the next reconciliation.
-		if commonhelper.SliceContainsSubString(dbcr.ObjectMeta.Finalizers, "dbuser.") {
-			err := errors.New("database can't be removed, while there are DbUser referencing it")
-			logrus.Error(err)
-			return r.manageError(ctx, dbcr, err, true)
-		}
-		if commonhelper.ContainsString(dbcr.ObjectMeta.Finalizers, "db."+dbcr.Name) {
-			err := r.deleteDatabase(ctx, dbcr)
+	// Init the kubehelper object
+	r.kubeHelper = kubehelper.NewKubeHelper(r.Client, r.Recorder, dbcr)
+	/* ----------------------------------------------------------------
+	 * -- Check if the Database is marked to be deleted, which is
+	 * --  indicated by the deletion timestamp being set.
+	 * ------------------------------------------------------------- */
+	if dbcr.IsDeleted() {
+		return r.handleDbDelete(ctx, dbcr)
+	}
+
+	/* ----------------------------------------------------------------
+	 * -- If db can't be accessed, set the status to false.
+	 * -- It doesn't make sense to run healthCheck if InstanceRef
+	 * --  is not set, because it means that database initialization
+	 * --  wasn't triggered.
+	 * ------------------------------------------------------------- */
+	if dbcr.Status.Engine != "" {
+		if err := r.healthCheck(ctx, dbcr); err != nil {
+			logrus.Warn("Healthcheck is failed")
+			dbcr.Status.Status = false
+			err = r.Status().Update(ctx, dbcr)
 			if err != nil {
-				logrus.Errorf("DB: namespace=%s, name=%s failed deleting database - %s", dbcr.Namespace, dbcr.Name, err)
-				// when database deletion failed, don't requeue request. to prevent exceeding api limit (ex: against google api)
-				return r.manageError(ctx, dbcr, err, false)
-			}
-			kci.RemoveFinalizer(&dbcr.ObjectMeta, "db."+dbcr.Name)
-			err = r.Update(ctx, dbcr)
-			if err != nil {
-				logrus.Errorf("error resource updating - %s", err)
+				logrus.Errorf("error status subresource updating - %s", err)
 				return r.manageError(ctx, dbcr, err, true)
 			}
 		}
-		// legacy finalizer just remove
-		// we set owner reference for monitoring related resource instead of handling finalizer
-		if commonhelper.ContainsString(dbcr.ObjectMeta.Finalizers, "monitoring."+dbcr.Name) {
-			kci.RemoveFinalizer(&dbcr.ObjectMeta, "monitoring."+dbcr.Name)
-			err = r.Update(ctx, dbcr)
-			if err != nil {
-				logrus.Errorf("error resource updating - %s", err)
-				return r.manageError(ctx, dbcr, err, true)
-			}
-		}
-		return reconcileResult, nil
 	}
 
-	databaseSecret, err := r.getDatabaseSecret(ctx, dbcr)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		logrus.Errorf("could not get database secret - %s", err)
-		return r.manageError(ctx, dbcr, err, true)
-	}
-
-	if commonhelper.IsDBChanged(dbcr, databaseSecret) {
-		logrus.Infof("DB: namespace=%s, name=%s spec changed", dbcr.Namespace, dbcr.Name)
-		err := r.initialize(ctx, dbcr)
-		if err != nil {
-			return r.manageError(ctx, dbcr, err, true)
-		}
-		err = r.Status().Update(ctx, dbcr)
-		if err != nil {
-			logrus.Errorf("error status subresource updating - %s", err)
-			return r.manageError(ctx, dbcr, err, true)
-		}
-
-		commonhelper.AddDBChecksum(dbcr, databaseSecret)
-		err = r.Update(ctx, dbcr)
-		if err != nil {
-			logrus.Errorf("error resource updating - %s", err)
-			return r.manageError(ctx, dbcr, err, true)
-		}
-		logrus.Infof("DB: namespace=%s, name=%s initialized", dbcr.Namespace, dbcr.Name)
-	}
-
-	// database status not true, process phase
-	ownership := []metav1.OwnerReference{}
-	if dbcr.Spec.Cleanup {
-		ownership = append(ownership, metav1.OwnerReference{
-			APIVersion: dbcr.APIVersion,
-			Kind:       dbcr.Kind,
-			Name:       dbcr.Name,
-			UID:        dbcr.GetUID(),
-		},
-		)
-	}
-
-	phase := dbcr.Status.Phase
-	logrus.Infof("DB: namespace=%s, name=%s start %s", dbcr.Namespace, dbcr.Name, phase)
-
-	defer promDBsPhaseTime.WithLabelValues(phase).Observe(kci.TimeTrack(time.Now()))
-	if err := r.createDatabase(ctx, dbcr, ownership); err != nil {
-		// when database creation failed, don't requeue request. to prevent exceeding api limit (ex: against google api)
-		return r.manageError(ctx, dbcr, err, false)
-	}
-	dbcr.Status.Phase = dbPhaseInstanceAccessSecret
-
-	if err = r.createInstanceAccessSecret(ctx, dbcr, ownership); err != nil {
-		return r.manageError(ctx, dbcr, err, true)
-	}
-	dbcr.Status.Phase = dbPhaseProxy
-	err = r.createProxy(ctx, dbcr, ownership)
+	/* ----------------------------------------------------------------
+	 * -- Check if db-operator must fire sql actions, or just
+	 * --  update the k8s resources
+	 * ------------------------------------------------------------- */
+	mustReconile, err := r.isFullReconcile(ctx, dbcr)
 	if err != nil {
 		return r.manageError(ctx, dbcr, err, true)
 	}
+
+	return r.handleDbCreateOrUpdate(ctx, dbcr, mustReconile)
+}
+
+// Move it to helpers and start testing it
+func (r *DatabaseReconciler) healthCheck(ctx context.Context, dbcr *kindav1beta1.Database) error {
+	var dbSecret *corev1.Secret
+	dbSecret, err := r.getDatabaseSecret(ctx, dbcr)
+	if err != nil {
+		return err
+	}
+
+	databaseCred, err := dbhelper.ParseDatabaseSecretData(dbcr, dbSecret.Data)
+	if err != nil {
+		// failed to parse database credential from secret
+		return err
+	}
+
+	instance := &kindav1beta1.DbInstance{}
+	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
+		return err
+	}
+
+	db, dbuser, err := dbhelper.FetchDatabaseData(dbcr, databaseCred, instance)
+	if err != nil {
+		// failed to determine database type
+		return err
+	}
+
+	if err := db.CheckStatus(dbuser); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+/* --------------------------------------------------------------------
+ * -- isFullReconcile returns true if db-operator should fire database
+ * --  queries. If user doesn't want to load database server with
+ * --  with db-operator queries, there is an option to execute them
+ * --  only when db-operator detects the change between the wished
+ * --  config and the existing one, or the special annotation is set.
+ * -- Otherwise, if user doesn't care about the load, since it
+ * --  actually should be very low, the checkForChanges flag can
+ * --  be set to false, and then db-operator will run queries
+ * --  against the database.
+ * ----------------------------------------------------------------- */
+func (r *DatabaseReconciler) isFullReconcile(ctx context.Context, dbcr *kindav1beta1.Database) (bool, error) {
+	// This is the first check, because even if the checkForChanges is false,
+	// the annotation is exptected to be removed
+	if _, ok := dbcr.GetAnnotations()[consts.DATABASE_FORCE_FULL_RECONCILE]; ok {
+		r.Recorder.Event(dbcr, "Normal", fmt.Sprintf("%s annotation was found", consts.DATABASE_FORCE_FULL_RECONCILE),
+			"The full reconciliation cyclce will be executed and the annotation will be removed",
+		)
+
+		annotations := dbcr.GetAnnotations()
+		delete(annotations, consts.DATABASE_FORCE_FULL_RECONCILE)
+		err := r.Update(ctx, dbcr)
+		if err != nil {
+			logrus.Errorf("error resource updating - %s", err)
+			return false, err
+		}
+		return true, nil
+	}
+
+	// If we don't check changes, then just always reconcile
+	if !r.CheckChanges {
+		return true, nil
+	}
+
+	// If database is not healthy, reconcile
+	if !dbcr.Status.Status {
+		return true, nil
+	}
+
+	var dbSecret *corev1.Secret
+	var err error
+
+	dbSecret, err = r.getDatabaseSecret(ctx, dbcr)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return true, nil
+		} else {
+			return false, err
+		}
+	}
+
+	return commonhelper.IsDBChanged(dbcr, dbSecret), nil
+}
+
+/* --------------------------------------------------------------------
+ * -- This function should be called when a database is created
+ * --  or updated.
+ * -- The mustReconcile argument is the trigger for the database
+ * --  action to run. If mustReconcile is true, all the db queries
+ * --  will be executed.
+ * ------------------------------------------------------------------ */
+func (r *DatabaseReconciler) handleDbCreateOrUpdate(ctx context.Context, dbcr *kindav1beta1.Database, mustReconcile bool) (reconcile.Result, error) {
+	dbcr.Status.Phase = dbPhaseReconcile
+	var err error
+
+	reconcilePeriod := r.Interval * time.Second
+	reconcileResult := reconcile.Result{RequeueAfter: reconcilePeriod}
+
+	logrus.Infof("DB: namespace=%s, name=%s start %s", dbcr.Namespace, dbcr.Name, dbcr.Status.Phase)
+
+	defer promDBsPhaseTime.WithLabelValues(dbcr.Status.Phase).Observe(kci.TimeTrack(time.Now()))
+
+	// Handle the secret creation
+	var dbSecret *corev1.Secret
+	dbSecret, err = r.getDatabaseSecret(ctx, dbcr)
+
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			if err := r.setEngine(ctx, dbcr); err != nil {
+				return r.manageError(ctx, dbcr, err, true)
+			}
+			dbSecret, err = r.createSecret(ctx, dbcr)
+			if err != nil {
+				return r.manageError(ctx, dbcr, err, false)
+			}
+		} else {
+			return r.manageError(ctx, dbcr, err, false)
+		}
+	}
+
+	if err := r.kubeHelper.ModifyObject(ctx, dbSecret); err != nil {
+		return r.manageError(ctx, dbcr, err, true)
+	}
+
+	// Create
+	if mustReconcile {
+		if err := r.setEngine(ctx, dbcr); err != nil {
+			return r.manageError(ctx, dbcr, err, false)
+		}
+
+		if err := r.createDatabase(ctx, dbcr, dbSecret); err != nil {
+			// when database creation failed, don't requeue request. to prevent exceeding api limit (ex: against google api)
+			return r.manageError(ctx, dbcr, err, false)
+		}
+	}
+
+	dbcr.Status.Phase = dbPhaseInstanceAccessSecret
+	if err := r.handleInstanceAccessSecret(ctx, dbcr); err != nil {
+		return r.manageError(ctx, dbcr, err, true)
+	}
+	logrus.Infof("DB: namespace=%s, name=%s instance access secret created", dbcr.Namespace, dbcr.Name)
+
+	dbcr.Status.Phase = dbPhaseProxy
+	err = r.handleProxy(ctx, dbcr)
+	if err != nil {
+		return r.manageError(ctx, dbcr, err, true)
+	}
+
 	dbcr.Status.Phase = dbPhaseSecretsTemplating
-	if err = r.createTemplatedSecrets(ctx, dbcr, ownership); err != nil {
+	if err = r.createTemplatedSecrets(ctx, dbcr); err != nil {
 		return r.manageError(ctx, dbcr, err, true)
 	}
 	dbcr.Status.Phase = dbPhaseConfigMap
-	if err = r.createInfoConfigMap(ctx, dbcr, ownership); err != nil {
+	if err = r.handleInfoConfigMap(ctx, dbcr); err != nil {
 		return r.manageError(ctx, dbcr, err, true)
 	}
 	dbcr.Status.Phase = dbPhaseTemplating
+
 	// A temporary check that exists to avoid creating templates if secretsTemplates are used.
 	// todo: It should be removed when secretsTemlates are gone
+
 	if len(dbcr.Spec.SecretsTemplates) == 0 {
-		if err := r.renderTemplates(ctx, dbcr); err != nil {
+		if err := r.handleTemplatedCredentials(ctx, dbcr); err != nil {
 			return r.manageError(ctx, dbcr, err, false)
 		}
 	}
 	dbcr.Status.Phase = dbPhaseBackupJob
-	err = r.createBackupJob(ctx, dbcr, ownership)
+	err = r.handleBackupJob(ctx, dbcr)
 	if err != nil {
 		return r.manageError(ctx, dbcr, err, true)
 	}
+
 	dbcr.Status.Phase = dbPhaseFinish
 	dbcr.Status.Status = true
 	dbcr.Status.Phase = dbPhaseReady
@@ -238,9 +339,76 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		logrus.Errorf("error status subresource updating - %s", err)
 		return r.manageError(ctx, dbcr, err, true)
 	}
-	logrus.Infof("DB: namespace=%s, name=%s finish %s", dbcr.Namespace, dbcr.Name, phase)
+	logrus.Infof("DB: namespace=%s, name=%s finish %s", dbcr.Namespace, dbcr.Name, dbcr.Status.Phase)
 
-	// status true do nothing and don't requeue
+	return reconcileResult, nil
+}
+
+func (r *DatabaseReconciler) handleDbDelete(ctx context.Context, dbcr *kindav1beta1.Database) (reconcile.Result, error) {
+	dbcr.Status.Phase = dbPhaseDelete
+	reconcilePeriod := r.Interval * time.Second
+	reconcileResult := reconcile.Result{RequeueAfter: reconcilePeriod}
+
+	// Run finalization logic for database. If the
+	// finalization logic fails, don't remove the finalizer so
+	// that we can retry during the next reconciliation.
+	if commonhelper.SliceContainsSubString(dbcr.ObjectMeta.Finalizers, "dbuser.") {
+		err := errors.New("database can't be removed, while there are DbUser referencing it")
+		logrus.Error(err)
+		return r.manageError(ctx, dbcr, err, true)
+	}
+
+	if commonhelper.ContainsString(dbcr.ObjectMeta.Finalizers, "db."+dbcr.Name) {
+		err := r.deleteDatabase(ctx, dbcr)
+		if err != nil {
+			logrus.Errorf("DB: namespace=%s, name=%s failed deleting database - %s", dbcr.Namespace, dbcr.Name, err)
+			// when database deletion failed, don't requeue request. to prevent exceeding api limit (ex: against google api)
+			return r.manageError(ctx, dbcr, err, false)
+		}
+		kci.RemoveFinalizer(&dbcr.ObjectMeta, "db."+dbcr.Name)
+		err = r.Update(ctx, dbcr)
+		if err != nil {
+			logrus.Errorf("error resource updating - %s", err)
+			return r.manageError(ctx, dbcr, err, true)
+		}
+	}
+	// A temporary check that exists to avoid creating templates if secretsTemplates are used.
+	// todo: It should be removed when secretsTemlates are gone
+	if len(dbcr.Spec.SecretsTemplates) == 0 {
+		if err := r.handleTemplatedCredentials(ctx, dbcr); err != nil {
+			return r.manageError(ctx, dbcr, err, false)
+		}
+	}
+
+	if err := r.handleInstanceAccessSecret(ctx, dbcr); err != nil {
+		return r.manageError(ctx, dbcr, err, true)
+	}
+
+	if err := r.handleProxy(ctx, dbcr); err != nil {
+		return r.manageError(ctx, dbcr, err, true)
+	}
+
+	if err := r.handleInfoConfigMap(ctx, dbcr); err != nil {
+		return r.manageError(ctx, dbcr, err, true)
+	}
+
+	dbcr.Status.Phase = dbPhaseBackupJob
+	if err := r.handleBackupJob(ctx, dbcr); err != nil {
+		return r.manageError(ctx, dbcr, err, true)
+	}
+
+	dbSecret, err := r.getDatabaseSecret(ctx, dbcr)
+
+	if err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return r.manageError(ctx, dbcr, err, true)
+		}
+	} else {
+		if err := r.kubeHelper.ModifyObject(ctx, dbSecret); err != nil {
+			return r.manageError(ctx, dbcr, err, true)
+		}
+	}
+
 	return reconcileResult, nil
 }
 
@@ -265,11 +433,12 @@ func (r *DatabaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *DatabaseReconciler) initialize(ctx context.Context, dbcr *kindav1beta1.Database) error {
-	dbcr.Status = kindav1beta1.DatabaseStatus{}
-	dbcr.Status.Status = false
+func (r *DatabaseReconciler) setEngine(ctx context.Context, dbcr *kindav1beta1.Database) error {
+	if len(dbcr.Spec.Instance) == 0 {
+		return errors.New("instance name not defined")
+	}
 
-	if dbcr.Spec.Instance != "" {
+	if len(dbcr.Status.Engine) == 0 {
 		instance := &kindav1beta1.DbInstance{}
 		key := types.NamespacedName{
 			Namespace: "",
@@ -284,54 +453,30 @@ func (r *DatabaseReconciler) initialize(ctx context.Context, dbcr *kindav1beta1.
 		if !instance.Status.Status {
 			return errors.New("instance status not true")
 		}
-		dbcr.Status.Phase = dbPhaseCreate
+
+		dbcr.Status.Engine = instance.Spec.Engine
+		if err := r.Status().Update(ctx, dbcr); err != nil {
+			return err
+		}
 		return nil
 	}
-	return errors.New("instance name not defined")
+
+	return nil
 }
 
 // createDatabase secret, actual database using admin secret
-func (r *DatabaseReconciler) createDatabase(ctx context.Context, dbcr *kindav1beta1.Database, ownership []metav1.OwnerReference) error {
-	instance := &kindav1beta1.DbInstance{}
-	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
-		return err
-	}
-	dbcr.Status.Engine = instance.Spec.Engine
-	if err := r.Status().Update(ctx, dbcr); err != nil {
-		logrus.Errorf("error status updating - %s", err)
-		return err
-	}
-
-	databaseSecret, err := r.getDatabaseSecret(ctx, dbcr)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			secretData, err := dbhelper.GenerateDatabaseSecretData(dbcr.ObjectMeta, dbcr.Status.Engine, "")
-			if err != nil {
-				logrus.Errorf("can not generate credentials for database - %s", err)
-				return err
-			}
-			newDatabaseSecret := kci.SecretBuilder(dbcr.Spec.SecretName, dbcr.Namespace, secretData, ownership)
-			err = r.Create(ctx, newDatabaseSecret)
-			if err != nil {
-				// failed to create secret
-				return err
-			}
-			databaseSecret = newDatabaseSecret
-		} else {
-			// failed to get secret resouce
-			return err
-		}
-	}
-	databaseCred, err := dbhelper.ParseDatabaseSecretData(dbcr, databaseSecret.Data)
+func (r *DatabaseReconciler) createDatabase(ctx context.Context, dbcr *kindav1beta1.Database, dbSecret *corev1.Secret) error {
+	databaseCred, err := dbhelper.ParseDatabaseSecretData(dbcr, dbSecret.Data)
 	if err != nil {
 		// failed to parse database credential from secret
 		return err
 	}
+	instance := &kindav1beta1.DbInstance{}
 	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
 		return err
 	}
 
-	db, dbuser, err := dbhelper.DeterminDatabaseType(dbcr, databaseCred, instance)
+	db, dbuser, err := dbhelper.FetchDatabaseData(dbcr, databaseCred, instance)
 	if err != nil {
 		// failed to determine database type
 		return err
@@ -365,15 +510,16 @@ func (r *DatabaseReconciler) createDatabase(ctx context.Context, dbcr *kindav1be
 	}
 
 	kci.AddFinalizer(&dbcr.ObjectMeta, "db."+dbcr.Name)
+
+	commonhelper.AddDBChecksum(dbcr, dbSecret)
 	err = r.Update(ctx, dbcr)
 	if err != nil {
-		logrus.Errorf("error resource updating - %s", err)
 		return err
 	}
 
-	err = r.annotateDatabaseSecret(ctx, dbcr, databaseSecret)
+	err = r.Update(ctx, dbcr)
 	if err != nil {
-		logrus.Errorf("could not annotate database secret - %s", err)
+		logrus.Errorf("error resource updating - %s", err)
 		return err
 	}
 
@@ -399,7 +545,7 @@ func (r *DatabaseReconciler) deleteDatabase(ctx context.Context, dbcr *kindav1be
 		return err
 	}
 
-	db, dbuser, err := dbhelper.DeterminDatabaseType(dbcr, databaseCred, instance)
+	db, dbuser, err := dbhelper.FetchDatabaseData(dbcr, databaseCred, instance)
 	if err != nil {
 		// failed to determine database type
 		return err
@@ -431,7 +577,8 @@ func (r *DatabaseReconciler) deleteDatabase(ctx context.Context, dbcr *kindav1be
 	return nil
 }
 
-func (r *DatabaseReconciler) createInstanceAccessSecret(ctx context.Context, dbcr *kindav1beta1.Database, ownership []metav1.OwnerReference) (err error) {
+func (r *DatabaseReconciler) handleInstanceAccessSecret(ctx context.Context, dbcr *kindav1beta1.Database) error {
+	var err error
 	instance := &kindav1beta1.DbInstance{}
 	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
 		return err
@@ -465,27 +612,15 @@ func (r *DatabaseReconciler) createInstanceAccessSecret(ctx context.Context, dbc
 	secretData[credFile] = data
 
 	newName := dbcr.InstanceAccessSecretName()
-	newSecret := kci.SecretBuilder(newName, dbcr.GetNamespace(), secretData, ownership)
-
-	err = r.Create(ctx, newSecret)
-	if err != nil {
-		if k8serrors.IsAlreadyExists(err) {
-			// if configmap resource already exists, update
-			err = r.Update(ctx, newSecret)
-			if err != nil {
-				logrus.Errorf("DB: namespace=%s, name=%s failed updating instance access secret", dbcr.Namespace, dbcr.Name)
-				return err
-			}
-		} else {
-			logrus.Errorf("DB: namespace=%s, name=%s failed creating instance access secret - %s", dbcr.Namespace, dbcr.Name, err)
-			return err
-		}
+	newSecret := kci.SecretBuilder(newName, dbcr.GetNamespace(), secretData)
+	if err := r.kubeHelper.ModifyObject(ctx, newSecret); err != nil {
+		return err
 	}
-	logrus.Infof("DB: namespace=%s, name=%s instance access secret created", dbcr.Namespace, dbcr.Name)
+
 	return nil
 }
 
-func (r *DatabaseReconciler) createProxy(ctx context.Context, dbcr *kindav1beta1.Database, ownership []metav1.OwnerReference) error {
+func (r *DatabaseReconciler) handleProxy(ctx context.Context, dbcr *kindav1beta1.Database) error {
 	instance := &kindav1beta1.DbInstance{}
 	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
 		return err
@@ -503,69 +638,32 @@ func (r *DatabaseReconciler) createProxy(ctx context.Context, dbcr *kindav1beta1
 	}
 
 	// create proxy configmap
-	cm, err := proxy.BuildConfigmap(proxyInterface, ownership)
+	cm, err := proxy.BuildConfigmap(proxyInterface)
 	if err != nil {
 		return err
 	}
-	if cm != nil { // if configmap is not null
-		err = r.Create(ctx, cm)
-		if err != nil {
-			if k8serrors.IsAlreadyExists(err) {
-				// if resource already exists, update
-				err = r.Update(ctx, cm)
-				if err != nil {
-					logrus.Errorf("DB: namespace=%s, name=%s failed updating proxy configmap", dbcr.Namespace, dbcr.Name)
-					return err
-				}
-			} else {
-				// failed creating configmap
-				logrus.Errorf("DB: namespace=%s, name=%s failed updating proxy configmap", dbcr.Namespace, dbcr.Name)
-				return err
-			}
+	if cm != nil {
+		if err := r.kubeHelper.ModifyObject(ctx, cm); err != nil {
+			return err
 		}
 	}
 
 	// create proxy deployment
-	deploy, err := proxy.BuildDeployment(proxyInterface, ownership)
+	deploy, err := proxy.BuildDeployment(proxyInterface)
 	if err != nil {
 		return err
 	}
-	err = r.Create(ctx, deploy)
-	if err != nil {
-		if k8serrors.IsAlreadyExists(err) {
-			// if resource already exists, update
-			err = r.Update(ctx, deploy)
-			if err != nil {
-				logrus.Errorf("DB: namespace=%s, name=%s failed updating proxy deployment", dbcr.Namespace, dbcr.Name)
-				return err
-			}
-		} else {
-			// failed to create deployment
-			logrus.Errorf("DB: namespace=%s, name=%s failed creating proxy deployment", dbcr.Namespace, dbcr.Name)
-			return err
-		}
+	if err := r.kubeHelper.ModifyObject(ctx, deploy); err != nil {
+		return err
 	}
 
 	// create proxy service
-	svc, err := proxy.BuildService(proxyInterface, ownership)
+	svc, err := proxy.BuildService(proxyInterface)
 	if err != nil {
 		return err
 	}
-	err = r.Create(ctx, svc)
-	if err != nil {
-		if k8serrors.IsAlreadyExists(err) {
-			// if resource already exists, update
-			patch := client.MergeFrom(svc)
-			err = r.Patch(ctx, svc, patch)
-			if err != nil {
-				logrus.Errorf("DB: namespace=%s, name=%s failed patching proxy service", dbcr.Namespace, dbcr.Name)
-				return err
-			}
-		} else {
-			// failed to create service
-			logrus.Errorf("DB: namespace=%s, name=%s failed creating proxy service", dbcr.Namespace, dbcr.Name)
-			return err
-		}
+	if err := r.kubeHelper.ModifyObject(ctx, svc); err != nil {
+		return err
 	}
 
 	crdList := crdv1.CustomResourceDefinitionList{}
@@ -577,25 +675,14 @@ func (r *DatabaseReconciler) createProxy(ctx context.Context, dbcr *kindav1beta1
 	isMonitoringEnabled := instance.IsMonitoringEnabled()
 	if isMonitoringEnabled && commonhelper.InCrdList(crdList, "servicemonitors.monitoring.coreos.com") {
 		// create proxy PromServiceMonitor
-		promSvcMon, err := proxy.BuildServiceMonitor(proxyInterface, ownership)
+		promSvcMon, err := proxy.BuildServiceMonitor(proxyInterface)
 		if err != nil {
 			return err
 		}
-		err = r.Create(ctx, promSvcMon)
-		if err != nil {
-			if k8serrors.IsAlreadyExists(err) {
-				patch := client.MergeFrom(promSvcMon)
-				err := r.Patch(ctx, promSvcMon, patch)
-				if err != nil {
-					logrus.Errorf("DB: namespace=%s, name=%s failed patching prometheus service monitor", dbcr.Namespace, dbcr.Name)
-					return err
-				}
-			} else {
-				// failed to create service
-				logrus.Errorf("DB: namespace=%s, name=%s failed creating prometehus service monitor", dbcr.Namespace, dbcr.Name)
-				return err
-			}
+		if err := r.kubeHelper.ModifyObject(ctx, promSvcMon); err != nil {
+			return err
 		}
+
 	}
 
 	dbcr.Status.ProxyStatus.ServiceName = svc.Name
@@ -610,7 +697,10 @@ func (r *DatabaseReconciler) createProxy(ctx context.Context, dbcr *kindav1beta1
 	return nil
 }
 
-func (r *DatabaseReconciler) renderTemplates(ctx context.Context, dbcr *kindav1beta1.Database) error {
+// If database has a deletion timestamp, this function will remove all the templated fields from
+// secrets and configmaps, so it's a generic function that can be used for both:
+// creating and removing
+func (r *DatabaseReconciler) handleTemplatedCredentials(ctx context.Context, dbcr *kindav1beta1.Database) error {
 	databaseSecret, err := r.getDatabaseSecret(ctx, dbcr)
 	if err != nil {
 		return err
@@ -632,7 +722,7 @@ func (r *DatabaseReconciler) renderTemplates(ctx context.Context, dbcr *kindav1b
 		return err
 	}
 
-	db, dbuser, err := dbhelper.DeterminDatabaseType(dbcr, creds, instance)
+	db, dbuser, err := dbhelper.FetchDatabaseData(dbcr, creds, instance)
 	if err != nil {
 		return err
 	}
@@ -642,22 +732,29 @@ func (r *DatabaseReconciler) renderTemplates(ctx context.Context, dbcr *kindav1b
 		return err
 	}
 
-	if err := templateds.Render(dbcr.Spec.Credentials.Templates); err != nil {
+	if dbcr.GetDeletionTimestamp() != nil {
+		if err := templateds.Render(dbcr.Spec.Credentials.Templates); err != nil {
+			return err
+		}
+	} else {
+		// Render with an empty slice, so tempalted entries are removed from Data and Annotations
+		if err := templateds.Render(kindav1beta1.Templates{}); err != nil {
+			return err
+		}
+	}
+
+	if err := r.kubeHelper.HandleCreateOrUpdate(ctx, templateds.SecretK8sObj); err != nil {
 		return err
 	}
 
-	if err = r.Update(ctx, templateds.SecretK8sObj, &client.UpdateOptions{}); err != nil {
-		return err
-	}
-
-	if err = r.Update(ctx, templateds.ConfigMapK8sObj, &client.UpdateOptions{}); err != nil {
+	if err := r.kubeHelper.HandleCreateOrUpdate(ctx, templateds.ConfigMapK8sObj); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (r *DatabaseReconciler) createTemplatedSecrets(ctx context.Context, dbcr *kindav1beta1.Database, ownership []metav1.OwnerReference) error {
+func (r *DatabaseReconciler) createTemplatedSecrets(ctx context.Context, dbcr *kindav1beta1.Database) error {
 	if len(dbcr.Spec.SecretsTemplates) > 0 {
 		r.Recorder.Event(dbcr, "Warning", "Deprecation",
 			"secretsTemplates are deprecated and will be removed in the next API version. Please consider using templates",
@@ -682,7 +779,7 @@ func (r *DatabaseReconciler) createTemplatedSecrets(ctx context.Context, dbcr *k
 			return err
 		}
 
-		db, _, err := dbhelper.DeterminDatabaseType(dbcr, databaseCred, instance)
+		db, _, err := dbhelper.FetchDatabaseData(dbcr, databaseCred, instance)
 		if err != nil {
 			// failed to determine database type
 			return err
@@ -692,11 +789,15 @@ func (r *DatabaseReconciler) createTemplatedSecrets(ctx context.Context, dbcr *k
 			return err
 		}
 		// Adding values
-		newSecretData := secTemplates.AppendTemplatedSecretData(dbcr, databaseSecret.Data, dbSecrets, ownership)
-		newSecretData = secTemplates.RemoveObsoleteSecret(dbcr, newSecretData, dbSecrets, ownership)
+		newSecretData := secTemplates.AppendTemplatedSecretData(dbcr, databaseSecret.Data, dbSecrets)
+		newSecretData = secTemplates.RemoveObsoleteSecret(dbcr, newSecretData, dbSecrets)
 
 		for key, value := range newSecretData {
 			databaseSecret.Data[key] = value
+		}
+
+		if err := r.kubeHelper.ModifyObject(ctx, databaseSecret); err != nil {
+			return err
 		}
 
 		if err = r.Update(ctx, databaseSecret, &client.UpdateOptions{}); err != nil {
@@ -707,7 +808,7 @@ func (r *DatabaseReconciler) createTemplatedSecrets(ctx context.Context, dbcr *k
 	return nil
 }
 
-func (r *DatabaseReconciler) createInfoConfigMap(ctx context.Context, dbcr *kindav1beta1.Database, ownership []metav1.OwnerReference) error {
+func (r *DatabaseReconciler) handleInfoConfigMap(ctx context.Context, dbcr *kindav1beta1.Database) error {
 	instance := &kindav1beta1.DbInstance{}
 	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
 		return err
@@ -726,28 +827,17 @@ func (r *DatabaseReconciler) createInfoConfigMap(ctx context.Context, dbcr *kind
 		return err
 	}
 	info["SSL_MODE"] = sslMode
-	databaseConfigResource := kci.ConfigMapBuilder(dbcr.Spec.SecretName, dbcr.Namespace, info, ownership)
+	databaseConfigResource := kci.ConfigMapBuilder(dbcr.Spec.SecretName, dbcr.Namespace, info)
 
-	err = r.Create(ctx, databaseConfigResource)
-	if err != nil {
-		if k8serrors.IsAlreadyExists(err) {
-			// if configmap resource already exists, update
-			err = r.Update(ctx, databaseConfigResource)
-			if err != nil {
-				logrus.Errorf("DB: namespace=%s, name=%s failed updating database info configmap", dbcr.Namespace, dbcr.Name)
-				return err
-			}
-		} else {
-			logrus.Errorf("DB: namespace=%s, name=%s failed creating database info configmap", dbcr.Namespace, dbcr.Name)
-			return err
-		}
+	if err := r.kubeHelper.ModifyObject(ctx, databaseConfigResource); err != nil {
+		return err
 	}
 
 	logrus.Infof("DB: namespace=%s, name=%s database info configmap created", dbcr.Namespace, dbcr.Name)
 	return nil
 }
 
-func (r *DatabaseReconciler) createBackupJob(ctx context.Context, dbcr *kindav1beta1.Database, ownership []metav1.OwnerReference) error {
+func (r *DatabaseReconciler) handleBackupJob(ctx context.Context, dbcr *kindav1beta1.Database) error {
 	if !dbcr.Spec.Backup.Enable {
 		// if not enabled, skip
 		return nil
@@ -757,7 +847,7 @@ func (r *DatabaseReconciler) createBackupJob(ctx context.Context, dbcr *kindav1b
 		return err
 	}
 
-	cronjob, err := backup.GCSBackupCron(r.Conf, dbcr, instance, ownership)
+	cronjob, err := backup.GCSBackupCron(r.Conf, dbcr, instance)
 	if err != nil {
 		return err
 	}
@@ -767,22 +857,9 @@ func (r *DatabaseReconciler) createBackupJob(ctx context.Context, dbcr *kindav1b
 		return err
 	}
 
-	err = r.Create(ctx, cronjob)
-	if err != nil {
-		if k8serrors.IsAlreadyExists(err) {
-			// if resource already exists, update
-			err = r.Update(ctx, cronjob)
-			if err != nil {
-				logrus.Errorf("DB: namespace=%s, name=%s failed updating backup cronjob", dbcr.Namespace, dbcr.Name)
-				return err
-			}
-		} else {
-			// failed to create deployment
-			logrus.Errorf("DB: namespace=%s, name=%s failed creating backup cronjob", dbcr.Namespace, dbcr.Name)
-			return err
-		}
+	if err := r.kubeHelper.ModifyObject(ctx, cronjob); err != nil {
+		return err
 	}
-
 	return nil
 }
 
@@ -812,17 +889,6 @@ func (r *DatabaseReconciler) getDatabaseConfigMap(ctx context.Context, dbcr *kin
 	}
 
 	return configMap, nil
-}
-
-func (r *DatabaseReconciler) annotateDatabaseSecret(ctx context.Context, dbcr *kindav1beta1.Database, secret *corev1.Secret) error {
-	annotations := secret.ObjectMeta.GetAnnotations()
-	if len(annotations) == 0 {
-		annotations = make(map[string]string)
-	}
-	annotations[DbSecretAnnotation] = dbcr.Name
-	secret.ObjectMeta.SetAnnotations(annotations)
-
-	return r.Update(ctx, secret)
 }
 
 func (r *DatabaseReconciler) getAdminSecret(ctx context.Context, dbcr *kindav1beta1.Database) (*corev1.Secret, error) {
@@ -863,4 +929,15 @@ func (r *DatabaseReconciler) manageError(ctx context.Context, dbcr *kindav1beta1
 		RequeueAfter: retryInterval,
 		Requeue:      requeue,
 	}, nil
+}
+
+func (r *DatabaseReconciler) createSecret(ctx context.Context, dbcr *kindav1beta1.Database) (*corev1.Secret, error) {
+	secretData, err := dbhelper.GenerateDatabaseSecretData(dbcr.ObjectMeta, dbcr.Status.Engine, "")
+	if err != nil {
+		logrus.Errorf("can not generate credentials for database - %s", err)
+		return nil, err
+	}
+
+	databaseSecret := kci.SecretBuilder(dbcr.Spec.SecretName, dbcr.Namespace, secretData)
+	return databaseSecret, nil
 }

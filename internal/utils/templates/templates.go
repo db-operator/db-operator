@@ -32,28 +32,11 @@ import (
 	"k8s.io/utils/strings/slices"
 )
 
-const (
-	DEFAULT_TEMPLATE_VALUE  = "{{ .Protocol }}://{{ .Username }}:{{ .Password }}@{{ .Hostname }}:{{ .Port }}/{{ .Database }}"
-	DEFAULT_TEMPLATE_NAME   = "CONNECTION_STRING"
-	TEMPLATE_ANNOTATION_KEY = "kinda.rocks/db-operator-templated-keys"
-)
-
-var DEFAULT_TEMPLATES []*v1beta1.Template = []*v1beta1.Template{
-	{
-		Name:     DEFAULT_TEMPLATE_NAME,
-		Template: DEFAULT_TEMPLATE_VALUE,
-		Secret:   true,
-	},
-}
-
 func (tds *TemplateDataSources) Render(templates v1beta1.Templates) error {
-	if len(templates) == 0 {
-		templates = DEFAULT_TEMPLATES
-	}
-
 	var currentTemplatesSec []string
 	var currentTemplatesCm []string
-	var result = map[string][]byte{}
+	result := map[string][]byte{}
+
 	// Get the last applied data
 	lastAppliedSecret := getPreviouslyApplied(tds.SecretK8sObj.GetAnnotations())
 	lastAppliedConfigMap := getPreviouslyApplied(tds.ConfigMapK8sObj.GetAnnotations())
@@ -90,20 +73,29 @@ func (tds *TemplateDataSources) Render(templates v1beta1.Templates) error {
 			} else {
 				return fmt.Errorf("%s already exists in the configmap", tmpl.Name)
 			}
-
 		}
-		cleanUpData(tds.SecretK8sObj.Data, lastAppliedSecret, currentTemplatesSec)
-		cleanUpData(tds.ConfigMapK8sObj.Data, lastAppliedConfigMap, currentTemplatesCm)
 
-		tds.SecretK8sObj.ObjectMeta.Annotations[TEMPLATE_ANNOTATION_KEY] = strings.Join(currentTemplatesSec, ",")
-		tds.ConfigMapK8sObj.ObjectMeta.Annotations[TEMPLATE_ANNOTATION_KEY] = strings.Join(currentTemplatesCm, ",")
 	}
+	cleanUpData(tds.SecretK8sObj.Data, lastAppliedSecret, currentTemplatesSec)
+	cleanUpData(tds.ConfigMapK8sObj.Data, lastAppliedConfigMap, currentTemplatesCm)
+
+	tds.SecretK8sObj.ObjectMeta.Annotations[consts.TEMPLATE_ANNOTATION_KEY] = strings.Join(currentTemplatesSec, ",")
+	tds.ConfigMapK8sObj.ObjectMeta.Annotations[consts.TEMPLATE_ANNOTATION_KEY] = strings.Join(currentTemplatesCm, ",")
+
+	if len(tds.SecretK8sObj.ObjectMeta.Annotations[consts.TEMPLATE_ANNOTATION_KEY]) == 0 {
+		delete(tds.SecretK8sObj.ObjectMeta.Annotations, consts.TEMPLATE_ANNOTATION_KEY)
+	}
+
+	if len(tds.ConfigMapK8sObj.ObjectMeta.Annotations[consts.TEMPLATE_ANNOTATION_KEY]) == 0 {
+		delete(tds.ConfigMapK8sObj.ObjectMeta.Annotations, consts.TEMPLATE_ANNOTATION_KEY)
+	}
+
 	return nil
 }
 
 func getPreviouslyApplied(annotations map[string]string) []string {
 	result := []string{}
-	val, ok := annotations[TEMPLATE_ANNOTATION_KEY]
+	val, ok := annotations[consts.TEMPLATE_ANNOTATION_KEY]
 	if ok {
 		result = strings.Split(val, ",")
 	}
@@ -190,7 +182,7 @@ func NewTemplateDataSource(
  * Main getters funcions should be used to query the data
  *  from main data source objects:
  *  - Secret
- *  - Configmap
+ *  - ConfigMap
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 // Get the data from the Database Secret
@@ -262,7 +254,6 @@ func (tds *TemplateDataSources) Database() (string, error) {
 	default:
 		return "", fmt.Errorf("unknown engine: %s", tds.DatabaseK8sObj.Status.Engine)
 	}
-
 }
 
 // Hostname

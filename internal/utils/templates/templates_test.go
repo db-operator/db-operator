@@ -247,8 +247,8 @@ func TestUnitUsernameGetterPostgres(t *testing.T) {
 		t.Error(err)
 	}
 	assert.Equal(t, "testusername", username)
-
 }
+
 func TestUnitUsernameGetterMysql(t *testing.T) {
 	databaseNew := databaseK8s.DeepCopy()
 	databaseNew.Status.Engine = consts.ENGINE_MYSQL
@@ -261,8 +261,8 @@ func TestUnitUsernameGetterMysql(t *testing.T) {
 		t.Error(err)
 	}
 	assert.Equal(t, "testusername", username)
-
 }
+
 func TestUnitUsernameGetterUnknownEngineError(t *testing.T) {
 	databaseNew := databaseK8s.DeepCopy()
 	databaseNew.Status.Engine = "dymmysql"
@@ -282,8 +282,8 @@ func TestUnitPasswordGetterPostgres(t *testing.T) {
 		t.Error(err)
 	}
 	assert.Equal(t, "testpassword", password)
-
 }
+
 func TestUnitPasswordGetterMysql(t *testing.T) {
 	databaseNew := databaseK8s.DeepCopy()
 	databaseNew.Status.Engine = consts.ENGINE_MYSQL
@@ -296,8 +296,8 @@ func TestUnitPasswordGetterMysql(t *testing.T) {
 		t.Error(err)
 	}
 	assert.Equal(t, "testpassword", password)
-
 }
+
 func TestUnitPasswordGetterUnknownEngineError(t *testing.T) {
 	databaseNew := databaseK8s.DeepCopy()
 	databaseNew.Status.Engine = "dymmysql"
@@ -317,8 +317,8 @@ func TestUnitDatabaseGetterPostgres(t *testing.T) {
 		t.Error(err)
 	}
 	assert.Equal(t, "database", password)
-
 }
+
 func TestUnitDatabaseGetterMysql(t *testing.T) {
 	databaseNew := databaseK8s.DeepCopy()
 	databaseNew.Status.Engine = consts.ENGINE_MYSQL
@@ -331,8 +331,8 @@ func TestUnitDatabaseGetterMysql(t *testing.T) {
 		t.Error(err)
 	}
 	assert.Equal(t, "database", password)
-
 }
+
 func TestUnitDatabaseGetterUnknownEngineError(t *testing.T) {
 	databaseNew := databaseK8s.DeepCopy()
 	databaseNew.Status.Engine = "dymmysql"
@@ -354,7 +354,7 @@ func TestUnitHostGetterNoProxy(t *testing.T) {
 }
 
 func TestUnitHostGetterProxy(t *testing.T) {
-	var expecterHostname = "proxy-hostname"
+	expecterHostname := "proxy-hostname"
 	databaseNew := databaseK8s.DeepCopy()
 	databaseNew.Status.ProxyStatus.Status = true
 	databaseNew.Status.ProxyStatus.ServiceName = expecterHostname
@@ -396,28 +396,6 @@ func TestUnitPortGetterProxy(t *testing.T) {
 		t.Error(err)
 	}
 	assert.Equal(t, expectedPort, hostname)
-}
-
-func TestUnitRenderDefault(t *testing.T) {
-	expectedResult := map[string][]byte{
-		templates.DEFAULT_TEMPLATE_NAME: []byte("postgresql://testusername:testpassword@hostname:1122/database"),
-	}
-	for key, val := range secretPostgres.Data {
-		expectedResult[key] = val
-	}
-	databaseNew := databaseK8s.DeepCopy()
-	databaseNew.Status.Engine = consts.ENGINE_POSTGRES
-	templateds, err := templates.NewTemplateDataSource(databaseNew, secretPostgres.DeepCopy(), configmapK8s.DeepCopy(), db, database.NewDummyUser("mainUser"))
-	if err != nil {
-		t.Error(err)
-	}
-	if err := templateds.Render(v1beta1.Templates{}); err != nil {
-		t.Error(err)
-	}
-	assert.Equal(t, expectedResult, templateds.SecretK8sObj.Data)
-	for key, val := range expectedResult {
-		assert.Equal(t, val, templateds.SecretK8sObj.Data[key])
-	}
 }
 
 func TestUnitRenderErrDupSecret(t *testing.T) {
@@ -485,7 +463,7 @@ func TestUnitRenderAppendCustomSecret(t *testing.T) {
 	}
 	assert.Equal(t, expectedResult, templateds.SecretK8sObj.Data)
 	assert.Equal(t, "STRING,PASSWORD,REUSE_PREVIOUS,SEC_PASSWORD,GO_FUNCTION",
-		templateds.SecretK8sObj.ObjectMeta.Annotations[templates.TEMPLATE_ANNOTATION_KEY],
+		templateds.SecretK8sObj.ObjectMeta.Annotations[consts.TEMPLATE_ANNOTATION_KEY],
 	)
 }
 
@@ -530,7 +508,7 @@ func TestUnitRenderCleanupSecret(t *testing.T) {
 	}
 	assert.Equal(t, expectedResult, templateds.SecretK8sObj.Data)
 	assert.Equal(t, "PASSWORD",
-		templateds.SecretK8sObj.ObjectMeta.Annotations[templates.TEMPLATE_ANNOTATION_KEY],
+		templateds.SecretK8sObj.ObjectMeta.Annotations[consts.TEMPLATE_ANNOTATION_KEY],
 	)
 }
 
@@ -594,7 +572,7 @@ func TestUnitRenderAppendCustomConfigMap(t *testing.T) {
 	}
 	assert.Equal(t, expectedResult, templateds.ConfigMapK8sObj.Data)
 	assert.Equal(t, "STRING,PASSWORD,REUSE_PREVIOUS,SSL_MODE_AGAIN",
-		templateds.ConfigMapK8sObj.ObjectMeta.Annotations[templates.TEMPLATE_ANNOTATION_KEY],
+		templateds.ConfigMapK8sObj.ObjectMeta.Annotations[consts.TEMPLATE_ANNOTATION_KEY],
 	)
 }
 
@@ -644,6 +622,6 @@ func TestUnitRenderCleanupConfigmMap(t *testing.T) {
 	// - STRING   -> Should be removed
 	assert.Equal(t, expectedResult, templateds.ConfigMapK8sObj.Data)
 	assert.Equal(t, "PASSWORD",
-		templateds.ConfigMapK8sObj.ObjectMeta.Annotations[templates.TEMPLATE_ANNOTATION_KEY],
+		templateds.ConfigMapK8sObj.ObjectMeta.Annotations[consts.TEMPLATE_ANNOTATION_KEY],
 	)
 }

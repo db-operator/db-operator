@@ -26,11 +26,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestGCSBackupCronGsql(t *testing.T) {
-	ownership := []metav1.OwnerReference{}
 	dbcr := &kindav1beta1.Database{}
 	dbcr.Namespace = "TestNS"
 	dbcr.Name = "TestDB"
@@ -44,7 +42,7 @@ func TestGCSBackupCronGsql(t *testing.T) {
 	conf := config.LoadConfig()
 
 	instance.Spec.Engine = "postgres"
-	funcCronObject, err := GCSBackupCron(&conf, dbcr, instance, ownership)
+	funcCronObject, err := GCSBackupCron(&conf, dbcr, instance)
 	if err != nil {
 		fmt.Print(err)
 	}
@@ -52,7 +50,7 @@ func TestGCSBackupCronGsql(t *testing.T) {
 	assert.Equal(t, "postgresbackupimage:latest", funcCronObject.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Image)
 
 	instance.Spec.Engine = "mysql"
-	funcCronObject, err = GCSBackupCron(&conf, dbcr, instance, ownership)
+	funcCronObject, err = GCSBackupCron(&conf, dbcr, instance)
 	if err != nil {
 		fmt.Print(err)
 	}
@@ -65,7 +63,6 @@ func TestGCSBackupCronGsql(t *testing.T) {
 }
 
 func TestUnitGCSBackupCronGeneric(t *testing.T) {
-	ownership := []metav1.OwnerReference{}
 	dbcr := &kindav1beta1.Database{}
 	dbcr.Namespace = "TestNS"
 	dbcr.Name = "TestDB"
@@ -79,7 +76,7 @@ func TestUnitGCSBackupCronGeneric(t *testing.T) {
 	conf := config.LoadConfig()
 
 	instance.Spec.Engine = "postgres"
-	funcCronObject, err := GCSBackupCron(&conf, dbcr, instance, ownership)
+	funcCronObject, err := GCSBackupCron(&conf, dbcr, instance)
 	if err != nil {
 		fmt.Print(err)
 	}
@@ -87,7 +84,7 @@ func TestUnitGCSBackupCronGeneric(t *testing.T) {
 	assert.Equal(t, "postgresbackupimage:latest", funcCronObject.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Image)
 
 	instance.Spec.Engine = "mysql"
-	funcCronObject, err = GCSBackupCron(&conf, dbcr, instance, ownership)
+	funcCronObject, err = GCSBackupCron(&conf, dbcr, instance)
 	if err != nil {
 		fmt.Print(err)
 	}
@@ -98,39 +95,6 @@ func TestUnitGCSBackupCronGeneric(t *testing.T) {
 	assert.Equal(t, "TestNS-TestDB-backup", funcCronObject.Name)
 	assert.Equal(t, "* * * * *", funcCronObject.Spec.Schedule)
 	assert.Equal(t, len(funcCronObject.OwnerReferences), 0, "Unexpected size of an OwnerReference")
-}
-
-func TestUnitGCSBackupCronGenericWithOwnerReference(t *testing.T) {
-	ownership := []metav1.OwnerReference{}
-	ownership = append(ownership, metav1.OwnerReference{
-		APIVersion: "api-version",
-		Kind:       "kind",
-		Name:       "name",
-		UID:        "uid",
-	})
-	dbcr := &kindav1beta1.Database{}
-	dbcr.Namespace = "TestNS"
-	dbcr.Name = "TestDB"
-	instance := &kindav1beta1.DbInstance{}
-	instance.Status.Info = map[string]string{"DB_CONN": "TestConnection", "DB_PORT": "1234"}
-	instance.Spec.Generic = &kindav1beta1.GenericInstance{BackupHost: "slave.test"}
-	dbcr.Spec.Instance = "staging"
-	dbcr.Spec.Backup.Cron = "* * * * *"
-
-	os.Setenv("CONFIG_PATH", "./test/backup_config.yaml")
-	conf := config.LoadConfig()
-
-	instance.Spec.Engine = "postgres"
-	funcCronObject, err := GCSBackupCron(&conf, dbcr, instance, ownership)
-	if err != nil {
-		fmt.Print(err)
-	}
-
-	assert.Equal(t, len(funcCronObject.OwnerReferences), 1, "Unexpected size of an OwnerReference")
-	assert.Equal(t, funcCronObject.OwnerReferences[0].APIVersion, ownership[0].APIVersion, "API Version in the OwnerReference is wrong")
-	assert.Equal(t, funcCronObject.OwnerReferences[0].Kind, ownership[0].Kind, "Kind in the OwnerReference is wrong")
-	assert.Equal(t, funcCronObject.OwnerReferences[0].Name, ownership[0].Name, "Name in the OwnerReference is wrong")
-	assert.Equal(t, funcCronObject.OwnerReferences[0].UID, ownership[0].UID, "UID in the OwnerReference is wrong")
 }
 
 func TestUnitGetResourceRequirements(t *testing.T) {

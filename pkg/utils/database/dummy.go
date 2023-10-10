@@ -42,7 +42,6 @@ func (d Dummy) QueryAsUser(query string, user *DatabaseUser) (string, error) {
 		return "", d.Error
 	}
 	return query, nil
-
 }
 
 // CheckStatus implements Database.

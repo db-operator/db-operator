@@ -66,7 +66,7 @@ help: ## show this help
 .PHONY: build
 build: ## Build a container
 	$(CONTAINER_TOOL) build ${CONTAINER_TOOL_ARGS} -t ${IMAGE_TAG} . ${CONTAINER_TOOL_NAMESPACE_ARG}
-	$(CONTAINER_TOOL) save ${CONTAINER_TOOL_NAMESPACE_ARG} -o my-image.tar
+	$(CONTAINER_TOOL) save ${CONTAINER_TOOL_NAMESPACE_ARG} ${IMAGE_TAG} -o my-image.tar
 
 # ---------------------------------------------------------------------
 # -- Go related rules
@@ -117,6 +117,7 @@ controller-gen: ## Download controller-gen locally if necessary.
 .PHONY: envtest
 envtest: ## Download envtest-setup locally if necessary.
 	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+	${LOCALBIN}/setup-envtest use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path
 
 # ---------------------------------------------------------------------
 # -- Additional helpers

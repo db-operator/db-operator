@@ -1,6 +1,3 @@
-//go:build !tests
-// +build !tests
-
 /*
  * Copyright 2023 DB-Operator Authors
  *

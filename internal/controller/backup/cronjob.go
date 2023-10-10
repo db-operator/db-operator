@@ -32,7 +32,7 @@ import (
 // GCSBackupCron builds kubernetes cronjob object
 // to create database backup regularly with defined schedule from dbcr
 // this job will database dump and upload to google bucket storage for backup
-func GCSBackupCron(conf *config.Config, dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance, ownership []metav1.OwnerReference) (*batchv1.CronJob, error) {
+func GCSBackupCron(conf *config.Config, dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) (*batchv1.CronJob, error) {
 	cronJobSpec, err := buildCronJobSpec(conf, dbcr, instance)
 	if err != nil {
 		return nil, err
@@ -44,10 +44,9 @@ func GCSBackupCron(conf *config.Config, dbcr *kindav1beta1.Database, instance *k
 			APIVersion: "batch",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            dbcr.Namespace + "-" + dbcr.Name + "-" + "backup",
-			Namespace:       dbcr.Namespace,
-			Labels:          kci.BaseLabelBuilder(),
-			OwnerReferences: ownership,
+			Name:      dbcr.Namespace + "-" + dbcr.Name + "-" + "backup",
+			Namespace: dbcr.Namespace,
+			Labels:    kci.BaseLabelBuilder(),
 		},
 		Spec: cronJobSpec,
 	}, nil

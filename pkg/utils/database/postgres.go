@@ -115,7 +115,6 @@ func (p Postgres) execAsUser(query string, user *DatabaseUser) error {
 	_, err = db.Exec(query)
 
 	return err
-
 }
 
 func (p Postgres) isDbExist(admin *DatabaseUser) bool {

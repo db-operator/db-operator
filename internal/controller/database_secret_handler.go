@@ -1,5 +1,6 @@
 /*
  * Copyright 2021 kloeckner.i GmbH
+ * Copyright 2023 DB-Operator Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +18,11 @@
 package controllers
 
 import (
+	"bytes"
 	"context"
-	"strings"
 
 	kindav1beta1 "github.com/db-operator/db-operator/api/v1beta1"
+	"github.com/db-operator/db-operator/pkg/consts"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -31,40 +33,94 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const (
-	DbSecretAnnotation = "db-operator/database"
-)
-
 /* ------ Secret Event Handler ------ */
 type secretEventHandler struct {
 	client.Client
 }
 
-func (e *secretEventHandler) Update(context context.Context, evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
+func (e *secretEventHandler) Update(ctx context.Context, evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
 	logrus.Info("Start processing Database Secret Update Event")
 
 	switch v := evt.ObjectNew.(type) {
 
 	default:
-		logrus.Error("Database Secret Update Event error! Unknown object: type=", v.GetObjectKind(), ", name=", evt.ObjectNew.GetNamespace(), "/", evt.ObjectNew.GetName())
+		logrus.Error("database Secret Update Event error! Unknown object: type=", v.GetObjectKind(), ", name=", evt.ObjectNew.GetNamespace(), "/", evt.ObjectNew.GetName())
 		return
 
 	case *corev1.Secret:
-		// only annotated secrets are watched
+		// only labeled secrets are watched
 		secretNew := evt.ObjectNew.(*corev1.Secret)
-		annotations := secretNew.ObjectMeta.GetAnnotations()
-		dbSecretAnnotation, ok := annotations[DbSecretAnnotation]
-		if !ok {
-			logrus.Error("Database Secret Update Event error! Annotation '", DbSecretAnnotation, "' value is empty or not exist.")
+		secretOld := evt.ObjectOld.(*corev1.Secret)
+
+		labels := secretNew.GetLabels()
+		if _, ok := labels[consts.USED_BY_KIND_LABEL_KEY]; !ok {
+			logrus.Errorf("Secret handler won't trigger reconciliation, because %s label is empty", consts.USED_BY_KIND_LABEL_KEY)
 			return
 		}
 
-		logrus.Info("Processing Database Secret annotation: name=", DbSecretAnnotation, ", value=", dbSecretAnnotation)
+		dbcrName, ok := labels[consts.USED_BY_NAME_LABEL_KEY]
+		if !ok {
+			logrus.Errorf("Secret handler won't trigger reconciliation, because %s label is empty", consts.USED_BY_NAME_LABEL_KEY)
+			return
+		}
 
-		dbcrNames := strings.Split(dbSecretAnnotation, ",")
-		for _, dbcrName := range dbcrNames {
-			// send Database Reconcile Request
-			logrus.Info("Database Secret has been changed and related Database resource will be reconciled: secret=", secretNew.Namespace, "/", secretNew.Name, ", database=", dbcrName)
+		logrus.Info("processing Database Secret label: name=", consts.USED_BY_NAME_LABEL_KEY, ", value=", dbcrName)
+
+		// send Database Reconcile Request
+		dbcr := &kindav1beta1.Database{}
+		if err := e.Client.Get(ctx, types.NamespacedName{Namespace: secretNew.GetNamespace(), Name: dbcrName}, dbcr); err != nil {
+			logrus.Errorf("couldn't get the database resource: %s - %s", secretNew.GetNamespace(), dbcrName)
+			return
+		}
+
+		if dbcr.IsDeleted() {
+			logrus.Warnf("database %s has been marked for deletion, reconciliation won't be triggered", dbcrName)
+			return
+		}
+
+		// By default we don't need to run full reconciliation
+		fullReconcile := false
+
+		if _, ok := secretNew.GetAnnotations()[consts.SECRET_FORCE_RECONCILE]; ok {
+			fullReconcile = true
+			defer func() {
+				delete(secretNew.Annotations, consts.SECRET_FORCE_RECONCILE)
+				logrus.Infof("removing annotation %s from the seecret %s", consts.SECRET_FORCE_RECONCILE, secretNew.GetName())
+				if err := e.Client.Update(ctx, secretNew, &client.UpdateOptions{}); err != nil {
+					logrus.Errorf("couldn't remove annotation: %s", err)
+				}
+			}()
+		} else {
+			inputsKeys := []string{}
+			switch dbcr.Status.Engine {
+			case "postgres":
+				inputsKeys = []string{
+					consts.POSTGRES_DB,
+					consts.POSTGRES_PASSWORD,
+					consts.POSTGRES_USER,
+				}
+
+			case "mysql":
+				inputsKeys = []string{
+					consts.MYSQL_DB,
+					consts.MYSQL_PASSWORD,
+					consts.MYSQL_USER,
+				}
+
+			default:
+				logrus.Errorf("unknown database engine: %s", dbcr.Status.Engine)
+			}
+
+			for _, key := range inputsKeys {
+				if !bytes.Equal(secretNew.Data[key], secretOld.Data[key]) {
+					fullReconcile = true
+					break
+				}
+			}
+		}
+
+		if fullReconcile {
+			logrus.Info("database Secret has been changed and related database resource will be reconciled: secret=", secretNew.Namespace, "/", secretNew.Name, ", database=", dbcrName)
 			q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
 				Namespace: secretNew.GetNamespace(),
 				Name:      dbcrName,
@@ -73,7 +129,7 @@ func (e *secretEventHandler) Update(context context.Context, evt event.UpdateEve
 	}
 }
 
-func (e *secretEventHandler) Delete(context.Context,event.DeleteEvent, workqueue.RateLimitingInterface) {
+func (e *secretEventHandler) Delete(context.Context, event.DeleteEvent, workqueue.RateLimitingInterface) {
 	logrus.Error("secretEventHandler.Delete(...) event has been FIRED but NOT implemented!")
 }
 
@@ -138,11 +194,11 @@ func isObjectUpdated(e event.UpdateEvent) bool {
 	// if object kind is a Secret check that password value has changed
 	secretNew, isSecret := e.ObjectNew.(*corev1.Secret)
 	if isSecret {
-		// only annotated secrets are watched
-		annotations := secretNew.ObjectMeta.GetAnnotations()
-		dbcrName, ok := annotations[DbSecretAnnotation]
+		// only labeled secrets are watched
+		labels := secretNew.ObjectMeta.GetLabels()
+		dbcrName, ok := labels[consts.USED_BY_NAME_LABEL_KEY]
 		if !ok {
-			return false // no annotation found
+			return false // no label found
 		}
 		logrus.Info("Secret Update Event detected: secret=", secretNew.Namespace, "/", secretNew.Name, ", database=", dbcrName)
 		return true

@@ -17,7 +17,10 @@
 
 package v1beta1
 
-import "k8s.io/apimachinery/pkg/types"
+import (
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+)
 
 // NamespacedName is a fork of the kubernetes api type of the same name.
 // Sadly this is required because CRD structs must have all fields json tagged and the kubernetes type is not tagged.
@@ -38,9 +41,19 @@ func (nn *NamespacedName) ToKubernetesType() types.NamespacedName {
 	}
 }
 
-// Tempaltes to add custom entries to comfigmaps and secrets
+// Tempaltes to add custom entries to ConfigMaps and Secrets
 type Template struct {
 	Name     string `json:"name"`
 	Template string `json:"template"`
 	Secret   bool   `json:"secret"`
+}
+
+// An interface that implements common memthods for all kinda objects
+type KindaObject interface {
+	IsCleanup() bool
+	IsDeleted() bool
+	// client.Object default methods to avoid casting later
+	GetName() string
+	GetObjectKind() schema.ObjectKind
+	GetUID() types.UID
 }

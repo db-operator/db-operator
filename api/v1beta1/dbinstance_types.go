@@ -189,4 +189,13 @@ func (dbin *DbInstance) IsMonitoringEnabled() bool {
 	return dbin.Spec.Monitoring.Enabled
 }
 
+// DbInstances don't have the cleanup feature
+func (dbin *DbInstance) IsCleanup() bool {
+	return false
+}
+
+func (dbin *DbInstance) IsDeleted() bool {
+	return dbin.GetDeletionTimestamp() != nil
+}
+
 func (db *DbInstance) Hub() {}

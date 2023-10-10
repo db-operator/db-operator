@@ -117,7 +117,6 @@ func (m Mysql) execAsUser(query string, user *DatabaseUser) error {
 	rows.Close()
 
 	return nil
-
 }
 
 func (m Mysql) isRowExist(query string, admin *DatabaseUser) bool {

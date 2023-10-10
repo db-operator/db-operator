@@ -24,7 +24,6 @@ import (
 	kindav1beta1 "github.com/db-operator/db-operator/api/v1beta1"
 	"github.com/db-operator/db-operator/pkg/utils/database"
 	"github.com/sirupsen/logrus"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/strings/slices"
 )
 
@@ -126,7 +125,7 @@ func GenerateTemplatedSecrets(dbcr *kindav1beta1.Database, databaseCred database
 	return secrets, nil
 }
 
-func AppendTemplatedSecretData(dbcr *kindav1beta1.Database, secretData map[string][]byte, newSecretFields map[string][]byte, ownership []metav1.OwnerReference) map[string][]byte {
+func AppendTemplatedSecretData(dbcr *kindav1beta1.Database, secretData map[string][]byte, newSecretFields map[string][]byte) map[string][]byte {
 	blockedTempatedKeys := getBlockedTempatedKeys()
 	for key, value := range newSecretFields {
 		if slices.Contains(blockedTempatedKeys, key) {
@@ -142,7 +141,7 @@ func AppendTemplatedSecretData(dbcr *kindav1beta1.Database, secretData map[strin
 	return secretData
 }
 
-func RemoveObsoleteSecret(dbcr *kindav1beta1.Database, secretData map[string][]byte, newSecretFields map[string][]byte, ownership []metav1.OwnerReference) map[string][]byte {
+func RemoveObsoleteSecret(dbcr *kindav1beta1.Database, secretData map[string][]byte, newSecretFields map[string][]byte) map[string][]byte {
 	blockedTempatedKeys := getBlockedTempatedKeys()
 
 	for key := range secretData {

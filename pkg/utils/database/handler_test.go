@@ -72,7 +72,6 @@ func TestDeletePostgres(t *testing.T) {
 
 	err = DeleteUser(p, dbu, admin)
 	assert.NoErrorf(t, err, "Unexpected error %v", err)
-
 }
 
 func TestDeleteMysql(t *testing.T) {
@@ -85,5 +84,4 @@ func TestDeleteMysql(t *testing.T) {
 
 	err = DeleteUser(m, dbu, admin)
 	assert.NoErrorf(t, err, "Unexpected error %v", err)
-
 }

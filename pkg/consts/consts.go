@@ -18,7 +18,7 @@ package consts
 
 // This package exists to avoid cycle import. Put here consts that are used accrossed packages
 
-// DatabaseRelatedConsts
+// Database Related Consts
 const (
 	POSTGRES_DB       = "POSTGRES_DB"
 	POSTGRES_USER     = "POSTGRES_USER"
@@ -32,4 +32,27 @@ const (
 const (
 	ENGINE_POSTGRES = "postgres"
 	ENGINE_MYSQL    = "mysql"
+)
+
+// SSL modes
+const (
+	SSL_DISABLED  = "disabled"
+	SSL_REQUIRED  = "required"
+	SSL_VERIFY_CA = "verify_ca"
+)
+
+// Kubernetes Annotations
+const (
+	TEMPLATE_ANNOTATION_KEY       = "kinda.rocks/db-operator-templated-keys"
+	SECRET_FORCE_RECONCILE        = "kinda.rocks/secret-force-reconcile"
+	DATABASE_FORCE_FULL_RECONCILE = "kinda.rocks/db-force-full-reconcile"
+	USED_OBJECTS                  = "kinda.rocks/used-objects"
+)
+
+// Kubernetes Labels
+const (
+	MANAGED_BY_LABEL_KEY   = "app.kubernetes.io/managed-by"
+	MANAGED_BY_LABEL_VALUE = "db-operator"
+	USED_BY_KIND_LABEL_KEY = "kinda.rocks/used-by-kind"
+	USED_BY_NAME_LABEL_KEY = "kinda.rocks/used-by-name"
 )

@@ -32,7 +32,6 @@ func TestUnitSecretTemplatesValidator(t *testing.T) {
 		"[.Protocol .DatabaseHost .DatabasePort .UserName .Password .DatabaseName]",
 		"the error doesn't contain expected substring",
 	)
-
 }
 
 func TestUnitTemplatesValidator(t *testing.T) {

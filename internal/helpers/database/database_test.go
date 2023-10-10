@@ -23,23 +23,20 @@ import (
 
 	dbhelper "github.com/db-operator/db-operator/internal/helpers/database"
 	"github.com/db-operator/db-operator/internal/utils/testutils"
+	"github.com/db-operator/db-operator/pkg/consts"
 	"github.com/db-operator/db-operator/pkg/utils/database"
 	"github.com/db-operator/db-operator/pkg/utils/templates"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var (
-	testDbcred = database.Credentials{Name: "testdb", Username: "testuser", Password: "password"}
-	ownership  = []metav1.OwnerReference{}
-)
+var testDbcred = database.Credentials{Name: "testdb", Username: "testuser", Password: "password"}
 
 func TestUnitDeterminPostgresType(t *testing.T) {
 	instance := testutils.NewPostgresTestDbInstanceCr()
 	postgresDbCr := testutils.NewPostgresTestDbCr(instance)
 
-	db, _, _ := dbhelper.DeterminDatabaseType(postgresDbCr, testDbcred, &instance)
+	db, _, _ := dbhelper.FetchDatabaseData(postgresDbCr, testDbcred, &instance)
 	_, ok := db.(database.Postgres)
 	assert.Equal(t, ok, true, "expected true")
 }
@@ -47,7 +44,7 @@ func TestUnitDeterminPostgresType(t *testing.T) {
 func TestUnitDeterminMysqlType(t *testing.T) {
 	mysqlDbCr := testutils.NewMysqlTestDbCr()
 	instance := testutils.NewPostgresTestDbInstanceCr()
-	db, _, _ := dbhelper.DeterminDatabaseType(mysqlDbCr, testDbcred, &instance)
+	db, _, _ := dbhelper.FetchDatabaseData(mysqlDbCr, testDbcred, &instance)
 	_, ok := db.(database.Mysql)
 	assert.Equal(t, ok, true, "expected true")
 }
@@ -99,7 +96,7 @@ func TestUnitMonitoringNotEnabled(t *testing.T) {
 	instance := testutils.NewPostgresTestDbInstanceCr()
 	instance.Spec.Monitoring.Enabled = false
 	postgresDbCr := testutils.NewPostgresTestDbCr(instance)
-	db, _, _ := dbhelper.DeterminDatabaseType(postgresDbCr, testDbcred, &instance)
+	db, _, _ := dbhelper.FetchDatabaseData(postgresDbCr, testDbcred, &instance)
 	postgresInterface, _ := db.(database.Postgres)
 
 	found := false
@@ -117,7 +114,7 @@ func TestUnitMonitoringEnabled(t *testing.T) {
 	instance.Spec.Monitoring.Enabled = true
 	postgresDbCr := testutils.NewPostgresTestDbCr(instance)
 
-	db, _, _ := dbhelper.DeterminDatabaseType(postgresDbCr, testDbcred, &instance)
+	db, _, _ := dbhelper.FetchDatabaseData(postgresDbCr, testDbcred, &instance)
 	postgresInterface, _ := db.(database.Postgres)
 
 	assert.Equal(t, postgresInterface.Monitoring, true, "expected monitoring is true in postgres interface")
@@ -146,7 +143,7 @@ func TestUnitPsqlTemplatedSecretGeneratationWithProxy(t *testing.T) {
 		"PROXIED_HOST": []byte(c.DatabaseHost),
 	}
 
-	db, _, _ := dbhelper.DeterminDatabaseType(postgresDbCr, testDbcred, &instance)
+	db, _, _ := dbhelper.FetchDatabaseData(postgresDbCr, testDbcred, &instance)
 	connString, err := templates.GenerateTemplatedSecrets(postgresDbCr, testDbcred, db.GetDatabaseAddress())
 	if err != nil {
 		t.Logf("Unexpected error: %s", err)
@@ -179,7 +176,7 @@ func TestUnitPsqlCustomSecretGeneratation(t *testing.T) {
 		"CHECK_2": []byte(fmt.Sprintf("%s://%s:%s@%s:%d/%s", protocol, c.UserName, c.Password, c.DatabaseHost, c.DatabasePort, c.DatabaseName)),
 	}
 
-	db, _, _ := dbhelper.DeterminDatabaseType(postgresDbCr, testDbcred, &instance)
+	db, _, _ := dbhelper.FetchDatabaseData(postgresDbCr, testDbcred, &instance)
 	templatedSecrets, err := templates.GenerateTemplatedSecrets(postgresDbCr, testDbcred, db.GetDatabaseAddress())
 	if err != nil {
 		t.Logf("unexpected error: %s", err)
@@ -196,7 +193,7 @@ func TestUnitWrongTemplatedSecretGeneratation(t *testing.T) {
 		"TMPL": "{{ .Protocol }}://{{ .User }}:{{ .Password }}@{{ .DatabaseHost }}:{{ .DatabasePort }}/{{ .DatabaseName }}",
 	}
 
-	db, _, _ := dbhelper.DeterminDatabaseType(postgresDbCr, testDbcred, &instance)
+	db, _, _ := dbhelper.FetchDatabaseData(postgresDbCr, testDbcred, &instance)
 	_, err := templates.GenerateTemplatedSecrets(postgresDbCr, testDbcred, db.GetDatabaseAddress())
 	errSubstr := "can't evaluate field User in type templates.SecretsTemplatesFields"
 
@@ -216,7 +213,7 @@ func TestUnitBlockedTempatedKeysGeneratation(t *testing.T) {
 	expectedData := map[string][]byte{
 		"TMPL": []byte("DUMMY"),
 	}
-	db, _, _ := dbhelper.DeterminDatabaseType(postgresDbCr, testDbcred, &instance)
+	db, _, _ := dbhelper.FetchDatabaseData(postgresDbCr, testDbcred, &instance)
 	sercretData, err := templates.GenerateTemplatedSecrets(postgresDbCr, testDbcred, db.GetDatabaseAddress())
 	if err != nil {
 		t.Logf("unexpected error: %s", err)
@@ -227,7 +224,7 @@ func TestUnitBlockedTempatedKeysGeneratation(t *testing.T) {
 		Data: map[string][]byte{},
 	}
 
-	newSecret := templates.AppendTemplatedSecretData(postgresDbCr, dummySecret.Data, sercretData, ownership)
+	newSecret := templates.AppendTemplatedSecretData(postgresDbCr, dummySecret.Data, sercretData)
 	assert.Equal(t, newSecret, expectedData, "generated connections string is wrong")
 }
 
@@ -241,7 +238,7 @@ func TestUnitObsoleteFieldsRemoving(t *testing.T) {
 		"TMPL": []byte("DUMMY"),
 	}
 
-	db, _, _ := dbhelper.DeterminDatabaseType(postgresDbCr, testDbcred, &instance)
+	db, _, _ := dbhelper.FetchDatabaseData(postgresDbCr, testDbcred, &instance)
 	secretData, err := templates.GenerateTemplatedSecrets(postgresDbCr, testDbcred, db.GetDatabaseAddress())
 	if err != nil {
 		t.Logf("unexpected error: %s", err)
@@ -257,9 +254,8 @@ func TestUnitObsoleteFieldsRemoving(t *testing.T) {
 			"TO_REMOVE": []byte("this is supposed to be removed"),
 		},
 	}
-
-	newSecret := templates.AppendTemplatedSecretData(postgresDbCr, dummySecret.Data, secretData, ownership)
-	newSecret = templates.RemoveObsoleteSecret(postgresDbCr, newSecret, secretData, ownership)
+	newSecret := templates.AppendTemplatedSecretData(postgresDbCr, dummySecret.Data, secretData)
+	newSecret = templates.RemoveObsoleteSecret(postgresDbCr, dummySecret.Data, secretData)
 
 	assert.Equal(t, newSecret, expectedData, "generated connections string is wrong")
 }
@@ -273,14 +269,14 @@ func TestUnitGetGenericSSLModePostgres(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	assert.Equal(t, dbhelper.SSL_DISABLED, mode)
+	assert.Equal(t, consts.SSL_DISABLED, mode)
 
 	instance.Spec.SSLConnection.SkipVerify = true
 	mode, err = dbhelper.GetGenericSSLMode(posgresDbCR, &instance)
 	if err != nil {
 		t.Error(err)
 	}
-	assert.Equal(t, dbhelper.SSL_DISABLED, mode)
+	assert.Equal(t, consts.SSL_DISABLED, mode)
 
 	instance.Spec.SSLConnection.Enabled = true
 	instance.Spec.SSLConnection.SkipVerify = true
@@ -288,14 +284,14 @@ func TestUnitGetGenericSSLModePostgres(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	assert.Equal(t, dbhelper.SSL_REQUIRED, mode)
+	assert.Equal(t, consts.SSL_REQUIRED, mode)
 
 	instance.Spec.SSLConnection.SkipVerify = false
 	mode, err = dbhelper.GetGenericSSLMode(posgresDbCR, &instance)
 	if err != nil {
 		t.Error(err)
 	}
-	assert.Equal(t, dbhelper.SSL_VERIFY_CA, mode)
+	assert.Equal(t, consts.SSL_VERIFY_CA, mode)
 }
 
 func TestUnitGetGenericSSLModeMysql(t *testing.T) {
@@ -308,14 +304,14 @@ func TestUnitGetGenericSSLModeMysql(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	assert.Equal(t, dbhelper.SSL_DISABLED, mode)
+	assert.Equal(t, consts.SSL_DISABLED, mode)
 
 	instance.Spec.SSLConnection.SkipVerify = true
 	mode, err = dbhelper.GetGenericSSLMode(mysqlDbCR, &instance)
 	if err != nil {
 		t.Error(err)
 	}
-	assert.Equal(t, dbhelper.SSL_DISABLED, mode)
+	assert.Equal(t, consts.SSL_DISABLED, mode)
 
 	instance.Spec.SSLConnection.Enabled = true
 	instance.Spec.SSLConnection.SkipVerify = true
@@ -323,15 +319,16 @@ func TestUnitGetGenericSSLModeMysql(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	assert.Equal(t, dbhelper.SSL_REQUIRED, mode)
+	assert.Equal(t, consts.SSL_REQUIRED, mode)
 
 	instance.Spec.SSLConnection.SkipVerify = false
 	mode, err = dbhelper.GetGenericSSLMode(mysqlDbCR, &instance)
 	if err != nil {
 		t.Error(err)
 	}
-	assert.Equal(t, dbhelper.SSL_VERIFY_CA, mode)
+	assert.Equal(t, consts.SSL_VERIFY_CA, mode)
 }
+
 func TestUnitGetSSLModePostgres(t *testing.T) {
 	instance := testutils.NewPostgresTestDbInstanceCr()
 	posgresDbCR := testutils.NewPostgresTestDbCr(instance)

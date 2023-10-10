@@ -258,7 +258,7 @@ func (r *DbInstanceReconciler) createProxy(ctx context.Context, dbin *kindav1bet
 	}
 
 	// create proxy deployment
-	deploy, err := proxy.BuildDeployment(proxyInterface, ownership)
+	deploy, err := proxy.BuildDeployment(proxyInterface)
 	if err != nil {
 		return err
 	}
@@ -279,7 +279,7 @@ func (r *DbInstanceReconciler) createProxy(ctx context.Context, dbin *kindav1bet
 	}
 
 	// create proxy service
-	svc, err := proxy.BuildService(proxyInterface, ownership)
+	svc, err := proxy.BuildService(proxyInterface)
 	if err != nil {
 		return err
 	}

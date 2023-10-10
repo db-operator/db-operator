@@ -41,13 +41,27 @@ func (r *Database) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 //+kubebuilder:webhook:path=/mutate-kinda-rocks-v1beta1-database,mutating=true,failurePolicy=fail,sideEffects=None,groups=kinda.rocks,resources=databases,verbs=create;update,versions=v1beta1,name=mdatabase.kb.io,admissionReviewVersions=v1
 
+const (
+	DEFAULT_TEMPLATE_VALUE = "{{ .Protocol }}://{{ .Username }}:{{ .Password }}@{{ .Hostname }}:{{ .Port }}/{{ .Database }}"
+	DEFAULT_TEMPLATE_NAME  = "CONNECTION_STRING"
+)
+
 var _ webhook.Defaulter = &Database{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *Database) Default() {
 	databaselog.Info("default", "name", r.Name)
-
-	// TODO(user): fill in your defaulting logic.
+	if len(r.Spec.SecretsTemplates) == 0 && len(r.Spec.Credentials.Templates) == 0 {
+		r.Spec.Credentials = Credentials{
+			Templates: Templates{
+				&Template{
+					Name:     DEFAULT_TEMPLATE_NAME,
+					Template: DEFAULT_TEMPLATE_VALUE,
+					Secret:   true,
+				},
+			},
+		}
+	}
 }
 
 //+kubebuilder:webhook:path=/validate-kinda-rocks-v1beta1-database,mutating=false,failurePolicy=fail,sideEffects=None,groups=kinda.rocks,resources=databases,verbs=create;update,versions=v1beta1,name=vdatabase.kb.io,admissionReviewVersions=v1
@@ -131,8 +145,10 @@ func ValidateSecretTemplates(templates map[string]string) error {
 	return nil
 }
 
-var helpers []string = []string{"Protocol", "Hostname", "Port", "Password", "Username", "Password", "Database"}
-var functions []string = []string{"Secret", "ConfigMap", "Query"}
+var (
+	helpers   []string = []string{"Protocol", "Hostname", "Port", "Password", "Username", "Password", "Database"}
+	functions []string = []string{"Secret", "ConfigMap", "Query"}
+)
 
 func ValidateTemplates(templates Templates) error {
 	for _, template := range templates {

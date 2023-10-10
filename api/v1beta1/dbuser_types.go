@@ -90,3 +90,12 @@ func IsAccessTypeSupported(wantedAccessType string) error {
 		supportedAccessTypes,
 	)
 }
+
+// DbUsers don't have cleanup feature implemented
+func (dbu *DbUser) IsCleanup() bool {
+	return false
+}
+
+func (dbu *DbUser) IsDeleted() bool {
+	return dbu.GetDeletionTimestamp() != nil
+}

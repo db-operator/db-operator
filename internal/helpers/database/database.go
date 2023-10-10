@@ -29,7 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func DeterminDatabaseType(dbcr *kindav1beta1.Database, dbCred database.Credentials, instance *kindav1beta1.DbInstance) (database.Database, *database.DatabaseUser, error) {
+func FetchDatabaseData(dbcr *kindav1beta1.Database, dbCred database.Credentials, instance *kindav1beta1.DbInstance) (database.Database, *database.DatabaseUser, error) {
 	host := instance.Status.Info["DB_CONN"]
 	port, err := strconv.Atoi(instance.Status.Info["DB_PORT"])
 	if err != nil {
@@ -171,12 +171,6 @@ func GenerateDatabaseSecretData(objectMeta metav1.ObjectMeta, engine, dbName str
 	}
 }
 
-const (
-	SSL_DISABLED  = "disabled"
-	SSL_REQUIRED  = "required"
-	SSL_VERIFY_CA = "verify_ca"
-)
-
 func GetSSLMode(dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) (string, error) {
 	genericSSL, err := GetGenericSSLMode(dbcr, instance)
 	if err != nil {
@@ -185,22 +179,22 @@ func GetSSLMode(dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) 
 
 	if dbcr.Status.Engine == "postgres" {
 		switch genericSSL {
-		case SSL_DISABLED:
+		case consts.SSL_DISABLED:
 			return "disable", nil
-		case SSL_REQUIRED:
+		case consts.SSL_REQUIRED:
 			return "require", nil
-		case SSL_VERIFY_CA:
+		case consts.SSL_VERIFY_CA:
 			return "verify-ca", nil
 		}
 	}
 
 	if dbcr.Status.Engine == "mysql" {
 		switch genericSSL {
-		case SSL_DISABLED:
+		case consts.SSL_DISABLED:
 			return "disabled", nil
-		case SSL_REQUIRED:
+		case consts.SSL_REQUIRED:
 			return "required", nil
-		case SSL_VERIFY_CA:
+		case consts.SSL_VERIFY_CA:
 			return "verify_ca", nil
 		}
 	}
@@ -210,12 +204,12 @@ func GetSSLMode(dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) 
 
 func GetGenericSSLMode(dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) (string, error) {
 	if !instance.Spec.SSLConnection.Enabled {
-		return SSL_DISABLED, nil
+		return consts.SSL_DISABLED, nil
 	} else {
 		if instance.Spec.SSLConnection.SkipVerify {
-			return SSL_REQUIRED, nil
+			return consts.SSL_REQUIRED, nil
 		} else {
-			return SSL_VERIFY_CA, nil
+			return consts.SSL_VERIFY_CA, nil
 		}
 	}
 }
