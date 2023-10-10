@@ -35,16 +35,28 @@ jobs:
           sed -i '/^#/d' "${GITHUB_ENV}"
           echo "TAGS=latest ${OLD_TAGS}" >> "${GITHUB_ENV}"
 
-      - name: Build an image
-        id: build-image
-        uses: redhat-actions/buildah-build@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
         with:
-          image: db-operator-devel
-          tags: ${{ env.TAGS }}
+          tags: db-operator-dev:latest
           platforms: linux/amd64, linux/arm64/v8
-          containerfiles: |
-            ./Containerfile
+          file: ./Containerfile
           labels: ${{ env.ANNOTATIONS }}
+          # push: true
+      
+      # - name: Build an image
+        # id: build-image
+        # uses: redhat-actions/buildah-build@v2
+        # with:
+          # image: db-operator-devel
+          # tags: ${{ env.TAGS }}
+          # platforms: linux/amd64, linux/arm64/v8
+          # containerfiles: |
+            # ./Containerfile
+          # labels: ${{ env.ANNOTATIONS }}
 
       - name: Push the image to GHCR
         id: push-to-ghcr
