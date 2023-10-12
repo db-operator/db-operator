@@ -52,6 +52,7 @@ func init() {
 
 	utilruntime.Must(kindarocksv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(kindarocksv1beta1.AddToScheme(scheme))
+	utilruntime.Must(kindarocksv1beta2.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 
 	thirdpartyapi.AppendToScheme(scheme)
@@ -98,15 +99,15 @@ func main() {
 	if isWebhook {
 		setupLog.Info("Starting webhook server")
 
-		if err = (&kindarocksv1beta1.Database{}).SetupWebhookWithManager(mgr); err != nil {
+		if err = (&kindarocksv1beta2.Database{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Database")
 			os.Exit(1)
 		}
-		if err = (&kindarocksv1beta1.DbInstance{}).SetupWebhookWithManager(mgr); err != nil {
+		if err = (&kindarocksv1beta2.DbInstance{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "DbInstance")
 			os.Exit(1)
 		}
-		if err = (&kindarocksv1beta1.DbUser{}).SetupWebhookWithManager(mgr); err != nil {
+		if err = (&kindarocksv1beta2.DbUser{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "DbUser")
 			os.Exit(1)
 		}
