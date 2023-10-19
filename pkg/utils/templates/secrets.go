@@ -93,10 +93,10 @@ func GenerateTemplatedSecrets(dbcr *kindav1beta1.Database, databaseCred database
 		dbData.DatabasePort = int32(dbAddress.Port)
 	}
 	// If engine is 'postgres', the protocol should be postgresql
-	if dbcr.Status.InstanceRef.Spec.Engine == "postgres" {
+	if dbcr.Status.Engine == "postgres" {
 		dbData.Protocol = "postgresql"
 	} else {
-		dbData.Protocol = dbcr.Status.InstanceRef.Spec.Engine
+		dbData.Protocol = dbcr.Status.Engine
 	}
 
 	logrus.Infof("DB: namespace=%s, name=%s creating secrets from templates", dbcr.Namespace, dbcr.Name)

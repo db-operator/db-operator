@@ -23,7 +23,6 @@ import (
 	kindav1beta1 "github.com/db-operator/db-operator/api/v1beta1"
 	"github.com/db-operator/db-operator/pkg/config"
 	"github.com/db-operator/db-operator/pkg/utils/kci"
-	"github.com/sirupsen/logrus"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -33,8 +32,8 @@ import (
 // GCSBackupCron builds kubernetes cronjob object
 // to create database backup regularly with defined schedule from dbcr
 // this job will database dump and upload to google bucket storage for backup
-func GCSBackupCron(conf *config.Config, dbcr *kindav1beta1.Database, ownership []metav1.OwnerReference) (*batchv1.CronJob, error) {
-	cronJobSpec, err := buildCronJobSpec(conf, dbcr)
+func GCSBackupCron(conf *config.Config, dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance, ownership []metav1.OwnerReference) (*batchv1.CronJob, error) {
+	cronJobSpec, err := buildCronJobSpec(conf, dbcr, instance)
 	if err != nil {
 		return nil, err
 	}
@@ -54,8 +53,8 @@ func GCSBackupCron(conf *config.Config, dbcr *kindav1beta1.Database, ownership [
 	}, nil
 }
 
-func buildCronJobSpec(conf *config.Config, dbcr *kindav1beta1.Database) (batchv1.CronJobSpec, error) {
-	jobTemplate, err := buildJobTemplate(conf, dbcr)
+func buildCronJobSpec(conf *config.Config, dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) (batchv1.CronJobSpec, error) {
+	jobTemplate, err := buildJobTemplate(conf, dbcr, instance)
 	if err != nil {
 		return batchv1.CronJobSpec{}, err
 	}
@@ -66,26 +65,22 @@ func buildCronJobSpec(conf *config.Config, dbcr *kindav1beta1.Database) (batchv1
 	}, nil
 }
 
-func buildJobTemplate(conf *config.Config, dbcr *kindav1beta1.Database) (batchv1.JobTemplateSpec, error) {
+func buildJobTemplate(conf *config.Config, dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) (batchv1.JobTemplateSpec, error) {
 	ActiveDeadlineSeconds := int64(conf.Backup.ActiveDeadlineSeconds)
 	BackoffLimit := int32(3)
-	instance, err := dbcr.GetInstanceRef()
-	if err != nil {
-		logrus.Errorf("can not build job template - %s", err)
-		return batchv1.JobTemplateSpec{}, err
-	}
 
 	var backupContainer v1.Container
+	var err error
 
 	engine := instance.Spec.Engine
 	switch engine {
 	case "postgres":
-		backupContainer, err = postgresBackupContainer(conf, dbcr)
+		backupContainer, err = postgresBackupContainer(conf, dbcr, instance)
 		if err != nil {
 			return batchv1.JobTemplateSpec{}, err
 		}
 	case "mysql":
-		backupContainer, err = mysqlBackupContainer(conf, dbcr)
+		backupContainer, err = mysqlBackupContainer(conf, dbcr, instance)
 		if err != nil {
 			return batchv1.JobTemplateSpec{}, err
 		}
@@ -147,8 +142,8 @@ func getResourceRequirements(conf *config.Config) v1.ResourceRequirements {
 	return resourceRequirements
 }
 
-func postgresBackupContainer(conf *config.Config, dbcr *kindav1beta1.Database) (v1.Container, error) {
-	env, err := postgresEnvVars(conf, dbcr)
+func postgresBackupContainer(conf *config.Config, dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) (v1.Container, error) {
+	env, err := postgresEnvVars(conf, dbcr, instance)
 	if err != nil {
 		return v1.Container{}, err
 	}
@@ -163,8 +158,8 @@ func postgresBackupContainer(conf *config.Config, dbcr *kindav1beta1.Database) (
 	}, nil
 }
 
-func mysqlBackupContainer(conf *config.Config, dbcr *kindav1beta1.Database) (v1.Container, error) {
-	env, err := mysqlEnvVars(dbcr)
+func mysqlBackupContainer(conf *config.Config, dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) (v1.Container, error) {
+	env, err := mysqlEnvVars(dbcr, instance)
 	if err != nil {
 		return v1.Container{}, err
 	}
@@ -213,14 +208,8 @@ func volumes(dbcr *kindav1beta1.Database) []v1.Volume {
 	}
 }
 
-func postgresEnvVars(conf *config.Config, dbcr *kindav1beta1.Database) ([]v1.EnvVar, error) {
-	instance, err := dbcr.GetInstanceRef()
-	if err != nil {
-		logrus.Errorf("can not build backup environment variables - %s", err)
-		return nil, err
-	}
-
-	host, err := getBackupHost(dbcr)
+func postgresEnvVars(conf *config.Config, dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) ([]v1.EnvVar, error) {
+	host, err := getBackupHost(dbcr, instance)
 	if err != nil {
 		return []v1.EnvVar{}, fmt.Errorf("can not build postgres backup job environment variables - %s", err)
 	}
@@ -262,14 +251,8 @@ func postgresEnvVars(conf *config.Config, dbcr *kindav1beta1.Database) ([]v1.Env
 	return envList, nil
 }
 
-func mysqlEnvVars(dbcr *kindav1beta1.Database) ([]v1.EnvVar, error) {
-	instance, err := dbcr.GetInstanceRef()
-	if err != nil {
-		logrus.Errorf("can not build backup environment variables - %s", err)
-		return nil, err
-	}
-
-	host, err := getBackupHost(dbcr)
+func mysqlEnvVars(dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) ([]v1.EnvVar, error) {
+	host, err := getBackupHost(dbcr, instance)
 	if err != nil {
 		return []v1.EnvVar{}, fmt.Errorf("can not build mysql backup job environment variables - %s", err)
 	}
@@ -307,15 +290,10 @@ func mysqlEnvVars(dbcr *kindav1beta1.Database) ([]v1.EnvVar, error) {
 	}, nil
 }
 
-func getBackupHost(dbcr *kindav1beta1.Database) (string, error) {
+func getBackupHost(dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) (string, error) {
 	host := ""
 
-	instance, err := dbcr.GetInstanceRef()
-	if err != nil {
-		return host, err
-	}
-
-	backend, err := dbcr.GetBackendType()
+	backend, err := instance.GetBackendType()
 	if err != nil {
 		return host, err
 	}

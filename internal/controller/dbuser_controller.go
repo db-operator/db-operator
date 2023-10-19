@@ -95,16 +95,11 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	},
 	)
 
-	engine, err := dbcr.GetEngineType()
-	if err != nil {
-		return r.manageError(ctx, dbucr, err, false)
-	}
-
 	userSecret, err := r.getDbUserSecret(ctx, dbucr)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			dbName := fmt.Sprintf("%s-%s", dbucr.Namespace, dbucr.Spec.DatabaseRef)
-			secretData, err := generateDatabaseSecretData(dbucr.ObjectMeta, engine, dbName)
+			secretData, err := generateDatabaseSecretData(dbucr.ObjectMeta, dbcr.Status.Engine, dbName)
 			if err != nil {
 				logrus.Errorf("can not generate credentials for database - %s", err)
 				return r.manageError(ctx, dbucr, err, false)
@@ -122,7 +117,7 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		}
 	}
 
-	creds, err := parseDbUserSecretData(dbcr.Status.InstanceRef.Spec.Engine, userSecret.Data)
+	creds, err := parseDbUserSecretData(dbcr.Status.Engine, userSecret.Data)
 	if err != nil {
 		return r.manageError(ctx, dbucr, err, false)
 	}
@@ -131,8 +126,12 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if !r.CheckChanges || isDbUserChanged(dbucr, userSecret) {
 		dbucr.Status.Status = false
 	}
+	instance := &kindav1beta1.DbInstance{}
+	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
+		return r.manageError(ctx, dbucr, err, false)
+	}
 
-	db, dbuser, err := determinDatabaseType(dbcr, creds)
+	db, dbuser, err := determinDatabaseType(dbcr, creds, instance)
 	if err != nil {
 		// failed to determine database type
 		return r.manageError(ctx, dbucr, err, false)
@@ -315,20 +314,17 @@ func parseDbUserSecretData(engine string, data map[string][]byte) (database.Cred
 }
 
 func (r *DbUserReconciler) getAdminSecret(ctx context.Context, dbcr *kindav1beta1.Database) (*corev1.Secret, error) {
-	instance, err := dbcr.GetInstanceRef()
-	if err != nil {
-		// failed to get DbInstanceRef this case should not happen
+	instance := kindav1beta1.DbInstance{}
+	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, &instance); err != nil {
 		return nil, err
 	}
 
 	// get database admin credentials
 	secret := &corev1.Secret{}
 
-	err = r.Get(ctx, instance.Spec.AdminUserSecret.ToKubernetesType(), secret)
-	if err != nil {
+	if err := r.Get(ctx, instance.Spec.AdminUserSecret.ToKubernetesType(), secret); err != nil {
 		return nil, err
 	}
 
 	return secret, nil
 }
-

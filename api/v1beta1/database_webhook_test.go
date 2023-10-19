@@ -37,24 +37,24 @@ func TestUnitSecretTemplatesValidator(t *testing.T) {
 
 func TestUnitTemplatesValidator(t *testing.T) {
 	validTemplates := v1beta1.Templates{
-		{ Name: "TEMPLATE_1", Template: "{{ .Protocol }} {{ .Hostname }} {{ .Port }} {{ .Username }} {{ .Password }} {{ .Database }}"},
-		{ Name: "TEMPLATE_2", Template: "{{.Protocol }}"},
-		{ Name: "TEMPLATE_3", Template: "{{.Protocol }}"},
-		{ Name: "TEMPLATE_4", Template: "{{.Protocol}}"},
-		{ Name: "TEMPLATE_5", Template: "jdbc:{{ .Protocol }}://{{ .Username }}:{{ .Password }}@{{ .Hostname }}:{{ .Port }}/{{ .Database }}"},
-		{ Name: "TEMPLATE_6", Template: "{{ .Secret \"CHECK\" }}"},
-		{ Name: "TEMPLATE_7", Template: "{{ .ConfigMap \"CHECK\" }}"},
-		{ Name: "TEMPLATE_8", Template: "{{ .Query \"CHECK\" }}"},
-		{ Name: "TEMPLATE_9", Template: "{{ if eq 1 1 }} It's true {{ else }} It's false {{ end }}"},
+		{Name: "TEMPLATE_1", Template: "{{ .Protocol }} {{ .Hostname }} {{ .Port }} {{ .Username }} {{ .Password }} {{ .Database }}"},
+		{Name: "TEMPLATE_2", Template: "{{.Protocol }}"},
+		{Name: "TEMPLATE_3", Template: "{{.Protocol }}"},
+		{Name: "TEMPLATE_4", Template: "{{.Protocol}}"},
+		{Name: "TEMPLATE_5", Template: "jdbc:{{ .Protocol }}://{{ .Username }}:{{ .Password }}@{{ .Hostname }}:{{ .Port }}/{{ .Database }}"},
+		{Name: "TEMPLATE_6", Template: "{{ .Secret \"CHECK\" }}"},
+		{Name: "TEMPLATE_7", Template: "{{ .ConfigMap \"CHECK\" }}"},
+		{Name: "TEMPLATE_8", Template: "{{ .Query \"CHECK\" }}"},
+		{Name: "TEMPLATE_9", Template: "{{ if eq 1 1 }} It's true {{ else }} It's false {{ end }}"},
 	}
 
 	err := v1beta1.ValidateTemplates(validTemplates)
 	assert.NoErrorf(t, err, "expected no error %v", err)
 
 	invalidTemplates := v1beta1.Templates{
-		{ Name: "TEMPLATE_1", Template: "{{ .InvalidField }}"},
-		{ Name: "TEMPLATE_2", Template: "{{ .Secret invalid }}"},
-		{ Name: "TEMPLATE_3", Template: "{{ .Secret }}"},
+		{Name: "TEMPLATE_1", Template: "{{ .InvalidField }}"},
+		{Name: "TEMPLATE_2", Template: "{{ .Secret invalid }}"},
+		{Name: "TEMPLATE_3", Template: "{{ .Secret }}"},
 	}
 
 	err = v1beta1.ValidateTemplates(invalidTemplates)

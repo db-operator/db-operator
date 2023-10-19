@@ -23,6 +23,7 @@ import (
 
 	"bou.ke/monkey"
 	kindav1beta1 "github.com/db-operator/db-operator/api/v1beta1"
+	"github.com/db-operator/db-operator/pkg/consts"
 	"github.com/db-operator/db-operator/pkg/test"
 	"github.com/db-operator/db-operator/pkg/utils/kci"
 	"github.com/stretchr/testify/assert"
@@ -54,16 +55,32 @@ func newPostgresTestDbInstanceCr() kindav1beta1.DbInstance {
 	}
 }
 
-func newPostgresTestDbCr(instanceRef kindav1beta1.DbInstance) *kindav1beta1.Database {
+func newMysqlTestDbInstanceCr() kindav1beta1.DbInstance {
+	info := make(map[string]string)
+	info["DB_PORT"] = "3306"
+	info["DB_CONN"] = "mysql"
+	return kindav1beta1.DbInstance{
+		Spec: kindav1beta1.DbInstanceSpec{
+			Engine: "mysql",
+			DbInstanceSource: kindav1beta1.DbInstanceSource{
+				Generic: &kindav1beta1.GenericInstance{
+					Host: test.GetMysqlHost(),
+					Port: test.GetMysqlPort(),
+				},
+			},
+		},
+		Status: kindav1beta1.DbInstanceStatus{Info: info},
+	}
+}
+
+func newPostgresTestDbCr() *kindav1beta1.Database {
 	o := metav1.ObjectMeta{Namespace: TestNamespace}
 	s := kindav1beta1.DatabaseSpec{SecretName: TestSecretName}
 
 	db := kindav1beta1.Database{
 		ObjectMeta: o,
 		Spec:       s,
-		Status: kindav1beta1.DatabaseStatus{
-			InstanceRef: &instanceRef,
-		},
+		Status:     kindav1beta1.DatabaseStatus{Engine: consts.ENGINE_POSTGRES},
 	}
 
 	return &db
@@ -80,27 +97,14 @@ func newMysqlTestDbCr() *kindav1beta1.Database {
 	db := kindav1beta1.Database{
 		ObjectMeta: o,
 		Spec:       s,
-		Status: kindav1beta1.DatabaseStatus{
-			InstanceRef: &kindav1beta1.DbInstance{
-				Spec: kindav1beta1.DbInstanceSpec{
-					Engine: "mysql",
-					DbInstanceSource: kindav1beta1.DbInstanceSource{
-						Generic: &kindav1beta1.GenericInstance{
-							Host: test.GetMysqlHost(),
-							Port: test.GetMysqlPort(),
-						},
-					},
-				},
-				Status: kindav1beta1.DbInstanceStatus{Info: info},
-			},
-		},
+		Status:     kindav1beta1.DatabaseStatus{Engine: consts.ENGINE_MYSQL},
 	}
 
 	return &db
 }
 
 func TestIsSpecChanged(t *testing.T) {
-	db := newPostgresTestDbCr(newPostgresTestDbInstanceCr())
+	db := newPostgresTestDbCr()
 
 	testDbSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Namespace: TestNamespace, Name: TestSecretName},

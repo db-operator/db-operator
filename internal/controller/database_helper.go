@@ -29,13 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func determinDatabaseType(dbcr *kindav1beta1.Database, dbCred database.Credentials) (database.Database, *database.DatabaseUser, error) {
-	instance, err := dbcr.GetInstanceRef()
-	if err != nil {
-		logrus.Errorf("could not get instance ref %s - %s", dbcr.Name, err)
-		return nil, nil, err
-	}
-
+func determinDatabaseType(dbcr *kindav1beta1.Database, dbCred database.Credentials, instance *kindav1beta1.DbInstance) (database.Database, *database.DatabaseUser, error) {
 	host := instance.Status.Info["DB_CONN"]
 	port, err := strconv.Atoi(instance.Status.Info["DB_PORT"])
 	if err != nil {
@@ -43,30 +37,20 @@ func determinDatabaseType(dbcr *kindav1beta1.Database, dbCred database.Credentia
 		return nil, nil, err
 	}
 
-	engine, err := dbcr.GetEngineType()
-	if err != nil {
-		logrus.Errorf("could not get instance engine type %s - %s", dbcr.Name, err)
-		return nil, nil, err
-	}
-
-	backend, err := dbcr.GetBackendType()
+	backend, err := instance.GetBackendType()
 	if err != nil {
 		logrus.Errorf("could not get backend type %s - %s", dbcr.Name, err)
 		return nil, nil, err
 	}
 
-	monitoringEnabled, err := dbcr.IsMonitoringEnabled()
-	if err != nil {
-		logrus.Errorf("could not check if monitoring is enabled %s - %s", dbcr.Name, err)
-		return nil, nil, err
-	}
+	monitoringEnabled := instance.IsMonitoringEnabled()
 
 	dbuser := &database.DatabaseUser{
 		Username: dbCred.Username,
 		Password: dbCred.Password,
 	}
 
-	switch engine {
+	switch dbcr.Status.Engine {
 	case "postgres":
 		extList := dbcr.Spec.Postgres.Extensions
 		db := database.Postgres{
@@ -104,12 +88,8 @@ func determinDatabaseType(dbcr *kindav1beta1.Database, dbCred database.Credentia
 
 func parseDatabaseSecretData(dbcr *kindav1beta1.Database, data map[string][]byte) (database.Credentials, error) {
 	cred := database.Credentials{}
-	engine, err := dbcr.GetEngineType()
-	if err != nil {
-		return cred, err
-	}
 
-	switch engine {
+	switch dbcr.Status.Engine {
 	case "postgres":
 		if name, ok := data[consts.POSTGRES_DB]; ok {
 			cred.Name = string(name)
@@ -197,18 +177,13 @@ const (
 	SSL_VERIFY_CA = "verify_ca"
 )
 
-func getSSLMode(dbcr *kindav1beta1.Database) (string, error) {
-	engine, err := dbcr.GetEngineType()
+func getSSLMode(dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) (string, error) {
+	genericSSL, err := getGenericSSLMode(dbcr, instance)
 	if err != nil {
 		return "", err
 	}
 
-	genericSSL, err := getGenericSSLMode(dbcr)
-	if err != nil {
-		return "", err
-	}
-
-	if engine == "postgres" {
+	if dbcr.Status.Engine == "postgres" {
 		switch genericSSL {
 		case SSL_DISABLED:
 			return "disable", nil
@@ -219,7 +194,7 @@ func getSSLMode(dbcr *kindav1beta1.Database) (string, error) {
 		}
 	}
 
-	if engine == "mysql" {
+	if dbcr.Status.Engine == "mysql" {
 		switch genericSSL {
 		case SSL_DISABLED:
 			return "disabled", nil
@@ -230,14 +205,10 @@ func getSSLMode(dbcr *kindav1beta1.Database) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("unknown database engine: %s", engine)
+	return "", fmt.Errorf("unknown database engine: %s", dbcr.Status.Engine)
 }
 
-func getGenericSSLMode(dbcr *kindav1beta1.Database) (string, error) {
-	instance, err := dbcr.GetInstanceRef()
-	if err != nil {
-		return "", err
-	}
+func getGenericSSLMode(dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) (string, error) {
 	if !instance.Spec.SSLConnection.Enabled {
 		return SSL_DISABLED, nil
 	} else {

@@ -103,7 +103,10 @@ func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	phase := dbin.Status.Phase
 	logrus.Infof("Instance: name=%s %s", dbin.Name, phase)
-	defer promDBInstancesPhaseTime.WithLabelValues(phase).Observe(time.Since(time.Now()).Seconds())
+
+	start := time.Now()
+	defer func() { promDBInstancesPhaseTime.WithLabelValues(phase).Observe(time.Since(start).Seconds()) }()
+
 	promDBInstancesPhase.WithLabelValues(dbin.Name).Set(dbInstancePhaseToFloat64(phase))
 	if !dbin.Status.Status {
 		if err := dbin.ValidateBackend(); err != nil {

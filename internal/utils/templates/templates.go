@@ -230,52 +230,37 @@ func (tds *TemplateDataSources) Protocol() (string, error) {
 // Username return the main user username, if dbuser is nil,
 // otherwise it returns a name of a DbUser
 func (tds *TemplateDataSources) Username() (string, error) {
-	engine, err := tds.DatabaseK8sObj.GetEngineType()
-	if err != nil {
-		return "", err
-	}
-
-	switch engine {
+	switch tds.DatabaseK8sObj.Status.Engine {
 	case "postgres":
 		return tds.Secret(consts.POSTGRES_USER)
 	case "mysql":
 		return tds.Secret(consts.MYSQL_USER)
 	default:
-		return "", fmt.Errorf("unknown engine: %s", engine)
+		return "", fmt.Errorf("unknown engine: %s", tds.DatabaseK8sObj.Status.Engine)
 	}
 }
 
 // Password return the main user password, if dbuser is nil,
 // otherwise it returns a password of a DbUser
 func (tds *TemplateDataSources) Password() (string, error) {
-	engine, err := tds.DatabaseK8sObj.GetEngineType()
-	if err != nil {
-		return "", err
-	}
-
-	switch engine {
+	switch tds.DatabaseK8sObj.Status.Engine {
 	case "postgres":
 		return tds.Secret(consts.POSTGRES_PASSWORD)
 	case "mysql":
 		return tds.Secret(consts.MYSQL_PASSWORD)
 	default:
-		return "", fmt.Errorf("unknown engine: %s", engine)
+		return "", fmt.Errorf("unknown engine: %s", tds.DatabaseK8sObj.Status.Engine)
 	}
 }
 
 func (tds *TemplateDataSources) Database() (string, error) {
-	engine, err := tds.DatabaseK8sObj.GetEngineType()
-	if err != nil {
-		return "", err
-	}
-
-	switch engine {
+	switch tds.DatabaseK8sObj.Status.Engine {
 	case "postgres":
 		return tds.Secret(consts.POSTGRES_DB)
 	case "mysql":
 		return tds.Secret(consts.MYSQL_DB)
 	default:
-		return "", fmt.Errorf("unknown engine: %s", engine)
+		return "", fmt.Errorf("unknown engine: %s", tds.DatabaseK8sObj.Status.Engine)
 	}
 
 }

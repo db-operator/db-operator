@@ -27,3 +27,9 @@ const (
 	MYSQL_USER        = "USER"
 	MYSQL_PASSWORD    = "PASSWORD"
 )
+
+// Database enginges
+const (
+	ENGINE_POSTGRES = "postgres"
+	ENGINE_MYSQL    = "mysql"
+)

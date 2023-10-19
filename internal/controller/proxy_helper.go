@@ -38,23 +38,11 @@ var (
 	ErrNoProxySupport = errors.New("no proxy supported backend type")
 )
 
-func determineProxyTypeForDB(conf *config.Config, dbcr *kindav1beta1.Database) (proxy.Proxy, error) {
+func determineProxyTypeForDB(conf *config.Config, dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) (proxy.Proxy, error) {
 	logrus.Debugf("DB: namespace=%s, name=%s - determinProxyType", dbcr.Namespace, dbcr.Name)
-	backend, err := dbcr.GetBackendType()
+	backend, err := instance.GetBackendType()
 	if err != nil {
 		logrus.Errorf("could not get backend type %s - %s", dbcr.Name, err)
-		return nil, err
-	}
-
-	instance, err := dbcr.GetInstanceRef()
-	if err != nil {
-		logrus.Errorf("can not create cloudsql proxy because can not get instanceRef - %s", err)
-		return nil, err
-	}
-
-	engine, err := dbcr.GetEngineType()
-	if err != nil {
-		logrus.Errorf("can not create cloudsql proxy because can not get engineType - %s", err)
 		return nil, err
 	}
 
@@ -72,17 +60,14 @@ func determineProxyTypeForDB(conf *config.Config, dbcr *kindav1beta1.Database) (
 			"db-name": dbcr.Name,
 		}
 
-		monitoringEnabled, err := dbcr.IsMonitoringEnabled()
-		if err != nil {
-			return nil, err
-		}
+		monitoringEnabled := instance.IsMonitoringEnabled()
 
 		proxy := &proxy.CloudProxy{
 			NamePrefix:             "db-" + dbcr.Name,
 			Namespace:              dbcr.Namespace,
 			InstanceConnectionName: instance.Status.Info["DB_CONN"],
 			AccessSecretName:       dbcr.InstanceAccessSecretName(),
-			Engine:                 engine,
+			Engine:                 dbcr.Status.Engine,
 			Port:                   int32(port),
 			Labels:                 kci.LabelBuilder(labels),
 			Conf:                   conf,

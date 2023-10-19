@@ -18,8 +18,9 @@
 package v1beta1
 
 import (
-	"errors"
+	"fmt"
 
+	"github.com/db-operator/db-operator/pkg/consts"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -61,11 +62,11 @@ type DatabaseStatus struct {
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 	Phase                 string              `json:"phase"`
 	Status                bool                `json:"status"`
-	InstanceRef           *DbInstance         `json:"instanceRef"`
 	MonitorUserSecretName string              `json:"monitorUserSecret,omitempty"`
 	ProxyStatus           DatabaseProxyStatus `json:"proxyStatus,omitempty"`
 	DatabaseName          string              `json:"database"`
 	UserName              string              `json:"user"`
+	Engine                string              `json:"engine"`
 }
 
 // DatabaseProxyStatus defines whether proxy for database is enabled or not
@@ -113,55 +114,16 @@ func init() {
 	SchemeBuilder.Register(&Database{}, &DatabaseList{})
 }
 
-// GetInstanceRef returns DbInstance pointer which used by Database
-func (db *Database) GetInstanceRef() (*DbInstance, error) {
-	if db.Status.InstanceRef == nil {
-		return nil, errors.New("can not find instance ref")
-	}
-	return db.Status.InstanceRef, nil
-}
-
-// GetEngineType returns type of database engine ex) postgres or mysql
-func (db *Database) GetEngineType() (string, error) {
-	instance, err := db.GetInstanceRef()
-	if err != nil {
-		return "", err
-	}
-
-	return instance.Spec.Engine, nil
-}
-
 // GetProtocol returns the protocol that is required for connection (postgresql or mysql)
 func (db *Database) GetProtocol() (string, error) {
-	instance, err := db.GetInstanceRef()
-	if err != nil {
-		return "", err
-	}
-	if instance.Spec.Engine == "postgres" {
+	switch db.Status.Engine {
+	case consts.ENGINE_POSTGRES:
 		return "postgresql", nil
+	case consts.ENGINE_MYSQL:
+		return db.Status.Engine, nil
+	default:
+		return "", fmt.Errorf("unknown engine %s", db.Status.Engine)
 	}
-	return instance.Spec.Engine, nil
-}
-
-// GetBackendType returns type of instance infrastructure.
-// Infrastructure where database is running ex) google cloud sql, generic instance
-func (db *Database) GetBackendType() (string, error) {
-	instance, err := db.GetInstanceRef()
-	if err != nil {
-		return "", err
-	}
-
-	return instance.GetBackendType()
-}
-
-// IsMonitoringEnabled returns true if monitoring is enabled in DbInstance spec.
-func (db *Database) IsMonitoringEnabled() (bool, error) {
-	instance, err := db.GetInstanceRef()
-	if err != nil {
-		return false, err
-	}
-
-	return instance.IsMonitoringEnabled(), nil
 }
 
 // AccessSecretName returns string value to define name of the secret resource for accessing instance

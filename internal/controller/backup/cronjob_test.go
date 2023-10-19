@@ -37,7 +37,6 @@ func TestGCSBackupCronGsql(t *testing.T) {
 	instance := &kindav1beta1.DbInstance{}
 	instance.Status.Info = map[string]string{"DB_CONN": "TestConnection", "DB_PORT": "1234"}
 	instance.Spec.Google = &kindav1beta1.GoogleInstance{InstanceName: "google-instance-1"}
-	dbcr.Status.InstanceRef = instance
 	dbcr.Spec.Instance = "staging"
 	dbcr.Spec.Backup.Cron = "* * * * *"
 
@@ -45,7 +44,7 @@ func TestGCSBackupCronGsql(t *testing.T) {
 	conf := config.LoadConfig()
 
 	instance.Spec.Engine = "postgres"
-	funcCronObject, err := GCSBackupCron(&conf, dbcr, ownership)
+	funcCronObject, err := GCSBackupCron(&conf, dbcr, instance, ownership)
 	if err != nil {
 		fmt.Print(err)
 	}
@@ -53,7 +52,7 @@ func TestGCSBackupCronGsql(t *testing.T) {
 	assert.Equal(t, "postgresbackupimage:latest", funcCronObject.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Image)
 
 	instance.Spec.Engine = "mysql"
-	funcCronObject, err = GCSBackupCron(&conf, dbcr, ownership)
+	funcCronObject, err = GCSBackupCron(&conf, dbcr, instance, ownership)
 	if err != nil {
 		fmt.Print(err)
 	}
@@ -73,7 +72,6 @@ func TestUnitGCSBackupCronGeneric(t *testing.T) {
 	instance := &kindav1beta1.DbInstance{}
 	instance.Status.Info = map[string]string{"DB_CONN": "TestConnection", "DB_PORT": "1234"}
 	instance.Spec.Generic = &kindav1beta1.GenericInstance{BackupHost: "slave.test"}
-	dbcr.Status.InstanceRef = instance
 	dbcr.Spec.Instance = "staging"
 	dbcr.Spec.Backup.Cron = "* * * * *"
 
@@ -81,7 +79,7 @@ func TestUnitGCSBackupCronGeneric(t *testing.T) {
 	conf := config.LoadConfig()
 
 	instance.Spec.Engine = "postgres"
-	funcCronObject, err := GCSBackupCron(&conf, dbcr, ownership)
+	funcCronObject, err := GCSBackupCron(&conf, dbcr, instance, ownership)
 	if err != nil {
 		fmt.Print(err)
 	}
@@ -89,7 +87,7 @@ func TestUnitGCSBackupCronGeneric(t *testing.T) {
 	assert.Equal(t, "postgresbackupimage:latest", funcCronObject.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Image)
 
 	instance.Spec.Engine = "mysql"
-	funcCronObject, err = GCSBackupCron(&conf, dbcr, ownership)
+	funcCronObject, err = GCSBackupCron(&conf, dbcr, instance, ownership)
 	if err != nil {
 		fmt.Print(err)
 	}
@@ -116,7 +114,6 @@ func TestUnitGCSBackupCronGenericWithOwnerReference(t *testing.T) {
 	instance := &kindav1beta1.DbInstance{}
 	instance.Status.Info = map[string]string{"DB_CONN": "TestConnection", "DB_PORT": "1234"}
 	instance.Spec.Generic = &kindav1beta1.GenericInstance{BackupHost: "slave.test"}
-	dbcr.Status.InstanceRef = instance
 	dbcr.Spec.Instance = "staging"
 	dbcr.Spec.Backup.Cron = "* * * * *"
 
@@ -124,7 +121,7 @@ func TestUnitGCSBackupCronGenericWithOwnerReference(t *testing.T) {
 	conf := config.LoadConfig()
 
 	instance.Spec.Engine = "postgres"
-	funcCronObject, err := GCSBackupCron(&conf, dbcr, ownership)
+	funcCronObject, err := GCSBackupCron(&conf, dbcr, instance, ownership)
 	if err != nil {
 		fmt.Print(err)
 	}

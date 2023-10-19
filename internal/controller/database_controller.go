@@ -284,7 +284,6 @@ func (r *DatabaseReconciler) initialize(ctx context.Context, dbcr *kindav1beta1.
 		if !instance.Status.Status {
 			return errors.New("instance status not true")
 		}
-		dbcr.Status.InstanceRef = instance
 		dbcr.Status.Phase = dbPhaseCreate
 		return nil
 	}
@@ -293,14 +292,20 @@ func (r *DatabaseReconciler) initialize(ctx context.Context, dbcr *kindav1beta1.
 
 // createDatabase secret, actual database using admin secret
 func (r *DatabaseReconciler) createDatabase(ctx context.Context, dbcr *kindav1beta1.Database, ownership []metav1.OwnerReference) error {
+	instance := &kindav1beta1.DbInstance{}
+	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
+		return err
+	}
+	dbcr.Status.Engine = instance.Spec.Engine
+	if err := r.Status().Update(ctx, dbcr); err != nil {
+		logrus.Errorf("error status updating - %s", err)
+		return err
+	}
+
 	databaseSecret, err := r.getDatabaseSecret(ctx, dbcr)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			engine, err := dbcr.GetEngineType()
-			if err != nil {
-				return err
-			}
-			secretData, err := generateDatabaseSecretData(dbcr.ObjectMeta, engine, "")
+			secretData, err := generateDatabaseSecretData(dbcr.ObjectMeta, dbcr.Status.Engine, "")
 			if err != nil {
 				logrus.Errorf("can not generate credentials for database - %s", err)
 				return err
@@ -322,8 +327,11 @@ func (r *DatabaseReconciler) createDatabase(ctx context.Context, dbcr *kindav1be
 		// failed to parse database credential from secret
 		return err
 	}
+	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
+		return err
+	}
 
-	db, dbuser, err := determinDatabaseType(dbcr, databaseCred)
+	db, dbuser, err := determinDatabaseType(dbcr, databaseCred, instance)
 	if err != nil {
 		// failed to determine database type
 		return err
@@ -386,7 +394,12 @@ func (r *DatabaseReconciler) deleteDatabase(ctx context.Context, dbcr *kindav1be
 		Username: dbcr.Status.UserName,
 	}
 
-	db, dbuser, err := determinDatabaseType(dbcr, databaseCred)
+	instance := &kindav1beta1.DbInstance{}
+	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
+		return err
+	}
+
+	db, dbuser, err := determinDatabaseType(dbcr, databaseCred, instance)
 	if err != nil {
 		// failed to determine database type
 		return err
@@ -418,18 +431,18 @@ func (r *DatabaseReconciler) deleteDatabase(ctx context.Context, dbcr *kindav1be
 	return nil
 }
 
-func (r *DatabaseReconciler) createInstanceAccessSecret(ctx context.Context, dbcr *kindav1beta1.Database, ownership []metav1.OwnerReference) error {
-	if backend, _ := dbcr.GetBackendType(); backend != "google" {
+func (r *DatabaseReconciler) createInstanceAccessSecret(ctx context.Context, dbcr *kindav1beta1.Database, ownership []metav1.OwnerReference) (err error) {
+	instance := &kindav1beta1.DbInstance{}
+	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
+		return err
+	}
+
+	if backend, _ := instance.GetBackendType(); backend != "google" {
 		logrus.Debugf("DB: namespace=%s, name=%s %s doesn't need instance access secret skipping...", dbcr.Namespace, dbcr.Name, backend)
 		return nil
 	}
 
 	var data []byte
-
-	instance, err := dbcr.GetInstanceRef()
-	if err != nil {
-		return err
-	}
 
 	credFile := "credentials.json"
 
@@ -473,13 +486,18 @@ func (r *DatabaseReconciler) createInstanceAccessSecret(ctx context.Context, dbc
 }
 
 func (r *DatabaseReconciler) createProxy(ctx context.Context, dbcr *kindav1beta1.Database, ownership []metav1.OwnerReference) error {
-	backend, _ := dbcr.GetBackendType()
+	instance := &kindav1beta1.DbInstance{}
+	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
+		return err
+	}
+
+	backend, _ := instance.GetBackendType()
 	if backend == "generic" {
 		logrus.Infof("DB: namespace=%s, name=%s %s proxy creation is not yet implemented skipping...", dbcr.Namespace, dbcr.Name, backend)
 		return nil
 	}
 
-	proxyInterface, err := determineProxyTypeForDB(r.Conf, dbcr)
+	proxyInterface, err := determineProxyTypeForDB(r.Conf, dbcr, instance)
 	if err != nil {
 		return err
 	}
@@ -556,11 +574,7 @@ func (r *DatabaseReconciler) createProxy(ctx context.Context, dbcr *kindav1beta1
 		return err
 	}
 
-	isMonitoringEnabled, err := dbcr.IsMonitoringEnabled()
-	if err != nil {
-		return err
-	}
-
+	isMonitoringEnabled := instance.IsMonitoringEnabled()
 	if isMonitoringEnabled && inCrdList(crdList, "servicemonitors.monitoring.coreos.com") {
 		// create proxy PromServiceMonitor
 		promSvcMon, err := proxy.BuildServiceMonitor(proxyInterface, ownership)
@@ -584,10 +598,9 @@ func (r *DatabaseReconciler) createProxy(ctx context.Context, dbcr *kindav1beta1
 		}
 	}
 
-	engine, _ := dbcr.GetEngineType()
 	dbcr.Status.ProxyStatus.ServiceName = svc.Name
 	for _, svcPort := range svc.Spec.Ports {
-		if svcPort.Name == engine {
+		if svcPort.Name == dbcr.Status.Engine {
 			dbcr.Status.ProxyStatus.SQLPort = svcPort.Port
 		}
 	}
@@ -614,7 +627,12 @@ func (r *DatabaseReconciler) renderTemplates(ctx context.Context, dbcr *kindav1b
 	}
 
 	// We don't need dbuser here, because if it's not nil, templates will be built for the dbuser, not the database
-	db, dbuser, err := determinDatabaseType(dbcr, creds)
+	instance := &kindav1beta1.DbInstance{}
+	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
+		return err
+	}
+
+	db, dbuser, err := determinDatabaseType(dbcr, creds, instance)
 	if err != nil {
 		return err
 	}
@@ -659,8 +677,12 @@ func (r *DatabaseReconciler) createTemplatedSecrets(ctx context.Context, dbcr *k
 		if err != nil {
 			return err
 		}
+		instance := &kindav1beta1.DbInstance{}
+		if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
+			return err
+		}
 
-		db, _, err := determinDatabaseType(dbcr, databaseCred)
+		db, _, err := determinDatabaseType(dbcr, databaseCred, instance)
 		if err != nil {
 			// failed to determine database type
 			return err
@@ -686,8 +708,8 @@ func (r *DatabaseReconciler) createTemplatedSecrets(ctx context.Context, dbcr *k
 }
 
 func (r *DatabaseReconciler) createInfoConfigMap(ctx context.Context, dbcr *kindav1beta1.Database, ownership []metav1.OwnerReference) error {
-	instance, err := dbcr.GetInstanceRef()
-	if err != nil {
+	instance := &kindav1beta1.DbInstance{}
+	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
 		return err
 	}
 
@@ -699,7 +721,7 @@ func (r *DatabaseReconciler) createInfoConfigMap(ctx context.Context, dbcr *kind
 		info["DB_PORT"] = strconv.FormatInt(int64(proxyStatus.SQLPort), 10)
 	}
 
-	sslMode, err := getSSLMode(dbcr)
+	sslMode, err := getSSLMode(dbcr, instance)
 	if err != nil {
 		return err
 	}
@@ -730,8 +752,12 @@ func (r *DatabaseReconciler) createBackupJob(ctx context.Context, dbcr *kindav1b
 		// if not enabled, skip
 		return nil
 	}
+	instance := &kindav1beta1.DbInstance{}
+	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
+		return err
+	}
 
-	cronjob, err := backup.GCSBackupCron(r.Conf, dbcr, ownership)
+	cronjob, err := backup.GCSBackupCron(r.Conf, dbcr, instance, ownership)
 	if err != nil {
 		return err
 	}
@@ -800,17 +826,15 @@ func (r *DatabaseReconciler) annotateDatabaseSecret(ctx context.Context, dbcr *k
 }
 
 func (r *DatabaseReconciler) getAdminSecret(ctx context.Context, dbcr *kindav1beta1.Database) (*corev1.Secret, error) {
-	instance, err := dbcr.GetInstanceRef()
-	if err != nil {
-		// failed to get DbInstanceRef this case should not happen
+	instance := &kindav1beta1.DbInstance{}
+	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
 		return nil, err
 	}
 
 	// get database admin credentials
 	secret := &corev1.Secret{}
 
-	err = r.Get(ctx, instance.Spec.AdminUserSecret.ToKubernetesType(), secret)
-	if err != nil {
+	if err := r.Get(ctx, instance.Spec.AdminUserSecret.ToKubernetesType(), secret); err != nil {
 		return nil, err
 	}
 

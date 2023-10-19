@@ -126,7 +126,7 @@ func TestPostgresQueryAsUser(t *testing.T) {
 	res, err := p.QueryAsUser("SELECT name FROM test", dbu)
 	assert.NoErrorf(t, err, "Unexpected error %v", err)
 	assert.Equal(t, "test", res)
-	
+
 	_, err = p.QueryAsUser("SELECT * FROM test", dbu)
 	assert.Error(t, err)
 

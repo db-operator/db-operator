@@ -68,8 +68,8 @@ func mockOperatorNamespace() (string, error) {
 func TestUnitDetermineProxyTypeForDBGoogleBackend(t *testing.T) {
 	config := &config.Config{}
 	dbin := makeGsqlInstance()
-	db := newPostgresTestDbCr(dbin)
-	dbProxy, err := determineProxyTypeForDB(config, db)
+	db := newPostgresTestDbCr()
+	dbProxy, err := determineProxyTypeForDB(config, db, &dbin)
 	assert.NoError(t, err)
 	cloudProxy, ok := dbProxy.(*proxy.CloudProxy)
 	assert.Equal(t, ok, true, "expected true")
@@ -79,8 +79,8 @@ func TestUnitDetermineProxyTypeForDBGoogleBackend(t *testing.T) {
 func TestUnitDetermineProxyTypeForDBGenericBackend(t *testing.T) {
 	config := &config.Config{}
 	dbin := makeGenericInstance()
-	db := newPostgresTestDbCr(dbin)
-	_, err := determineProxyTypeForDB(config, db)
+	db := newPostgresTestDbCr()
+	_, err := determineProxyTypeForDB(config, db, &dbin)
 	assert.Error(t, err)
 }
 
