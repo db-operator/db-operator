@@ -202,11 +202,12 @@ func (dbin *DbInstance) ConvertTo(dstRaw conversion.Hub) error {
 	if dbin.Spec.DbInstanceSource.Generic != nil {
 		dst.Spec.DbInstanceSource.Generic = (*v1beta1.GenericInstance)(dbin.Spec.DbInstanceSource.Generic)
 	} else if dbin.Spec.DbInstanceSource.Google != nil {
-
-		dst.Spec.DbInstanceSource.Google.APIEndpoint = dbin.Spec.DbInstanceSource.Google.APIEndpoint
-		dst.Spec.DbInstanceSource.Google.InstanceName = dbin.Spec.DbInstanceSource.Google.InstanceName
-		dst.Spec.DbInstanceSource.Google.ClientSecret = v1beta1.NamespacedName(dbin.Spec.DbInstanceSource.Google.ClientSecret)
-		dst.Spec.DbInstanceSource.Google.ConfigmapName = v1beta1.NamespacedName(dbin.Spec.Google.ConfigmapName)
+		dst.Spec.DbInstanceSource.Google = &v1beta1.GoogleInstance{
+			APIEndpoint:   dbin.Spec.DbInstanceSource.Google.APIEndpoint,
+			InstanceName:  dbin.Spec.DbInstanceSource.Google.InstanceName,
+			ConfigmapName: v1beta1.NamespacedName(dbin.Spec.Google.ConfigmapName),
+			ClientSecret:  v1beta1.NamespacedName(dbin.Spec.DbInstanceSource.Google.ClientSecret),
+		}
 	}
 	dst.Spec.Engine = dbin.Spec.Engine
 	dst.Spec.Monitoring = v1beta1.DbInstanceMonitoring(dbin.Spec.Monitoring)
@@ -223,11 +224,12 @@ func (dst *DbInstance) ConvertFrom(srcRaw conversion.Hub) error {
 	if dbin.Spec.DbInstanceSource.Generic != nil {
 		dst.Spec.DbInstanceSource.Generic = (*GenericInstance)(dbin.Spec.DbInstanceSource.Generic)
 	} else if dbin.Spec.DbInstanceSource.Google != nil {
-
-		dst.Spec.DbInstanceSource.Google.APIEndpoint = dbin.Spec.DbInstanceSource.Google.APIEndpoint
-		dst.Spec.DbInstanceSource.Google.InstanceName = dbin.Spec.DbInstanceSource.Google.InstanceName
-		dst.Spec.DbInstanceSource.Google.ClientSecret = NamespacedName(dbin.Spec.DbInstanceSource.Google.ClientSecret)
-		dst.Spec.DbInstanceSource.Google.ConfigmapName = NamespacedName(dbin.Spec.Google.ConfigmapName)
+		dst.Spec.DbInstanceSource.Google = &GoogleInstance{
+			APIEndpoint:   dbin.Spec.DbInstanceSource.Google.APIEndpoint,
+			InstanceName:  dbin.Spec.DbInstanceSource.Google.InstanceName,
+			ConfigmapName: NamespacedName(dbin.Spec.Google.ConfigmapName),
+			ClientSecret:  NamespacedName(dbin.Spec.DbInstanceSource.Google.ClientSecret),
+		}
 	}
 	dst.Spec.Engine = dbin.Spec.Engine
 	dst.Spec.Monitoring = DbInstanceMonitoring(dbin.Spec.Monitoring)
