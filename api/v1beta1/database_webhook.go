@@ -130,7 +130,7 @@ func ValidateSecretTemplates(templates map[string]string) error {
 	return nil
 }
 
-var helpers []string = []string{"Protocol", "Host", "Port", "Password", "Username", "Password", "Database"}
+var helpers []string = []string{"Protocol", "Hostname", "Port", "Password", "Username", "Password", "Database"}
 var functions []string = []string{"Secret", "ConfigMap", "Query"}
 
 func ValidateTemplates(templates Templates) error {
