@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package controllers
+package database
 
 import (
 	"errors"
@@ -29,7 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func determinDatabaseType(dbcr *kindav1beta1.Database, dbCred database.Credentials, instance *kindav1beta1.DbInstance) (database.Database, *database.DatabaseUser, error) {
+func DeterminDatabaseType(dbcr *kindav1beta1.Database, dbCred database.Credentials, instance *kindav1beta1.DbInstance) (database.Database, *database.DatabaseUser, error) {
 	host := instance.Status.Info["DB_CONN"]
 	port, err := strconv.Atoi(instance.Status.Info["DB_PORT"])
 	if err != nil {
@@ -86,7 +86,7 @@ func determinDatabaseType(dbcr *kindav1beta1.Database, dbCred database.Credentia
 	}
 }
 
-func parseDatabaseSecretData(dbcr *kindav1beta1.Database, data map[string][]byte) (database.Credentials, error) {
+func ParseDatabaseSecretData(dbcr *kindav1beta1.Database, data map[string][]byte) (database.Credentials, error) {
 	cred := database.Credentials{}
 
 	switch dbcr.Status.Engine {
@@ -138,7 +138,7 @@ func parseDatabaseSecretData(dbcr *kindav1beta1.Database, data map[string][]byte
 // If dbName is empty, it will be generated, that should be used for database resources.
 // In case this function is called by dbuser controller, dbName should be taken from the
 // `Spec.DatabaseRef` field, so it will ba passed as the last argument
-func generateDatabaseSecretData(objectMeta metav1.ObjectMeta, engine, dbName string) (map[string][]byte, error) {
+func GenerateDatabaseSecretData(objectMeta metav1.ObjectMeta, engine, dbName string) (map[string][]byte, error) {
 	const (
 		// https://dev.mysql.com/doc/refman/5.7/en/identifier-length.html
 		mysqlDBNameLengthLimit = 63
@@ -177,8 +177,8 @@ const (
 	SSL_VERIFY_CA = "verify_ca"
 )
 
-func getSSLMode(dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) (string, error) {
-	genericSSL, err := getGenericSSLMode(dbcr, instance)
+func GetSSLMode(dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) (string, error) {
+	genericSSL, err := GetGenericSSLMode(dbcr, instance)
 	if err != nil {
 		return "", err
 	}
@@ -208,7 +208,7 @@ func getSSLMode(dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) 
 	return "", fmt.Errorf("unknown database engine: %s", dbcr.Status.Engine)
 }
 
-func getGenericSSLMode(dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) (string, error) {
+func GetGenericSSLMode(dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) (string, error) {
 	if !instance.Spec.SSLConnection.Enabled {
 		return SSL_DISABLED, nil
 	} else {

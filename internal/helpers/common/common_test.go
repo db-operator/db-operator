@@ -1,3 +1,6 @@
+//go:build !tests
+// +build !tests
+
 /*
  * Copyright 2021 kloeckner.i GmbH
  *
@@ -14,7 +17,7 @@
  * limitations under the License.
  */
 
-package controllers
+package common_test
 
 import (
 	"context"
@@ -23,6 +26,8 @@ import (
 
 	"bou.ke/monkey"
 	kindav1beta1 "github.com/db-operator/db-operator/api/v1beta1"
+	"github.com/db-operator/db-operator/internal/helpers/common"
+	"github.com/db-operator/db-operator/internal/utils/testutils"
 	"github.com/db-operator/db-operator/pkg/consts"
 	"github.com/db-operator/db-operator/pkg/test"
 	"github.com/db-operator/db-operator/pkg/utils/kci"
@@ -104,10 +109,10 @@ func newMysqlTestDbCr() *kindav1beta1.Database {
 }
 
 func TestIsSpecChanged(t *testing.T) {
-	db := newPostgresTestDbCr()
+	db := testutils.NewPostgresTestDbCr(testutils.NewPostgresTestDbInstanceCr())
 
 	testDbSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Namespace: TestNamespace, Name: TestSecretName},
+		ObjectMeta: metav1.ObjectMeta{Namespace: testutils.TestNamespace, Name: testutils.TestSecretName},
 		Data: map[string][]byte{
 			"POSTGRES_DB":       []byte("testdb"),
 			"POSTGRES_USER":     []byte("testuser"),
@@ -115,13 +120,13 @@ func TestIsSpecChanged(t *testing.T) {
 		},
 	}
 
-	addDBChecksum(db, testDbSecret)
-	nochange := isDBChanged(db, testDbSecret)
+	common.AddDBChecksum(db, testDbSecret)
+	nochange := common.IsDBChanged(db, testDbSecret)
 	assert.Equal(t, nochange, false, "expected false")
 
 	testDbSecret.Data["POSTGRES_PASSWORD"] = []byte("testpasswordNEW")
 
-	change := isDBChanged(db, testDbSecret)
+	change := common.IsDBChanged(db, testDbSecret)
 	assert.Equal(t, change, true, "expected true")
 }
 
@@ -177,8 +182,8 @@ func TestSpecChanged(t *testing.T) {
 	ctx := context.Background()
 
 	dbin.Spec = before
-	addDBInstanceChecksumStatus(ctx, dbin)
-	nochange := isDBInstanceSpecChanged(ctx, dbin)
+	common.AddDBInstanceChecksumStatus(ctx, dbin)
+	nochange := common.IsDBInstanceSpecChanged(ctx, dbin)
 	assert.Equal(t, nochange, false, "expected false")
 
 	after := kindav1beta1.DbInstanceSpec{
@@ -188,7 +193,7 @@ func TestSpecChanged(t *testing.T) {
 		},
 	}
 	dbin.Spec = after
-	change := isDBInstanceSpecChanged(ctx, dbin)
+	change := common.IsDBInstanceSpecChanged(ctx, dbin)
 	assert.Equal(t, change, true, "expected true")
 }
 
@@ -204,21 +209,21 @@ func TestConfigChanged(t *testing.T) {
 
 	patch := monkey.Patch(kci.GetConfigResource, testConfigmap1)
 	defer patch.Unpatch()
-	addDBInstanceChecksumStatus(context.Background(), dbin)
+	common.AddDBInstanceChecksumStatus(context.Background(), dbin)
 
 	ctx := context.Background()
 
-	nochange := isDBInstanceSpecChanged(ctx, dbin)
+	nochange := common.IsDBInstanceSpecChanged(ctx, dbin)
 	assert.Equal(t, nochange, false, "expected false")
 
 	patch = monkey.Patch(kci.GetConfigResource, testConfigmap2)
-	change := isDBInstanceSpecChanged(ctx, dbin)
+	change := common.IsDBInstanceSpecChanged(ctx, dbin)
 	assert.Equal(t, change, true, "expected true")
 }
 
 func TestAddChecksumStatus(t *testing.T) {
 	dbin := &kindav1beta1.DbInstance{}
-	addDBInstanceChecksumStatus(context.Background(), dbin)
+	common.AddDBInstanceChecksumStatus(context.Background(), dbin)
 	checksums := dbin.Status.Checksums
 	assert.NotEqual(t, checksums, map[string]string{}, "annotation should have checksum")
 }

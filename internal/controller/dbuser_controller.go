@@ -22,6 +22,13 @@ import (
 	"fmt"
 	"time"
 
+	kindav1beta1 "github.com/db-operator/db-operator/api/v1beta1"
+	commonhelper "github.com/db-operator/db-operator/internal/helpers/common"
+	dbhelper "github.com/db-operator/db-operator/internal/helpers/database"
+	"github.com/db-operator/db-operator/pkg/utils/database"
+	"github.com/db-operator/db-operator/pkg/utils/kci"
+	"github.com/go-logr/logr"
+	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,12 +38,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	kindav1beta1 "github.com/db-operator/db-operator/api/v1beta1"
-	"github.com/db-operator/db-operator/pkg/utils/database"
-	"github.com/db-operator/db-operator/pkg/utils/kci"
-	"github.com/go-logr/logr"
-	"github.com/sirupsen/logrus"
 )
 
 // DbUserReconciler reconciles a DbUser object
@@ -99,7 +100,7 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			dbName := fmt.Sprintf("%s-%s", dbucr.Namespace, dbucr.Spec.DatabaseRef)
-			secretData, err := generateDatabaseSecretData(dbucr.ObjectMeta, dbcr.Status.Engine, dbName)
+			secretData, err := dbhelper.GenerateDatabaseSecretData(dbucr.ObjectMeta, dbcr.Status.Engine, dbName)
 			if err != nil {
 				logrus.Errorf("can not generate credentials for database - %s", err)
 				return r.manageError(ctx, dbucr, err, false)
@@ -131,7 +132,7 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return r.manageError(ctx, dbucr, err, false)
 	}
 
-	db, dbuser, err := determinDatabaseType(dbcr, creds, instance)
+	db, dbuser, err := dbhelper.DeterminDatabaseType(dbcr, creds, instance)
 	if err != nil {
 		// failed to determine database type
 		return r.manageError(ctx, dbucr, err, false)
@@ -153,7 +154,7 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	dbuser.Username = fmt.Sprintf("%s-%s", dbucr.GetObjectMeta().GetNamespace(), dbucr.GetObjectMeta().GetName())
 
 	if dbucr.GetDeletionTimestamp() != nil {
-		if containsString(dbucr.ObjectMeta.Finalizers, "dbuser."+dbucr.Name) {
+		if commonhelper.ContainsString(dbucr.ObjectMeta.Finalizers, "dbuser."+dbucr.Name) {
 			if err := database.DeleteUser(db, dbuser, adminCred); err != nil {
 				logrus.Errorf("DBUser: namespace=%s, name=%s failed deleting a user - %s", dbucr.Namespace, dbucr.Name, err)
 				return r.manageError(ctx, dbucr, err, false)
@@ -223,7 +224,7 @@ func isDbUserChanged(dbucr *kindav1beta1.DbUser, userSecret *corev1.Secret) bool
 	annotations := dbucr.ObjectMeta.GetAnnotations()
 
 	return annotations["checksum/spec"] != kci.GenerateChecksum(dbucr.Spec) ||
-		annotations["checksum/secret"] != generateChecksumSecretValue(userSecret)
+		annotations["checksum/secret"] != commonhelper.GenerateChecksumSecretValue(userSecret)
 }
 
 func (r *DbUserReconciler) getDbUserSecret(ctx context.Context, dbucr *kindav1beta1.DbUser) (*corev1.Secret, error) {

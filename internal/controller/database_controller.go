@@ -29,6 +29,9 @@ import (
 
 	kindav1beta1 "github.com/db-operator/db-operator/api/v1beta1"
 	"github.com/db-operator/db-operator/internal/controller/backup"
+	commonhelper "github.com/db-operator/db-operator/internal/helpers/common"
+	dbhelper "github.com/db-operator/db-operator/internal/helpers/database"
+	proxyhelper "github.com/db-operator/db-operator/internal/helpers/proxy"
 	"github.com/db-operator/db-operator/internal/utils/templates"
 	"github.com/db-operator/db-operator/pkg/config"
 	"github.com/db-operator/db-operator/pkg/utils/database"
@@ -116,12 +119,12 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		// Run finalization logic for database. If the
 		// finalization logic fails, don't remove the finalizer so
 		// that we can retry during the next reconciliation.
-		if sliceContainsSubString(dbcr.ObjectMeta.Finalizers, "dbuser.") {
+		if commonhelper.SliceContainsSubString(dbcr.ObjectMeta.Finalizers, "dbuser.") {
 			err := errors.New("database can't be removed, while there are DbUser referencing it")
 			logrus.Error(err)
 			return r.manageError(ctx, dbcr, err, true)
 		}
-		if containsString(dbcr.ObjectMeta.Finalizers, "db."+dbcr.Name) {
+		if commonhelper.ContainsString(dbcr.ObjectMeta.Finalizers, "db."+dbcr.Name) {
 			err := r.deleteDatabase(ctx, dbcr)
 			if err != nil {
 				logrus.Errorf("DB: namespace=%s, name=%s failed deleting database - %s", dbcr.Namespace, dbcr.Name, err)
@@ -137,7 +140,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 		// legacy finalizer just remove
 		// we set owner reference for monitoring related resource instead of handling finalizer
-		if containsString(dbcr.ObjectMeta.Finalizers, "monitoring."+dbcr.Name) {
+		if commonhelper.ContainsString(dbcr.ObjectMeta.Finalizers, "monitoring."+dbcr.Name) {
 			kci.RemoveFinalizer(&dbcr.ObjectMeta, "monitoring."+dbcr.Name)
 			err = r.Update(ctx, dbcr)
 			if err != nil {
@@ -154,7 +157,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return r.manageError(ctx, dbcr, err, true)
 	}
 
-	if isDBChanged(dbcr, databaseSecret) {
+	if commonhelper.IsDBChanged(dbcr, databaseSecret) {
 		logrus.Infof("DB: namespace=%s, name=%s spec changed", dbcr.Namespace, dbcr.Name)
 		err := r.initialize(ctx, dbcr)
 		if err != nil {
@@ -166,7 +169,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			return r.manageError(ctx, dbcr, err, true)
 		}
 
-		addDBChecksum(dbcr, databaseSecret)
+		commonhelper.AddDBChecksum(dbcr, databaseSecret)
 		err = r.Update(ctx, dbcr)
 		if err != nil {
 			logrus.Errorf("error resource updating - %s", err)
@@ -176,69 +179,66 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	// database status not true, process phase
-	if !dbcr.Status.Status {
-		ownership := []metav1.OwnerReference{}
-		if dbcr.Spec.Cleanup {
-			ownership = append(ownership, metav1.OwnerReference{
-				APIVersion: dbcr.APIVersion,
-				Kind:       dbcr.Kind,
-				Name:       dbcr.Name,
-				UID:        dbcr.GetUID(),
-			},
-			)
-		}
+	ownership := []metav1.OwnerReference{}
+	if dbcr.Spec.Cleanup {
+		ownership = append(ownership, metav1.OwnerReference{
+			APIVersion: dbcr.APIVersion,
+			Kind:       dbcr.Kind,
+			Name:       dbcr.Name,
+			UID:        dbcr.GetUID(),
+		},
+		)
+	}
 
-		phase := dbcr.Status.Phase
-		logrus.Infof("DB: namespace=%s, name=%s start %s", dbcr.Namespace, dbcr.Name, phase)
+	phase := dbcr.Status.Phase
+	logrus.Infof("DB: namespace=%s, name=%s start %s", dbcr.Namespace, dbcr.Name, phase)
 
-		defer promDBsPhaseTime.WithLabelValues(phase).Observe(kci.TimeTrack(time.Now()))
-		err := r.createDatabase(ctx, dbcr, ownership)
-		if err != nil {
-			// when database creation failed, don't requeue request. to prevent exceeding api limit (ex: against google api)
+	defer promDBsPhaseTime.WithLabelValues(phase).Observe(kci.TimeTrack(time.Now()))
+	if err := r.createDatabase(ctx, dbcr, ownership); err != nil {
+		// when database creation failed, don't requeue request. to prevent exceeding api limit (ex: against google api)
+		return r.manageError(ctx, dbcr, err, false)
+	}
+	dbcr.Status.Phase = dbPhaseInstanceAccessSecret
+
+	if err = r.createInstanceAccessSecret(ctx, dbcr, ownership); err != nil {
+		return r.manageError(ctx, dbcr, err, true)
+	}
+	dbcr.Status.Phase = dbPhaseProxy
+	err = r.createProxy(ctx, dbcr, ownership)
+	if err != nil {
+		return r.manageError(ctx, dbcr, err, true)
+	}
+	dbcr.Status.Phase = dbPhaseSecretsTemplating
+	if err = r.createTemplatedSecrets(ctx, dbcr, ownership); err != nil {
+		return r.manageError(ctx, dbcr, err, true)
+	}
+	dbcr.Status.Phase = dbPhaseConfigMap
+	if err = r.createInfoConfigMap(ctx, dbcr, ownership); err != nil {
+		return r.manageError(ctx, dbcr, err, true)
+	}
+	dbcr.Status.Phase = dbPhaseTemplating
+	// A temporary check that exists to avoid creating templates if secretsTemplates are used.
+	// todo: It should be removed when secretsTemlates are gone
+	if len(dbcr.Spec.SecretsTemplates) == 0 {
+		if err := r.renderTemplates(ctx, dbcr); err != nil {
 			return r.manageError(ctx, dbcr, err, false)
 		}
-		dbcr.Status.Phase = dbPhaseInstanceAccessSecret
-
-		if err = r.createInstanceAccessSecret(ctx, dbcr, ownership); err != nil {
-			return r.manageError(ctx, dbcr, err, true)
-		}
-		dbcr.Status.Phase = dbPhaseProxy
-		err = r.createProxy(ctx, dbcr, ownership)
-		if err != nil {
-			return r.manageError(ctx, dbcr, err, true)
-		}
-		dbcr.Status.Phase = dbPhaseSecretsTemplating
-		if err = r.createTemplatedSecrets(ctx, dbcr, ownership); err != nil {
-			return r.manageError(ctx, dbcr, err, true)
-		}
-		dbcr.Status.Phase = dbPhaseConfigMap
-		if err = r.createInfoConfigMap(ctx, dbcr, ownership); err != nil {
-			return r.manageError(ctx, dbcr, err, true)
-		}
-		dbcr.Status.Phase = dbPhaseTemplating
-		// A temporary check that exists to avoid creating templates if secretsTemplates are used.
-		// todo: It should be removed when secretsTemlates are gone
-		if len(dbcr.Spec.SecretsTemplates) == 0 {
-			if err := r.renderTemplates(ctx, dbcr); err != nil {
-				return r.manageError(ctx, dbcr, err, false)
-			}
-		}
-		dbcr.Status.Phase = dbPhaseBackupJob
-		err = r.createBackupJob(ctx, dbcr, ownership)
-		if err != nil {
-			return r.manageError(ctx, dbcr, err, true)
-		}
-		dbcr.Status.Phase = dbPhaseFinish
-		dbcr.Status.Status = true
-		dbcr.Status.Phase = dbPhaseReady
-
-		err = r.Status().Update(ctx, dbcr)
-		if err != nil {
-			logrus.Errorf("error status subresource updating - %s", err)
-			return r.manageError(ctx, dbcr, err, true)
-		}
-		logrus.Infof("DB: namespace=%s, name=%s finish %s", dbcr.Namespace, dbcr.Name, phase)
 	}
+	dbcr.Status.Phase = dbPhaseBackupJob
+	err = r.createBackupJob(ctx, dbcr, ownership)
+	if err != nil {
+		return r.manageError(ctx, dbcr, err, true)
+	}
+	dbcr.Status.Phase = dbPhaseFinish
+	dbcr.Status.Status = true
+	dbcr.Status.Phase = dbPhaseReady
+
+	err = r.Status().Update(ctx, dbcr)
+	if err != nil {
+		logrus.Errorf("error status subresource updating - %s", err)
+		return r.manageError(ctx, dbcr, err, true)
+	}
+	logrus.Infof("DB: namespace=%s, name=%s finish %s", dbcr.Namespace, dbcr.Name, phase)
 
 	// status true do nothing and don't requeue
 	return reconcileResult, nil
@@ -305,7 +305,7 @@ func (r *DatabaseReconciler) createDatabase(ctx context.Context, dbcr *kindav1be
 	databaseSecret, err := r.getDatabaseSecret(ctx, dbcr)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			secretData, err := generateDatabaseSecretData(dbcr.ObjectMeta, dbcr.Status.Engine, "")
+			secretData, err := dbhelper.GenerateDatabaseSecretData(dbcr.ObjectMeta, dbcr.Status.Engine, "")
 			if err != nil {
 				logrus.Errorf("can not generate credentials for database - %s", err)
 				return err
@@ -322,7 +322,7 @@ func (r *DatabaseReconciler) createDatabase(ctx context.Context, dbcr *kindav1be
 			return err
 		}
 	}
-	databaseCred, err := parseDatabaseSecretData(dbcr, databaseSecret.Data)
+	databaseCred, err := dbhelper.ParseDatabaseSecretData(dbcr, databaseSecret.Data)
 	if err != nil {
 		// failed to parse database credential from secret
 		return err
@@ -331,7 +331,7 @@ func (r *DatabaseReconciler) createDatabase(ctx context.Context, dbcr *kindav1be
 		return err
 	}
 
-	db, dbuser, err := determinDatabaseType(dbcr, databaseCred, instance)
+	db, dbuser, err := dbhelper.DeterminDatabaseType(dbcr, databaseCred, instance)
 	if err != nil {
 		// failed to determine database type
 		return err
@@ -399,7 +399,7 @@ func (r *DatabaseReconciler) deleteDatabase(ctx context.Context, dbcr *kindav1be
 		return err
 	}
 
-	db, dbuser, err := determinDatabaseType(dbcr, databaseCred, instance)
+	db, dbuser, err := dbhelper.DeterminDatabaseType(dbcr, databaseCred, instance)
 	if err != nil {
 		// failed to determine database type
 		return err
@@ -497,7 +497,7 @@ func (r *DatabaseReconciler) createProxy(ctx context.Context, dbcr *kindav1beta1
 		return nil
 	}
 
-	proxyInterface, err := determineProxyTypeForDB(r.Conf, dbcr, instance)
+	proxyInterface, err := proxyhelper.DetermineProxyTypeForDB(r.Conf, dbcr, instance)
 	if err != nil {
 		return err
 	}
@@ -575,7 +575,7 @@ func (r *DatabaseReconciler) createProxy(ctx context.Context, dbcr *kindav1beta1
 	}
 
 	isMonitoringEnabled := instance.IsMonitoringEnabled()
-	if isMonitoringEnabled && inCrdList(crdList, "servicemonitors.monitoring.coreos.com") {
+	if isMonitoringEnabled && commonhelper.InCrdList(crdList, "servicemonitors.monitoring.coreos.com") {
 		// create proxy PromServiceMonitor
 		promSvcMon, err := proxy.BuildServiceMonitor(proxyInterface, ownership)
 		if err != nil {
@@ -621,7 +621,7 @@ func (r *DatabaseReconciler) renderTemplates(ctx context.Context, dbcr *kindav1b
 		return err
 	}
 
-	creds, err := parseDatabaseSecretData(dbcr, databaseSecret.Data)
+	creds, err := dbhelper.ParseDatabaseSecretData(dbcr, databaseSecret.Data)
 	if err != nil {
 		return err
 	}
@@ -632,7 +632,7 @@ func (r *DatabaseReconciler) renderTemplates(ctx context.Context, dbcr *kindav1b
 		return err
 	}
 
-	db, dbuser, err := determinDatabaseType(dbcr, creds, instance)
+	db, dbuser, err := dbhelper.DeterminDatabaseType(dbcr, creds, instance)
 	if err != nil {
 		return err
 	}
@@ -668,7 +668,7 @@ func (r *DatabaseReconciler) createTemplatedSecrets(ctx context.Context, dbcr *k
 			return err
 		}
 
-		cred, err := parseDatabaseSecretData(dbcr, databaseSecret.Data)
+		cred, err := dbhelper.ParseDatabaseSecretData(dbcr, databaseSecret.Data)
 		if err != nil {
 			return err
 		}
@@ -682,7 +682,7 @@ func (r *DatabaseReconciler) createTemplatedSecrets(ctx context.Context, dbcr *k
 			return err
 		}
 
-		db, _, err := determinDatabaseType(dbcr, databaseCred, instance)
+		db, _, err := dbhelper.DeterminDatabaseType(dbcr, databaseCred, instance)
 		if err != nil {
 			// failed to determine database type
 			return err
@@ -721,7 +721,7 @@ func (r *DatabaseReconciler) createInfoConfigMap(ctx context.Context, dbcr *kind
 		info["DB_PORT"] = strconv.FormatInt(int64(proxyStatus.SQLPort), 10)
 	}
 
-	sslMode, err := getSSLMode(dbcr, instance)
+	sslMode, err := dbhelper.GetSSLMode(dbcr, instance)
 	if err != nil {
 		return err
 	}

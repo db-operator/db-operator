@@ -1,6 +1,7 @@
 /*
  * Copyright 2021 kloeckner.i GmbH
  * Copyright 2018 The Operator-SDK Authors
+ * Copyright 2023 The DB-Operator Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +16,7 @@
  * limitations under the License.
  */
 
-package controllers
+package proxy
 
 import (
 	"errors"
@@ -38,7 +39,7 @@ var (
 	ErrNoProxySupport = errors.New("no proxy supported backend type")
 )
 
-func determineProxyTypeForDB(conf *config.Config, dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) (proxy.Proxy, error) {
+func DetermineProxyTypeForDB(conf *config.Config, dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) (proxy.Proxy, error) {
 	logrus.Debugf("DB: namespace=%s, name=%s - determinProxyType", dbcr.Namespace, dbcr.Name)
 	backend, err := instance.GetBackendType()
 	if err != nil {
@@ -81,9 +82,9 @@ func determineProxyTypeForDB(conf *config.Config, dbcr *kindav1beta1.Database, i
 	}
 }
 
-func determineProxyTypeForInstance(conf *config.Config, dbin *kindav1beta1.DbInstance) (proxy.Proxy, error) {
+func DetermineProxyTypeForInstance(conf *config.Config, dbin *kindav1beta1.DbInstance) (proxy.Proxy, error) {
 	logrus.Debugf("Instance: name=%s - determinProxyType", dbin.Name)
-	operatorNamespace, err := getOperatorNamespace()
+	operatorNamespace, err := GetOperatorNamespace()
 	if err != nil {
 		// can not get operator namespace
 		return nil, err
@@ -134,7 +135,7 @@ func determineProxyTypeForInstance(conf *config.Config, dbin *kindav1beta1.DbIns
 }
 
 // getOperatorNamespace returns the namespace the operator should be running in.
-func getOperatorNamespace() (string, error) {
+func GetOperatorNamespace() (string, error) {
 	nsBytes, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
 	if err != nil {
 		if os.IsNotExist(err) {

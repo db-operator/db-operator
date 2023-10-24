@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package controllers
+package proxy_test
 
 import (
 	"os"
@@ -22,6 +22,8 @@ import (
 
 	"bou.ke/monkey"
 	kindav1beta1 "github.com/db-operator/db-operator/api/v1beta1"
+	proxyhelper "github.com/db-operator/db-operator/internal/helpers/proxy"
+	"github.com/db-operator/db-operator/internal/utils/testutils"
 	"github.com/db-operator/db-operator/pkg/config"
 	"github.com/db-operator/db-operator/pkg/utils/proxy"
 	"github.com/stretchr/testify/assert"
@@ -68,8 +70,8 @@ func mockOperatorNamespace() (string, error) {
 func TestUnitDetermineProxyTypeForDBGoogleBackend(t *testing.T) {
 	config := &config.Config{}
 	dbin := makeGsqlInstance()
-	db := newPostgresTestDbCr()
-	dbProxy, err := determineProxyTypeForDB(config, db, &dbin)
+	db := testutils.NewPostgresTestDbCr(dbin)
+	dbProxy, err := proxyhelper.DetermineProxyTypeForDB(config, db, &dbin)
 	assert.NoError(t, err)
 	cloudProxy, ok := dbProxy.(*proxy.CloudProxy)
 	assert.Equal(t, ok, true, "expected true")
@@ -79,8 +81,8 @@ func TestUnitDetermineProxyTypeForDBGoogleBackend(t *testing.T) {
 func TestUnitDetermineProxyTypeForDBGenericBackend(t *testing.T) {
 	config := &config.Config{}
 	dbin := makeGenericInstance()
-	db := newPostgresTestDbCr()
-	_, err := determineProxyTypeForDB(config, db, &dbin)
+	db := testutils.NewPostgresTestDbCr(dbin)
+	_, err := proxyhelper.DetermineProxyTypeForDB(config, db, &dbin)
 	assert.Error(t, err)
 }
 
@@ -88,16 +90,16 @@ func TestUnitDetermineProxyTypeForGoogleInstance(t *testing.T) {
 	os.Setenv("CONFIG_PATH", "../../pkg/config/test/config_ok.yaml")
 	config := config.LoadConfig()
 	dbin := makeGsqlInstance()
-	patchGetOperatorNamespace := monkey.Patch(getOperatorNamespace, mockOperatorNamespace)
+	patchGetOperatorNamespace := monkey.Patch(proxyhelper.GetOperatorNamespace, mockOperatorNamespace)
 	defer patchGetOperatorNamespace.Unpatch()
-	dbProxy, err := determineProxyTypeForInstance(&config, &dbin)
+	dbProxy, err := proxyhelper.DetermineProxyTypeForInstance(&config, &dbin)
 	assert.NoError(t, err)
 	cloudProxy, ok := dbProxy.(*proxy.CloudProxy)
 	assert.Equal(t, ok, true, "expected true")
 	assert.Equal(t, cloudProxy.AccessSecretName, "cloudsql-readonly-serviceaccount")
 
 	dbin.Spec.Google.ClientSecret.Name = "test-client-secret"
-	dbProxy, err = determineProxyTypeForInstance(&config, &dbin)
+	dbProxy, err = proxyhelper.DetermineProxyTypeForInstance(&config, &dbin)
 	assert.NoError(t, err)
 	cloudProxy, ok = dbProxy.(*proxy.CloudProxy)
 	assert.Equal(t, ok, true, "expected true")
@@ -107,6 +109,6 @@ func TestUnitDetermineProxyTypeForGoogleInstance(t *testing.T) {
 func TestUnitDetermineProxyTypeForGenericInstance(t *testing.T) {
 	config := &config.Config{}
 	dbin := makeGenericInstance()
-	_, err := determineProxyTypeForInstance(config, &dbin)
+	_, err := proxyhelper.DetermineProxyTypeForInstance(config, &dbin)
 	assert.Error(t, err)
 }

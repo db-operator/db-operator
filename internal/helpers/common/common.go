@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package controllers
+package common
 
 import (
 	"context"
@@ -27,32 +27,32 @@ import (
 	crdv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
-func isDBChanged(dbcr *kindav1beta1.Database, databaseSecret *corev1.Secret) bool {
+func IsDBChanged(dbcr *kindav1beta1.Database, databaseSecret *corev1.Secret) bool {
 	annotations := dbcr.ObjectMeta.GetAnnotations()
 
 	return annotations["checksum/spec"] != kci.GenerateChecksum(dbcr.Spec) ||
-		annotations["checksum/secret"] != generateChecksumSecretValue(databaseSecret)
+		annotations["checksum/secret"] != GenerateChecksumSecretValue(databaseSecret)
 }
 
-func addDBChecksum(dbcr *kindav1beta1.Database, databaseSecret *corev1.Secret) {
+func AddDBChecksum(dbcr *kindav1beta1.Database, databaseSecret *corev1.Secret) {
 	annotations := dbcr.ObjectMeta.GetAnnotations()
 	if len(annotations) == 0 {
 		annotations = make(map[string]string)
 	}
 
 	annotations["checksum/spec"] = kci.GenerateChecksum(dbcr.Spec)
-	annotations["checksum/secret"] = generateChecksumSecretValue(databaseSecret)
+	annotations["checksum/secret"] = GenerateChecksumSecretValue(databaseSecret)
 	dbcr.ObjectMeta.SetAnnotations(annotations)
 }
 
-func generateChecksumSecretValue(databaseSecret *corev1.Secret) string {
+func GenerateChecksumSecretValue(databaseSecret *corev1.Secret) string {
 	if databaseSecret == nil || databaseSecret.Data == nil {
 		return ""
 	}
 	return kci.GenerateChecksum(databaseSecret.Data)
 }
 
-func isDBInstanceSpecChanged(ctx context.Context, dbin *kindav1beta1.DbInstance) bool {
+func IsDBInstanceSpecChanged(ctx context.Context, dbin *kindav1beta1.DbInstance) bool {
 	checksums := dbin.Status.Checksums
 	if checksums["spec"] != kci.GenerateChecksum(dbin.Spec) {
 		return true
@@ -68,7 +68,7 @@ func isDBInstanceSpecChanged(ctx context.Context, dbin *kindav1beta1.DbInstance)
 	return false
 }
 
-func addDBInstanceChecksumStatus(ctx context.Context, dbin *kindav1beta1.DbInstance) {
+func AddDBInstanceChecksumStatus(ctx context.Context, dbin *kindav1beta1.DbInstance) {
 	checksums := dbin.Status.Checksums
 	if len(checksums) == 0 {
 		checksums = make(map[string]string)
@@ -83,7 +83,7 @@ func addDBInstanceChecksumStatus(ctx context.Context, dbin *kindav1beta1.DbInsta
 	dbin.Status.Checksums = checksums
 }
 
-func containsString(slice []string, s string) bool {
+func ContainsString(slice []string, s string) bool {
 	for _, item := range slice {
 		if item == s {
 			return true
@@ -92,7 +92,7 @@ func containsString(slice []string, s string) bool {
 	return false
 }
 
-func sliceContainsSubString(slice []string, s string) bool {
+func SliceContainsSubString(slice []string, s string) bool {
 	for _, item := range slice {
 		if strings.Contains(item, s) {
 			return true
@@ -101,8 +101,8 @@ func sliceContainsSubString(slice []string, s string) bool {
 	return false
 }
 
-// inCrdList returns true if monitoring is enabled in DbInstance spec.
-func inCrdList(crds crdv1.CustomResourceDefinitionList, api string) bool {
+// InCrdList returns true if monitoring is enabled in DbInstance spec.
+func InCrdList(crds crdv1.CustomResourceDefinitionList, api string) bool {
 	for _, crd := range crds.Items {
 		if crd.Name == api {
 			return true

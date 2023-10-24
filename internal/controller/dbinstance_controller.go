@@ -22,6 +22,8 @@ import (
 	"time"
 
 	kindav1beta1 "github.com/db-operator/db-operator/api/v1beta1"
+	commonhelper "github.com/db-operator/db-operator/internal/helpers/common"
+	proxyhelper "github.com/db-operator/db-operator/internal/helpers/proxy"
 	"github.com/db-operator/db-operator/pkg/config"
 	"github.com/db-operator/db-operator/pkg/utils/database"
 	"github.com/db-operator/db-operator/pkg/utils/dbinstance"
@@ -95,7 +97,7 @@ func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}()
 
 	// Check if spec changed
-	if isDBInstanceSpecChanged(ctx, dbin) {
+	if commonhelper.IsDBInstanceSpecChanged(ctx, dbin) {
 		logrus.Infof("Instance: name=%s spec changed", dbin.Name)
 		dbin.Status.Status = false
 		dbin.Status.Phase = dbInstancePhaseValidate // set phase to initial state
@@ -117,7 +119,7 @@ func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			return reconcileResult, err
 		}
 
-		addDBInstanceChecksumStatus(ctx, dbin)
+		commonhelper.AddDBInstanceChecksumStatus(ctx, dbin)
 		dbin.Status.Phase = dbInstancePhaseCreate
 		dbin.Status.Info = map[string]string{}
 
@@ -247,9 +249,9 @@ func (r *DbInstanceReconciler) broadcast(ctx context.Context, dbin *kindav1beta1
 }
 
 func (r *DbInstanceReconciler) createProxy(ctx context.Context, dbin *kindav1beta1.DbInstance, ownership []metav1.OwnerReference) error {
-	proxyInterface, err := determineProxyTypeForInstance(r.Conf, dbin)
+	proxyInterface, err := proxyhelper.DetermineProxyTypeForInstance(r.Conf, dbin)
 	if err != nil {
-		if err == ErrNoProxySupport {
+		if err == proxyhelper.ErrNoProxySupport {
 			return nil
 		}
 		return err
