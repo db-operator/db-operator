@@ -17,7 +17,7 @@ services:
     command:
       - sh
       - -c
-      - sleep 10 && echo "trusted = true" >> "$(find /usr/ | grep uuid-ossp.control)"
+      - 'sleep 10 && echo "trusted = true" >> "$$(find /usr/ | grep uuid-ossp.control)"'
     depends_on:
       - postgres
 volumes:
