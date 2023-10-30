@@ -7,5 +7,6 @@ psql -c "GRANT az_admin TO \"postgres\";"
 psql -c "GRANT pg_read_all_settings TO \"postgres\";"
 psql -c "GRANT pg_read_all_stats TO \"postgres\";"
 psql -c "GRANT pg_stat_scan_tables to \"postgres\";"
-export PGDATABASE=tempalte1
-psql -c "CREATE EXTENSION pgcrypto IF NOT EXISTS;"
+# -- Azure has a complicated extensions setup, so it doesn't make sense to test them here
+export PGDATABASE=template1
+psql -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"

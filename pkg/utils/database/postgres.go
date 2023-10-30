@@ -468,6 +468,12 @@ func (p Postgres) setUserPermission(admin *DatabaseUser, user *DatabaseUser) err
 			logrus.Errorf("failed granting postgres user %s - %s", grant, err)
 			return err
 		}
+		grantCreateToAdmin := fmt.Sprintf("GRANT CREATE ON DATABASE \"%s\" to \"%s\";", p.Database, admin.Username)
+		if err := p.executeExec(p.Database, grantCreateToAdmin, admin); err != nil {
+			logrus.Errorf("failed to grant usage access to %s on database %s: %s", user.Username, p.Database, err)
+			return err
+		}
+
 		for _, s := range schemas {
 			grantUserAccess := fmt.Sprintf("GRANT ALL ON SCHEMA \"%s\" TO \"%s\"", s, user.Username)
 			if err := p.executeExec(p.Database, grantUserAccess, admin); err != nil {

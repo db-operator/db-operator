@@ -193,10 +193,9 @@ jobs:
     strategy:
       matrix:
         image:
+        # -- Trusted extensions were added only in 13, we need them for tests
           - postgres:14
           - postgres:13
-          - postgres:12
-          - postgres:11
     steps:
       - name: Checkout
         uses: actions/checkout@v3
