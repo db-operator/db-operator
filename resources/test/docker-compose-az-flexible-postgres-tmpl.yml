@@ -8,6 +8,13 @@ services:
       POSTGRES_PASSWORD: "test1234"
       POSTGRES_USER: "az_admin"
     volumes:
+      # ---------------------------------------------------------------
+      # -- Init script that should bootstrap the postgres server 
+      # --  so it acts like the one given by Azure
+      # -- Azure Flexible server won't give you a super user, 
+      # --  but instead will give you a user with the permissions 
+      # --  like those that are set in the script
+      # ---------------------------------------------------------------
       - ./resources/test/az_flexible_postgres_init.sh:/docker-entrypoint-initdb.d/az_init.sh
       - data:/usr/share/postgresql
   extension-mark:
@@ -15,6 +22,10 @@ services:
     volumes:
       - data:/usr/share/postgresql
     command:
+      # ---------------------------------------------------------------
+      # -- Since Azure doesn't give you a super user, you need to have
+      # --  extensions marked as trusted in order to install them.
+      # ---------------------------------------------------------------
       - sh
       - -c
       - 'sleep 10 && echo "trusted = true" >> "$$(find /usr/ | grep uuid-ossp.control)"'
