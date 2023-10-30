@@ -1,5 +1,4 @@
 name: Build and Test
-
 on:
   push:
     branches:
@@ -7,94 +6,76 @@ on:
   pull_request:
     branches:
       - main
-
 env:
   product_name: db-operator
   go_version: "1.21"
   go_os: linux
   go_arch: amd64
   main_go_path: .
-
 jobs:
   lint: ## https://github.com/golangci/golangci-lint-action#how-to-use
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-
       - name: Setup GO
         uses: actions/setup-go@v3
         with:
           go-version: ${{ env.go_version }}
-
       - name: Check Code Style
         uses: golangci/golangci-lint-action@v3
         with:
           version: v1.52.2 ## https://github.com/golangci/golangci-lint/releases
           args: --timeout 5m0s
-
   unit-test:
     runs-on: ubuntu-latest
     needs: lint
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
-      
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
-      
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
           go-version: ${{ env.go_version }}
-      
       # The existing apparmor profile for mysql needs to be removed.
       # https://github.com/actions/virtual-environments/issues/181
       # https://github.com/moby/moby/issues/7512#issuecomment-51845976
       - name: Run the unit tests
         run: go test -tags tests -run "TestUnit" ./... -v -cover
-
-  gsql-test: 
+  gsql-test:
     runs-on: ubuntu-latest
     needs: lint
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
-      
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
-      
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
           go-version: ${{ env.go_version }}
-
       - name: Start dependencies using docker-compose
         run: docker-compose -f ./resources/test/docker-compose-gsql.yml up -d
-      
       - name: Run gsql tests
         run: go test -tags tests -run "TestGsql" ./... -v -cover
-
   mysql-test:
     runs-on: ubuntu-latest
     needs: lint
@@ -106,25 +87,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
-      
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
-      
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
           go-version: ${{ env.go_version }}
-      
       # The existing apparmor profile for mysql needs to be removed.
       # https://github.com/actions/virtual-environments/issues/181
       # https://github.com/moby/moby/issues/7512#issuecomment-51845976
@@ -135,10 +111,8 @@ jobs:
           sudo apt-get remove mysql-server --purge
           sudo apt-get install apparmor-profiles
           sudo apparmor_parser -R /etc/apparmor.d/usr.sbin.mysqld
-      
       - name: Run the unit tests
         run: ./scripts/test_database -d mysql -i ${{ matrix.image }} -f ./resources/test/docker-compose-mysql-tmpl.yml
-
   mariadb-test:
     runs-on: ubuntu-latest
     needs: lint
@@ -151,25 +125,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
-      
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
-      
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
           go-version: ${{ env.go_version }}
-      
       # The existing apparmor profile for mysql needs to be removed.
       # https://github.com/actions/virtual-environments/issues/181
       # https://github.com/moby/moby/issues/7512#issuecomment-51845976
@@ -180,10 +149,8 @@ jobs:
           sudo apt-get remove mysql-server --purge
           sudo apt-get install apparmor-profiles
           sudo apparmor_parser -R /etc/apparmor.d/usr.sbin.mysqld
-      
       - name: Run the unit tests
         run: ./scripts/test_database -d mysql -i ${{ matrix.image }} -f ./resources/test/docker-compose-mariadb-tmpl.yml
-
   postgres-test:
     runs-on: ubuntu-latest
     needs: lint
@@ -199,25 +166,53 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
-      
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
-      
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
           go-version: ${{ env.go_version }}
-      
       - name: Run the unit tests
         run: ./scripts/test_database -d postgres -i ${{ matrix.image }} -f ./resources/test/docker-compose-postgres-tmpl.yml
-
+  # -------------------------------------------------------------------
+  # -- Azure Flexible Postgres test
+  # -- Azure doesn't give you a super-admin user, so there is an init 
+  # -- script that imitates the Azure Flexible Server behaviour
+  # -------------------------------------------------------------------
+  postgres-az-test:
+    runs-on: ubuntu-latest
+    needs: lint
+    strategy:
+      matrix:
+        image:
+          - postgres:14
+          - postgres:13
+          - postgres:12
+          - postgres:11
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.go_version }}
+      - name: Run the unit tests
+        run: ./scripts/test_database -d postgres -i ${{ matrix.image }} -f ./resources/test/docker-compose-az-flexible-postgres-tmpl.yml

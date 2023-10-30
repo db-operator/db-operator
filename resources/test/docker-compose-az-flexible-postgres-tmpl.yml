@@ -6,3 +6,6 @@ services:
       - "5432:5432"
     environment:
       POSTGRES_PASSWORD: "test1234"
+      POSTGRES_USER: "az_admin"
+    volumes:
+    - ./resources/test/az_flexible_postgres_init.sql:/docker-entrypoint-initdb.d/az_init.sql
