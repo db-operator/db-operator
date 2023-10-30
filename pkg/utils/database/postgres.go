@@ -546,17 +546,21 @@ func (p Postgres) deleteUser(admin *DatabaseUser, user *DatabaseUser) error {
 				user.Username,
 			)
 			if err := p.executeExec(p.Database, revokeDefaults, p.MainUser); err != nil {
-				logrus.Errorf("failed removing default proveleges from \"%s\" on schema %s: %s", user.Username, schema, err)
+				logrus.Errorf("failed removing default privileges from \"%s\" on schema %s: %s", user.Username, schema, err)
 				return err
 			}
 			revokeAll := fmt.Sprintf("REVOKE ALL ON SCHEMA \"%s\" FROM \"%s\";", schema, user.Username)
 			if err := p.executeExec(p.Database, revokeAll, admin); err != nil {
-				logrus.Errorf("failed revoking proveleges frmm %s on schema %s: %s", user.Username, schema, err)
+				logrus.Errorf("failed revoking privileges from %s on schema %s: %s", user.Username, schema, err)
 				return err
+			}
+			assignRoleToAdmin := fmt.Sprintf("GRANT \"%s\" TO \"%s\";", user.Username, admin.Username)
+			if err := p.executeExec(p.Database, assignRoleToAdmin, admin); err != nil {
+				logrus.Errorf("failed granting %s to %s: %s", user.Username, admin.Username, err)
 			}
 			dropOwned := fmt.Sprintf("DROP OWNED BY \"%s\";", user.Username)
 			if err := p.executeExec(p.Database, dropOwned, admin); err != nil {
-				logrus.Errorf("failed revoking proveleges frmm %s on schema %s: %s", user.Username, schema, err)
+				logrus.Errorf("failed dropping owned by %s: %s", user.Username, err)
 				return err
 			}
 
