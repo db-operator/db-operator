@@ -489,7 +489,7 @@ func (p Postgres) setUserPermission(admin *DatabaseUser, user *DatabaseUser) err
 				logrus.Errorf("failed updating postgres user %s - %s", grantTables, err)
 				return err
 			}
-			err = p.executeExec(p.Database, grantTables, admin)
+			err = p.executeExec(p.Database, grantTables, p.MainUser)
 			if err != nil {
 				logrus.Errorf("failed updating postgres user %s - %s", grantTables, err)
 				return err
@@ -514,7 +514,7 @@ func (p Postgres) setUserPermission(admin *DatabaseUser, user *DatabaseUser) err
 				logrus.Errorf("failed updating postgres user %s - %s", grantTables, err)
 				return err
 			}
-			err = p.executeExec(p.Database, grantTables, admin)
+			err = p.executeExec(p.Database, grantTables, p.MainUser)
 			if err != nil {
 				logrus.Errorf("failed updating postgres user %s - %s", grantTables, err)
 				return err
