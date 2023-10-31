@@ -194,7 +194,7 @@ func TestUnitProtocolGetterPostgres(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	assert.Equal(t, "psql", proto)
+	assert.Equal(t, "postgresql", proto)
 }
 
 func TestUnitProtocolGetterMysql(t *testing.T) {
@@ -415,7 +415,7 @@ func TestUnitPortGetterProxy(t *testing.T) {
 
 func TestUnitRenderDefault(t *testing.T) {
 	expectedResult := map[string][]byte{
-		templates.DEFAULT_TEMPLATE_NAME: []byte("psql://testusername:testpassword@hostname:1122/database"),
+		templates.DEFAULT_TEMPLATE_NAME: []byte("postgresql://testusername:testpassword@hostname:1122/database"),
 	}
 	for key, val := range secretPostgres.Data {
 		expectedResult[key] = val
