@@ -138,7 +138,7 @@ func (db *Database) GetProtocol() (string, error) {
 		return "", err
 	}
 	if instance.Spec.Engine == "postgres" {
-		return "psql", nil
+		return "postgresql", nil
 	}
 	return instance.Spec.Engine, nil
 }
