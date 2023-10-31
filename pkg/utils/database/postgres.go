@@ -460,6 +460,12 @@ func (p Postgres) setUserPermission(admin *DatabaseUser, user *DatabaseUser) err
 		schemas = append(schemas, "public")
 	}
 
+	// Grant user role to the admin user. It's required to make generic instances work with Azure.
+	assignRoleToAdmin := fmt.Sprintf("GRANT \"%s\" TO \"%s\";", user.Username, admin.Username)
+	if err := p.executeExec(p.Database, assignRoleToAdmin, admin); err != nil {
+		logrus.Errorf("failed granting %s to %s: %s", user.Username, admin.Username, err)
+	}
+
 	switch user.AccessType {
 	case ACCESS_TYPE_MAINUSER:
 		grant := fmt.Sprintf("GRANT ALL PRIVILEGES ON DATABASE \"%s\" TO \"%s\";", p.Database, user.Username)
@@ -495,12 +501,12 @@ func (p Postgres) setUserPermission(admin *DatabaseUser, user *DatabaseUser) err
 				logrus.Errorf("failed updating postgres user %s - %s", grantTables, err)
 				return err
 			}
-			err = p.executeExec(p.Database, grantTables, p.MainUser)
+			err = p.executeExec(p.Database, grantTables, admin)
 			if err != nil {
 				logrus.Errorf("failed updating postgres user %s - %s", grantTables, err)
 				return err
 			}
-			err = p.executeExec(p.Database, defaultPrivileges, p.MainUser)
+			err = p.executeExec(p.Database, defaultPrivileges, admin)
 			if err != nil {
 				logrus.Errorf("failed updating postgres user %s - %s", defaultPrivileges, err)
 				return err
@@ -520,12 +526,12 @@ func (p Postgres) setUserPermission(admin *DatabaseUser, user *DatabaseUser) err
 				logrus.Errorf("failed updating postgres user %s - %s", grantTables, err)
 				return err
 			}
-			err = p.executeExec(p.Database, grantTables, p.MainUser)
+			err = p.executeExec(p.Database, grantTables, admin)
 			if err != nil {
 				logrus.Errorf("failed updating postgres user %s - %s", grantTables, err)
 				return err
 			}
-			err = p.executeExec(p.Database, defaultPrivileges, p.MainUser)
+			err = p.executeExec(p.Database, defaultPrivileges, admin)
 			if err != nil {
 				logrus.Errorf("failed updating postgres user %s - %s", defaultPrivileges, err)
 				return err
@@ -559,10 +565,6 @@ func (p Postgres) deleteUser(admin *DatabaseUser, user *DatabaseUser) error {
 			if err := p.executeExec(p.Database, revokeAll, admin); err != nil {
 				logrus.Errorf("failed revoking privileges from %s on schema %s: %s", user.Username, schema, err)
 				return err
-			}
-			assignRoleToAdmin := fmt.Sprintf("GRANT \"%s\" TO \"%s\";", user.Username, admin.Username)
-			if err := p.executeExec(p.Database, assignRoleToAdmin, admin); err != nil {
-				logrus.Errorf("failed granting %s to %s: %s", user.Username, admin.Username, err)
 			}
 			dropOwned := fmt.Sprintf("DROP OWNED BY \"%s\";", user.Username)
 			if err := p.executeExec(p.Database, dropOwned, admin); err != nil {
