@@ -1,57 +1,126 @@
-.PHONY: all build
-.ONESHELL: test
-
-SRC = $(shell find . -type f -name '*.go')
-
-ifeq ($(K8S_VERSION),)
-K8S_VERSION := v1.22.3
+# ---------------------------------------------------------------------
+# -- Image URL to use all building/pushing image targets
+# ---------------------------------------------------------------------
+IMAGE_TAG ?= my-db-operator:v1.0.0-dev
+# ---------------------------------------------------------------------
+# -- ENVTEST_K8S_VERSION refers to the version of kubebuilder assets 
+# --  to be downloaded by envtest binary.
+# ---------------------------------------------------------------------
+ENVTEST_K8S_VERSION = 1.28.0
+# ---------------------------------------------------------------------
+# -- CONTROLLER_GET_VERSION a version of the controller-get tool
+# ---------------------------------------------------------------------
+CONTROLLER_GET_VERSION = v0.13.0
+# ---------------------------------------------------------------------
+# -- K8s version to start a local kubernetes
+# ---------------------------------------------------------------------
+K8S_VERSION ?= v1.22.3
+# ---------------------------------------------------------------------
+# -- Get the currently used golang install path 
+# --  (in GOPATH/bin, unless GOBIN is set)
+# ---------------------------------------------------------------------
+ifeq (,$(shell go env GOBIN))
+GOBIN=$(shell go env GOPATH)/bin
+else
+GOBIN=$(shell go env GOBIN)
 endif
+# ---------------------------------------------------------------------
+# -- Which container tool to use
+# ---------------------------------------------------------------------
+CONTAINER_TOOL ?= docker
+# ---------------------------------------------------------------------
+# -- Which compose tool to use
+# -- For example
+# -- $ export COMPOSE_TOOL="nerdctl compose"
+# ---------------------------------------------------------------------
+COMPOSE_TOOL ?= docker-compose
+# ---------------------------------------------------------------------
+# -- It's required when you want to use k3s and nerdctl
+# -- $ export CONTAINER_TOOL_NAMESPACE_ARG="--namespace k8s.io"
+# ---------------------------------------------------------------------
+CONTAINER_TOOL_NAMESPACE_ARG ?=
+# -- Set additional argumets to container tool
+# -- To use, set an environment variable:
+# -- $ export CONTAINER_TOOL_ARGS="--build-arg GOARCH=arm64 --platform=linux/arm64"
+# ---------------------------------------------------------------------
+CONTAINER_TOOL_ARGS ?=
+# ---------------------------------------------------------------------
+# -- A path to store binaries that are used in the Makefile
+# ---------------------------------------------------------------------
+LOCALBIN ?= $(shell pwd)/bin
+$(LOCALBIN):
+	mkdir -p $(LOCALBIN)
 
-help:   ## show this help
+SHELL = /usr/bin/env bash -o pipefail
+.SHELLFLAGS = -ec
+
+# ---------------------------------------------------------------------
+# -- Rules
+# ---------------------------------------------------------------------
+help: ## show this help
 	@echo 'usage: make [target] ...'
 	@echo ''
 	@echo 'targets:'
 	@grep -E '^(.+)\:\ .*##\ (.+)' ${MAKEFILE_LIST} | sort | sed 's/:.*##/#/' | column -t -c 2 -s '#'
 
-build: $(SRC) ## build db-operator docker image
-	@docker build --build-arg GOARCH=amd64 -t my-db-operator:v1.0.0-dev .
-	@docker save my-db-operator > my-image.tar
+.PHONY: build
+build: ## Build a container
+	$(CONTAINER_TOOL) build ${CONTAINER_TOOL_ARGS} -t ${IMAGE_TAG} . ${CONTAINER_TOOL_NAMESPACE_ARG}
+	$(CONTAINER_TOOL) save ${CONTAINER_TOOL_NAMESPACE_ARG} -o my-image.tar
 
-build_arm: $(SRC) ## build db-operator docker image for arm
-	@docker build --platform=linux/arm64 --build-arg GOARCH=arm64 -t my-db-operator:v1.0.0-dev .
-	@docker save my-db-operator > my-image.tar
+# ---------------------------------------------------------------------
+# -- Go related rules
+# ---------------------------------------------------------------------
+lint: ## lint go code
+	@go mod tidy
+	@test -s $(LOCALBIN)/golangci-lint || GOBIN=$(LOCALBIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	@$(LOCALBIN)/golangci-lint run ./...
 
-build_nctl: $(SRC) ## build db-operator docker image
-	@nerdctl build --build-arg GOARCH=amd64 -t my-db-operator:v1.0.0-dev --namespace k8s.io .
-	@nerdctl save --namespace k8s.io my-db-operator:v1.0.0-dev -o my-image.tar
+fmt: ## Format go code
+	@test -s $(LOCALBIN)/gofumpt || GOBIN=$(LOCALBIN) go install mvdan.cc/gofumpt@latest
+	@$(LOCALBIN)/gofumpt -l -w .
 
+vet: ## go vet to find issues
+	@go vet ./...
+
+# ---------------------------------------------------------------------
+# -- Tests are not passing when GOARCH is not amd64, so it's hardcoded
+# ---------------------------------------------------------------------
+unit: ## run go unit tests
+	GOARCH=amd64 go test -tags tests -run "TestUnit" ./... -v
+
+test: ## run go all test
+	$(COMPOSE_TOOL) down
+	$(COMPOSE_TOOL) up -d
+	$(COMPOSE_TOOL) restart sqladmin
+	sleep 10
+	GOARCH=amd64 go test -count=1 -tags tests ./... -v -cover
+	$(COMPOSE_TOOL) down
+
+# ---------------------------------------------------------------------
+# -- Kubebuilder realted rule
+# ---------------------------------------------------------------------
 addexamples: ## add examples via kubectl create -f examples/
 	cd ./examples/; ls | while read line; do kubectl apply -f $$line; done
 
-test: $(SRC) ## run go unit test
-	docker-compose down
-	docker-compose up -d
-	docker-compose restart sqladmin
-	sleep 10
-	go test -count=1 -tags tests ./... -v -cover
-	docker-compose down
+manifests: controller-gen ## generate custom resource definitions
+	$(CONTROLLER_GEN) crd rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
-test-nctl: $(SRC) ## run go unit test
-	nerdctl compose down
-	nerdctl compose up -d
-	nerdctl compose restart sqladmin
-	sleep 20
-	go test -count=1 -tags tests ./... -v -cover
-	nerdctl compose down
+## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+generate: controller-gen ## generate supporting code for custom resource types
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
-lint: $(SRC) ## lint go code
-	@go mod tidy
-	@gofumpt -l -w $^
-	@golangci-lint run ./...
+.PHONY: controller-gen
+controller-gen: ## Download controller-gen locally if necessary.
+	test -s $(LOCALBIN)/controller-gen || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@${CONTROLLER_GET_VERSION}
 
-vet: $(SRC)  ## go vet to find issues
-	@go vet ./...
+.PHONY: envtest
+envtest: ## Download envtest-setup locally if necessary.
+	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
+# ---------------------------------------------------------------------
+# -- Additional helpers
+# ---------------------------------------------------------------------
 k3s_mac_lima_create: ## create local k8s using lima
 	limactl start --tty=false ./resources/lima/k3s.yaml
 
@@ -74,29 +143,3 @@ k3d_install: ## install k3d cluster locally
 
 k3d_image: build ## rebuild the docker images and upload into your k3d cluster
 	@k3d image import my-image.tar -c myk3s
-
-## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-manifests: controller-gen ## generate custom resource definitions
-	$(CONTROLLER_GEN) crd rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-
-## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
-generate: controller-gen ## generate supporting code for custom resource types
-	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
-
-CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
-controller-gen: ## Download controller-gen locally if necessary.
-	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.13.0)
-
-# go-get-tool will 'go get' any package $2 and install it to $1.
-PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
-define go-get-tool
-@[ -f $(1) ] || { \
-set -e ;\
-TMP_DIR=$$(mktemp -d) ;\
-cd $$TMP_DIR ;\
-go mod init tmp ;\
-echo "Downloading $(2)" ;\
-GOBIN=$(PROJECT_DIR)/bin go install $(2) ;\
-rm -rf $$TMP_DIR ;\
-}
-endef
