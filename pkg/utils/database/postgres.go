@@ -231,10 +231,11 @@ func (p Postgres) CheckStatus(user *DatabaseUser) error {
 		return fmt.Errorf("db conn test failed - couldn't get db conn: %s", err)
 	}
 	defer db.Close()
-	_, err = db.Query("SELECT 1")
+	res, err := db.Query("SELECT 1")
 	if err != nil {
 		return fmt.Errorf("db conn test failed - failed to execute query: %s", err)
 	}
+	res.Close()
 
 	if err := p.checkSchemas(user); err != nil {
 		return err
