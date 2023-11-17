@@ -23,6 +23,7 @@ import (
 
 	kindav1beta1 "github.com/db-operator/db-operator/api/v1beta1"
 	"github.com/db-operator/db-operator/pkg/config"
+	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -37,9 +38,9 @@ func TestGCSBackupCronGsql(t *testing.T) {
 	instance.Spec.Google = &kindav1beta1.GoogleInstance{InstanceName: "google-instance-1"}
 	dbcr.Spec.Instance = "staging"
 	dbcr.Spec.Backup.Cron = "* * * * *"
-
+	log := logr.New(logr.Discard().GetSink())
 	os.Setenv("CONFIG_PATH", "./test/backup_config.yaml")
-	conf := config.LoadConfig()
+	conf := config.LoadConfig(log)
 
 	instance.Spec.Engine = "postgres"
 	funcCronObject, err := GCSBackupCron(&conf, dbcr, instance)
@@ -73,7 +74,7 @@ func TestUnitGCSBackupCronGeneric(t *testing.T) {
 	dbcr.Spec.Backup.Cron = "* * * * *"
 
 	os.Setenv("CONFIG_PATH", "./test/backup_config.yaml")
-	conf := config.LoadConfig()
+	conf := config.LoadConfig(logr.New(logr.Discard().GetSink()))
 
 	instance.Spec.Engine = "postgres"
 	funcCronObject, err := GCSBackupCron(&conf, dbcr, instance)
@@ -99,7 +100,7 @@ func TestUnitGCSBackupCronGeneric(t *testing.T) {
 
 func TestUnitGetResourceRequirements(t *testing.T) {
 	os.Setenv("CONFIG_PATH", "./test/backup_config.yaml")
-	conf := config.LoadConfig()
+	conf := config.LoadConfig(logr.New(logr.Discard().GetSink()))
 
 	expected := v1.ResourceRequirements{
 		Requests: map[v1.ResourceName]resource.Quantity{v1.ResourceCPU: resource.MustParse("50m"), v1.ResourceMemory: resource.MustParse("50Mi")},

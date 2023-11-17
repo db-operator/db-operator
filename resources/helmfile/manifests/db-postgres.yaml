@@ -1,0 +1,19 @@
+apiVersion: "kinda.rocks/v1beta1"
+kind: "Database"
+metadata:
+  name: postgres-db
+spec:
+  secretName: postgres-db-credentials
+  cleanup: true
+  credentials:
+    templates:
+      - name: CHECK
+        template: CHECK
+        secret: true
+  instance: generic-postgres
+  postgres:
+    schemas:
+      - test
+    extensions:
+      - pg_stat_statements
+  deletionProtected: false

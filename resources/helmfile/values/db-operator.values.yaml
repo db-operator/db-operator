@@ -1,0 +1,8 @@
+---
+image:
+  repository: my-db-operator
+  tag: 1.0.0-dev
+  pullPolicy: Never
+  logLevel: debug
+webhook:
+  create: false

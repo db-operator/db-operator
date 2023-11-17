@@ -20,26 +20,28 @@ import (
 	"os"
 
 	"github.com/db-operator/db-operator/pkg/utils/kci"
-	"github.com/sirupsen/logrus"
+	"github.com/go-logr/logr"
 	yaml "gopkg.in/yaml.v2"
 )
 
 // LoadConfig reads config file for db-operator from defined path and parse
-func LoadConfig() Config {
+func LoadConfig(log logr.Logger) Config {
 	path := kci.StringNotEmpty(os.Getenv("CONFIG_PATH"), "/srv/config/config.yaml")
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		logrus.Fatalf("Failed to open config file: %v", err)
+		log.Error(err, "failed to open config file")
+		os.Exit(1)
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		logrus.Fatalf("Loading of configuration failed: %v", err)
+		log.Error(err, "Loading of configuration failed")
+		os.Exit(1)
 	}
 
 	conf := Config{}
 
 	err = yaml.Unmarshal(data, &conf)
 	if err != nil {
-		logrus.Fatalf("Decode of configuration failed: %v", err)
+		log.Error(err, "decode of configuration failed")
 	}
 	return conf
 }

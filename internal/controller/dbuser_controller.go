@@ -31,7 +31,6 @@ import (
 	"github.com/db-operator/db-operator/pkg/utils/database"
 	"github.com/db-operator/db-operator/pkg/utils/kci"
 	"github.com/go-logr/logr"
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -39,6 +38,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -58,8 +58,7 @@ type DbUserReconciler struct {
 //+kubebuilder:rbac:groups=kinda.rocks,resources=dbusers/finalizers,verbs=update
 
 func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = r.Log.WithValues("dbuser", req.NamespacedName)
-
+	log := log.FromContext(ctx)
 	reconcilePeriod := r.Interval * time.Second
 	reconcileResult := reconcile.Result{RequeueAfter: reconcilePeriod}
 
@@ -79,7 +78,7 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	// Update object status always when function exit abnormally or through a panic.
 	defer func() {
 		if err := r.Status().Update(ctx, dbusercr); err != nil {
-			logrus.Errorf("failed to update status - %s", err)
+			log.Error(err, "failed to update status")
 		}
 	}()
 
@@ -98,12 +97,12 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			dbName := fmt.Sprintf("%s-%s", dbusercr.Namespace, dbusercr.Spec.DatabaseRef)
 			secretData, err := dbhelper.GenerateDatabaseSecretData(dbusercr.ObjectMeta, dbcr.Status.Engine, dbName)
 			if err != nil {
-				logrus.Errorf("can not generate credentials for database - %s", err)
+				log.Error(err, "can not generate credentials for database")
 				return r.manageError(ctx, dbusercr, err, false)
 			}
 			userSecret = kci.SecretBuilder(dbusercr.Spec.SecretName, dbusercr.Namespace, secretData)
 		} else {
-			logrus.Errorf("could not get database secret - %s", err)
+			log.Error(err, "could not get database secret")
 			return r.manageError(ctx, dbusercr, err, true)
 		}
 	}
@@ -154,19 +153,19 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 				return r.manageError(ctx, dbusercr, err, true)
 			}
 			if err := database.DeleteUser(db, dbuser, adminCred); err != nil {
-				logrus.Errorf("DBUser: namespace=%s, name=%s failed deleting a user - %s", dbusercr.Namespace, dbusercr.Name, err)
+				log.Error(err, "failed deleting a user")
 				return r.manageError(ctx, dbusercr, err, false)
 			}
 			kci.RemoveFinalizer(&dbusercr.ObjectMeta, "dbuser."+dbusercr.Name)
 			err = r.Update(ctx, dbusercr)
 			if err != nil {
-				logrus.Errorf("error resource updating - %s", err)
+				log.Error(err, "error resource updating")
 				return r.manageError(ctx, dbusercr, err, false)
 			}
 			kci.RemoveFinalizer(&dbcr.ObjectMeta, "dbuser."+dbusercr.Name)
 			err = r.Update(ctx, dbcr)
 			if err != nil {
-				logrus.Errorf("error resource updating - %s", err)
+				log.Error(err, "error resource updating")
 				return r.manageError(ctx, dbusercr, err, false)
 			}
 
@@ -187,13 +186,13 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 				kci.AddFinalizer(&dbusercr.ObjectMeta, "dbuser."+dbusercr.Name)
 				err = r.Update(ctx, dbusercr)
 				if err != nil {
-					logrus.Errorf("error resource updating - %s", err)
+					log.Error(err, "error resource updating")
 					return r.manageError(ctx, dbusercr, err, false)
 				}
 				kci.AddFinalizer(&dbcr.ObjectMeta, "dbuser."+dbusercr.Name)
 				err = r.Update(ctx, dbcr)
 				if err != nil {
-					logrus.Errorf("error resource updating - %s", err)
+					log.Error(err, "error resource updatinsr")
 					return r.manageError(ctx, dbusercr, err, false)
 				}
 				dbusercr.Status.Created = true
@@ -243,15 +242,16 @@ func (r *DbUserReconciler) getDbUserSecret(ctx context.Context, dbucr *kindav1be
 }
 
 func (r *DbUserReconciler) manageError(ctx context.Context, dbucr *kindav1beta1.DbUser, issue error, requeue bool) (reconcile.Result, error) {
+	log := log.FromContext(ctx)
 	dbucr.Status.Status = false
-	logrus.Errorf("DB: namespace=%s, name=%s failed - %s", dbucr.Namespace, dbucr.Name, issue)
+	log.Error(issue, "an error occurred during the reconciliation")
 
 	retryInterval := 60 * time.Second
 
 	r.Recorder.Event(dbucr, "Warning", "Failed", issue.Error())
 	err := r.Status().Update(ctx, dbucr)
 	if err != nil {
-		logrus.Error(err, "unable to update status")
+		log.Error(err, "unable to update status")
 		return reconcile.Result{
 			RequeueAfter: retryInterval,
 			Requeue:      requeue,
@@ -335,6 +335,7 @@ func (r *DbUserReconciler) getAdminSecret(ctx context.Context, dbcr *kindav1beta
 // creating and removing
 // It's mostly a copy-paste from the database controller, maybe it might be refactored
 func (r *DbUserReconciler) handleTemplatedCredentials(ctx context.Context, dbcr *kindav1beta1.Database, dbusercr *v1beta1.DbUser, dbuser *database.DatabaseUser) error {
+	log := log.FromContext(ctx)
 	databaseSecret, err := r.getDbUserSecret(ctx, dbusercr)
 	if err != nil {
 		return err
@@ -361,7 +362,7 @@ func (r *DbUserReconciler) handleTemplatedCredentials(ctx context.Context, dbcr 
 		return err
 	}
 
-	templateds, err := templates.NewTemplateDataSource(dbcr, dbusercr, databaseSecret, databaseConfigMap, db, dbuser)
+	templateds, err := templates.NewTemplateDataSource(dbcr, dbusercr, databaseSecret, databaseConfigMap, db, dbuser, log)
 	if err != nil {
 		return err
 	}
