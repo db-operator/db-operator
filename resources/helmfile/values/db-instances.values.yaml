@@ -1,0 +1,28 @@
+---
+dbinstances:
+  generic-postgres:
+    monitoring:
+      enabled: false
+    adminSecretRef:
+      Name: postgres-generic-admin-secret
+      Namespace: db-operator
+    engine: postgres
+    generic:
+      host: postgres-instance-postgresql
+      port: 5432
+    secrets:
+      adminUser: postgres
+      adminPassword: 123123!!
+  generic-mysql:
+    monitoring:
+      enabled: false
+    adminSecretRef:
+      Name: mysql-generic-admin-secret
+      Namespace: db-operator
+    engine: mysql
+    generic:
+      host: mysql-instance
+      port: 3306
+    secrets:
+      adminUser: root
+      adminPassword: 123123!!

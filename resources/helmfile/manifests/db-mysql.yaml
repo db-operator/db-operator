@@ -1,0 +1,12 @@
+apiVersion: "kinda.rocks/v1beta1"
+kind: "Database"
+metadata:
+  name: mysql-db
+spec:
+  secretName: mysql-db-credentials
+  instance: generic-mysql
+  deletionProtected: false
+  backup:
+    enable: false
+    cron: ""
+  cleanup: false

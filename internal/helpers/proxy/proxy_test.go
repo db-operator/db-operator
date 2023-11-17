@@ -26,6 +26,7 @@ import (
 	"github.com/db-operator/db-operator/internal/utils/testutils"
 	"github.com/db-operator/db-operator/pkg/config"
 	"github.com/db-operator/db-operator/pkg/utils/proxy"
+	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -88,7 +89,7 @@ func TestUnitDetermineProxyTypeForDBGenericBackend(t *testing.T) {
 
 func TestUnitDetermineProxyTypeForGoogleInstance(t *testing.T) {
 	os.Setenv("CONFIG_PATH", "../../../pkg/config/test/config_ok.yaml")
-	config := config.LoadConfig()
+	config := config.LoadConfig(logr.New(logr.Discard().GetSink()))
 	dbin := makeGsqlInstance()
 	patchGetOperatorNamespace := monkey.Patch(proxyhelper.GetOperatorNamespace, mockOperatorNamespace)
 	defer patchGetOperatorNamespace.Unpatch()

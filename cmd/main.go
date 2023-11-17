@@ -113,7 +113,7 @@ func main() {
 		}
 	} else {
 		setupLog.Info("Starting controller")
-		conf := config.LoadConfig()
+		conf := config.LoadConfig(ctrl.Log)
 
 		interval := os.Getenv("RECONCILE_INTERVAL")
 		i, err := strconv.ParseInt(interval, 10, 64)

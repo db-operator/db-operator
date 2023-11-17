@@ -1,0 +1,128 @@
+# Source: db-operator/templates/test/gsql_test.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db-operator-mock-google-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: googleAPI
+      role: test
+  template:
+    metadata:
+      labels:
+        app: googleAPI
+        role: test
+    spec:
+      containers:
+        - name: api
+          image: "ghcr.io/db-operator/cloudish-sql:v1.0.1"
+          ports:
+            - containerPort: 8080
+              name: http
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: LOG_LEVEL
+              value: "DEBUG"
+          command:
+            - /usr/local/bin/cloudish-sql
+            - --db-address=pg-test-db:5432
+---
+# Source: db-operator/templates/test/gsql_test.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: db-operator-mock-google-api
+spec:
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: http
+  selector:
+    app: googleAPI
+    role: test
+  type: ClusterIP
+---
+apiVersion: kinda.rocks/v1beta1
+kind: DbInstance
+metadata:
+  name: db-operator-gsql-instance
+  labels:
+    helm.sh/chart: db-operator-1.12.0
+    app.kubernetes.io/name: db-operator
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "1.15.0"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    "helm.sh/hook-weight": "2"
+spec:
+  adminSecretRef:
+    Name: db-operator-gsql-admin-creds
+    Namespace: db-operator
+  engine: postgres
+  google:
+    configmapRef:
+      Name: db-operator-gsql-instance-config
+      Namespace: db-operator
+    clientSecretRef:
+      Name: cloudsql-admin-serviceaccount
+      Namespace: db-operator
+    instance: gsql-local-postgres
+    apiEndpoint: http://db-operator-mock-google-api
+  monitoring:
+    enabled: true
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-operator-gsql-admin-creds
+  labels:
+    helm.sh/chart: db-operator-1.12.0
+    app.kubernetes.io/name: db-operator
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "1.15.0"
+    app.kubernetes.io/managed-by: Helm
+type: Opaque
+data:
+  password: UGFzc3cwcmQ=
+  user: cG9zdGdyZXM=
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-operator-gsql-instance-config
+  labels:
+    helm.sh/chart: db-operator-1.12.0
+    app.kubernetes.io/name: db-operator
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "1.15.0"
+    app.kubernetes.io/managed-by: Helm
+data:
+  config: |
+    {
+      "databaseVersion": "POSTGRES_11",
+      "settings": {
+        "tier": "db-f1-micro",
+        "availabilityType": "ZONAL",
+        "pricingPlan": "PER_USE",
+        "replicationType": "SYNCHRONOUS",
+        "activationPolicy": "ALWAYS",
+        "ipConfiguration": {
+          "authorizedNetworks": [],
+          "ipv4Enabled": true
+        },
+        "dataDiskType": "PD_SSD",
+        "backupConfiguration": {
+          "enabled": false
+        },
+        "storageAutoResizeLimit": "0",
+        "storageAutoResize": true
+      },
+      "backendType": "SECOND_GEN",
+      "region": "somewhere"
+    }
+

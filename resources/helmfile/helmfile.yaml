@@ -1,0 +1,55 @@
+---
+repositories:
+  - name: bitnami
+    url: https://charts.bitnami.com/bitnami
+  - name: db-operator
+    url: git+https://github.com/db-operator/charts@charts/db-operator?ref=main
+  - name: db-instances
+    url: git+https://github.com/db-operator/charts@charts/db-instances?ref=main
+  - name: jetstack
+    url: https://charts.jetstack.io
+  - name: kinda-charts
+    url: https://db-operator.github.io/charts
+
+releases:
+  - name: cert-manager
+    chart: jetstack/cert-manager
+    namespace: cert-manager
+    createNamespace: true
+    values:
+      - installCRDs: true
+
+  - name: db-operator
+    #chart: db-operator/db-operator
+    chart: kinda-charts/db-operator
+    version: 1.14.1
+    namespace: db-operator
+    createNamespace: true
+    values:
+      - ./values/db-operator.values.yaml
+
+  - name: db-instances
+    namespace: db-operator
+      #chart: db-instances/db-instances
+    chart: kinda-charts/db-instances
+    version: 2.1.1
+    values:
+      - ./values/db-instances.values.yaml
+
+  - name: postgres-instance
+    installed: true
+    namespace: db-operator
+    chart: bitnami/postgresql
+    labels:
+      kind: database
+    values:
+      - ./values/postgres-instance.values.yaml
+
+  - name: mysql-instance
+    installed: true
+    namespace: db-operator
+    chart: bitnami/mysql
+    labels:
+      kind: database
+    values:
+      - ./values/mysql-instance.values.yaml

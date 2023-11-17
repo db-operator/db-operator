@@ -32,13 +32,13 @@ import (
 	"github.com/db-operator/db-operator/pkg/utils/kci"
 	"github.com/db-operator/db-operator/pkg/utils/proxy"
 	"github.com/go-logr/logr"
-	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -65,18 +65,8 @@ type DbInstanceReconciler struct {
 //+kubebuilder:rbac:groups=kinda.rocks,resources=dbinstances/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=kinda.rocks,resources=dbinstances/finalizers,verbs=update
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the DbInstance object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.7.2/pkg/reconcile
 func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = r.Log.WithValues("dbinstance", req.NamespacedName)
-
+	log := log.FromContext(ctx)
 	reconcilePeriod := r.Interval * time.Second
 	reconcileResult := reconcile.Result{RequeueAfter: reconcilePeriod}
 
@@ -97,20 +87,19 @@ func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	// Update object status always when function returns, either normally or through a panic.
 	defer func() {
 		if err := r.Status().Update(ctx, dbin); err != nil {
-			logrus.Errorf("failed to update status - %s", err)
+			log.Error(err, "failed to update status")
 		}
 	}()
 
 	r.kubeHelper = kubehelper.NewKubeHelper(r.Client, r.Recorder, dbin)
 	// Check if spec changed
 	if commonhelper.IsDBInstanceSpecChanged(ctx, dbin) {
-		logrus.Infof("Instance: name=%s spec changed", dbin.Name)
+		log.Info("spec changed")
 		dbin.Status.Status = false
 		dbin.Status.Phase = dbInstancePhaseValidate // set phase to initial state
 	}
 
 	phase := dbin.Status.Phase
-	logrus.Infof("Instance: name=%s %s", dbin.Name, phase)
 
 	start := time.Now()
 	defer func() { promDBInstancesPhaseTime.WithLabelValues(phase).Observe(time.Since(start).Seconds()) }()
@@ -131,7 +120,7 @@ func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 		err = r.create(ctx, dbin)
 		if err != nil {
-			logrus.Errorf("Instance: name=%s instance creation failed - %s", dbin.Name, err)
+			log.Error(err, "instance creation failed")
 			return reconcileResult, nil // failed but don't requeue the request. retry by changing spec or config
 		}
 		dbin.Status.Status = true
@@ -139,14 +128,14 @@ func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 		err = r.broadcast(ctx, dbin)
 		if err != nil {
-			logrus.Errorf("Instance: name=%s broadcasting failed - %s", dbin.Name, err)
+			log.Error(err, "broadcasting failed")
 			return reconcileResult, err
 		}
 		dbin.Status.Phase = dbInstancePhaseProxyCreate
 
 		err = r.createProxy(ctx, dbin, []metav1.OwnerReference{})
 		if err != nil {
-			logrus.Errorf("Instance: name=%s proxy creation failed - %s", dbin.Name, err)
+			log.Error(err, "proxy creation failed")
 			return reconcileResult, err
 		}
 		dbin.Status.Phase = dbInstancePhaseRunning
@@ -163,9 +152,14 @@ func (r *DbInstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *DbInstanceReconciler) create(ctx context.Context, dbin *kindav1beta1.DbInstance) error {
+	log := log.FromContext(ctx)
 	secret, err := kci.GetSecretResource(ctx, dbin.Spec.AdminUserSecret.ToKubernetesType())
 	if err != nil {
-		logrus.Errorf("Instance: name=%s failed to get instance admin user secret %s/%s", dbin.Name, dbin.Spec.AdminUserSecret.Namespace, dbin.Spec.AdminUserSecret.Name)
+		log.Error(err, "failed to get instance admin user secret",
+			"namespace",
+			dbin.Spec.AdminUserSecret.Namespace,
+			"name",
+			dbin.Spec.AdminUserSecret.Name)
 		return err
 	}
 
@@ -185,7 +179,10 @@ func (r *DbInstanceReconciler) create(ctx context.Context, dbin *kindav1beta1.Db
 	case "google":
 		configmap, err := kci.GetConfigResource(ctx, dbin.Spec.Google.ConfigmapName.ToKubernetesType())
 		if err != nil {
-			logrus.Errorf("Instance: name=%s reading GCSQL instance config %s/%s", dbin.Name, dbin.Spec.Google.ConfigmapName.Namespace, dbin.Spec.Google.ConfigmapName.Name)
+			log.Error(err, "failed reading GCSQL instance config",
+				"namespace", dbin.Spec.Google.ConfigmapName.Namespace,
+				"name", dbin.Spec.Google.ConfigmapName.Name,
+			)
 			return err
 		}
 
@@ -249,14 +246,14 @@ func (r *DbInstanceReconciler) create(ctx context.Context, dbin *kindav1beta1.Db
 	info, err := dbinstance.Create(instance)
 	if err != nil {
 		if err == dbinstance.ErrAlreadyExists {
-			logrus.Debugf("Instance: name=%s instance already exists in backend, updating instance", dbin.Name)
+			log.V(5).Info("instance already exists in backend, updating instance")
 			info, err = dbinstance.Update(instance)
 			if err != nil {
-				logrus.Errorf("Instance: name=%s failed updating instance - %s", dbin.Name, err)
+				log.Error(err, "failed updating instance")
 				return err
 			}
 		} else {
-			logrus.Errorf("Instance: name=%s failed creating instance - %s", dbin.Name, err)
+			log.Error(err, "failed creating instance")
 			return err
 		}
 	}
@@ -290,6 +287,7 @@ func (r *DbInstanceReconciler) broadcast(ctx context.Context, dbin *kindav1beta1
 }
 
 func (r *DbInstanceReconciler) createProxy(ctx context.Context, dbin *kindav1beta1.DbInstance, ownership []metav1.OwnerReference) error {
+	log := log.FromContext(ctx)
 	proxyInterface, err := proxyhelper.DetermineProxyTypeForInstance(r.Conf, dbin)
 	if err != nil {
 		if err == proxyhelper.ErrNoProxySupport {
@@ -309,12 +307,12 @@ func (r *DbInstanceReconciler) createProxy(ctx context.Context, dbin *kindav1bet
 			// if resource already exists, update
 			err = r.Update(ctx, deploy)
 			if err != nil {
-				logrus.Errorf("Instance: name=%s failed updating proxy deployment", dbin.Name)
+				log.Error(err, "failed updating proxy deployment")
 				return err
 			}
 		} else {
 			// failed to create deployment
-			logrus.Errorf("Instance: name=%s failed creating proxy deployment", dbin.Name)
+			log.Error(err, "failed creating proxy deployment")
 			return err
 		}
 	}
@@ -331,12 +329,12 @@ func (r *DbInstanceReconciler) createProxy(ctx context.Context, dbin *kindav1bet
 			patch := client.MergeFrom(svc)
 			err = r.Patch(ctx, svc, patch)
 			if err != nil {
-				logrus.Errorf("Instance: name=%s failed patching proxy service", dbin.Name)
+				log.Error(err, "failed patching proxy service")
 				return err
 			}
 		} else {
 			// failed to create service
-			logrus.Errorf("Instance: name=%s failed creating proxy service", dbin.Name)
+			log.Error(err, "failed creating proxy service")
 			return err
 		}
 	}

@@ -27,7 +27,7 @@ import (
 	"github.com/db-operator/db-operator/pkg/consts"
 	"github.com/db-operator/db-operator/pkg/types"
 	"github.com/db-operator/db-operator/pkg/utils/database"
-	"github.com/sirupsen/logrus"
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 
 	"k8s.io/utils/strings/slices"
@@ -133,6 +133,7 @@ type TemplateDataSources struct {
 	ConfigMapK8sObj *corev1.ConfigMap
 	DatabaseObj     database.Database
 	DatabaseUser    *database.DatabaseUser
+	Log             logr.Logger
 }
 
 // NewTemplateDataSource is used to init the struct that should handle the templating of secrets and other key-values
@@ -145,6 +146,7 @@ func NewTemplateDataSource(
 	configmapK8s *corev1.ConfigMap,
 	db database.Database,
 	databaseUser *database.DatabaseUser,
+	log logr.Logger,
 ) (*TemplateDataSources, error) {
 	if databaseK8s == nil {
 		return nil, errors.New("database must be passed")
@@ -188,6 +190,7 @@ func NewTemplateDataSource(
 		ConfigMapK8sObj: configmapK8s,
 		DatabaseObj:     db,
 		DatabaseUser:    databaseUser,
+		Log:             log,
 	}, nil
 }
 
@@ -216,7 +219,7 @@ func (tds *TemplateDataSources) ConfigMap(entry string) (string, error) {
 
 // Get the data directly from the database
 func (tds *TemplateDataSources) Query(query string) (string, error) {
-	logrus.Warn("Querying data from database is experimental, use cautiously and feel free to create github issues")
+	tds.Log.V(0).Info("Querying data from database is experimental, use cautiously and feel free to create github issues")
 	result, err := tds.DatabaseObj.QueryAsUser(query, tds.DatabaseUser)
 	if err != nil {
 		return "", err

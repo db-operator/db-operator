@@ -1,0 +1,13 @@
+apiVersion: "kinda.rocks/v1alpha1"
+kind: "Database"
+metadata:
+  name: postgres-db
+spec:
+  secretName: postgres-db-credentials-gsql
+  instance: db-operator-gsql-instance
+  postgres:
+    schemas:
+      - test
+  extensions:
+    - pg_stat_statements
+  deletionProtected: false
