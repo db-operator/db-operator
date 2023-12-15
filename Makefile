@@ -16,6 +16,10 @@ CONTROLLER_GET_VERSION = v0.13.0
 # ---------------------------------------------------------------------
 K8S_VERSION ?= v1.22.3
 # ---------------------------------------------------------------------
+# -- Helper tools version
+# ---------------------------------------------------------------------
+GOLANGCI_LINT_VERSION ?= v1.55.2
+# ---------------------------------------------------------------------
 # -- Get the currently used golang install path 
 # --  (in GOPATH/bin, unless GOBIN is set)
 # ---------------------------------------------------------------------
@@ -73,8 +77,8 @@ build: ## Build a container
 # ---------------------------------------------------------------------
 lint: ## lint go code
 	@go mod tidy
-	@test -s $(LOCALBIN)/golangci-lint || GOBIN=$(LOCALBIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-	@$(LOCALBIN)/golangci-lint run ./...
+	test -s $(LOCALBIN)/golangci-lint || GOBIN=$(LOCALBIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@${GOLANGCI_LINT_VERSION}
+	$(LOCALBIN)/golangci-lint run ./...
 
 fmt: ## Format go code
 	@test -s $(LOCALBIN)/gofumpt || GOBIN=$(LOCALBIN) go install mvdan.cc/gofumpt@latest
