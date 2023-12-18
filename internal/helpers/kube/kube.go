@@ -29,7 +29,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	kindav1beta1 "github.com/db-operator/db-operator/api/v1beta1"
+	dbotypes "github.com/db-operator/db-operator/pkg/types"
 )
 
 const ERROR_CANT_CAST = "couldn't cast a caller to the client.Object"
@@ -46,11 +46,11 @@ type KubeHelper struct {
 	Cli client.Client
 	Rec record.EventRecorder
 	// Caller is a db-operator object that is requesting modifications
-	Caller kindav1beta1.KindaObject
+	Caller dbotypes.KindaObject
 }
 
 // Init a Kubehelper struct
-func NewKubeHelper(cli client.Client, rec record.EventRecorder, caller kindav1beta1.KindaObject) *KubeHelper {
+func NewKubeHelper(cli client.Client, rec record.EventRecorder, caller dbotypes.KindaObject) *KubeHelper {
 	return &KubeHelper{cli, rec, caller}
 }
 
@@ -198,7 +198,7 @@ func (kh *KubeHelper) DeleteUsedByLabels(obj client.Object) client.Object {
 func (kh *KubeHelper) BuildOwnerReference() metav1.OwnerReference {
 	ownership := metav1.OwnerReference{}
 	// If cleanup is true, all the objects that are created by db-operator should be owned by the database object,
-	//  so they are removed when database is removeds
+	//  so they are removed when database is removed
 	if kh.Caller.IsCleanup() {
 		APIVersion := fmt.Sprintf("%s/%s", kh.Caller.GetObjectKind().GroupVersionKind().Group, kh.Caller.GetObjectKind().GroupVersionKind().Version)
 		ownership = metav1.OwnerReference{

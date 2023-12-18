@@ -104,11 +104,11 @@ addexamples: ## add examples via kubectl create -f examples/
 	cd ./examples/; ls | while read line; do kubectl apply -f $$line; done
 
 manifests: controller-gen ## generate custom resource definitions
-	$(CONTROLLER_GEN) crd rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	$(LOCALBIN)/controller-gen crd rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
 ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 generate: controller-gen ## generate supporting code for custom resource types
-	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+	$(LOCALBIN)/controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 .PHONY: controller-gen
 controller-gen: ## Download controller-gen locally if necessary.

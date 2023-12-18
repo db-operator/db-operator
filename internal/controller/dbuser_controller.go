@@ -22,9 +22,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/db-operator/db-operator/api/v1beta1"
 	kindav1beta1 "github.com/db-operator/db-operator/api/v1beta1"
 	commonhelper "github.com/db-operator/db-operator/internal/helpers/common"
 	dbhelper "github.com/db-operator/db-operator/internal/helpers/database"
+	kubehelper "github.com/db-operator/db-operator/internal/helpers/kube"
+	"github.com/db-operator/db-operator/internal/utils/templates"
 	"github.com/db-operator/db-operator/pkg/utils/database"
 	"github.com/db-operator/db-operator/pkg/utils/kci"
 	"github.com/go-logr/logr"
@@ -47,6 +50,7 @@ type DbUserReconciler struct {
 	Log          logr.Logger
 	Recorder     record.EventRecorder
 	CheckChanges bool
+	kubeHelper   *kubehelper.KubeHelper
 }
 
 //+kubebuilder:rbac:groups=kinda.rocks,resources=dbusers,verbs=get;list;watch;create;update;patch;delete
@@ -79,13 +83,15 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		}
 	}()
 
+	// Init the kubehelper object
+	r.kubeHelper = kubehelper.NewKubeHelper(r.Client, r.Recorder, dbusercr)
+
 	// Get the DB by the reference provided in the manifest
 	dbcr := &kindav1beta1.Database{}
 	if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: dbusercr.Spec.DatabaseRef}, dbcr); err != nil {
 		return r.manageError(ctx, dbusercr, err, false)
 	}
 
-	// Check if DbUser is marked to be deleted
 	userSecret, err := r.getDbUserSecret(ctx, dbusercr)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -95,19 +101,18 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 				logrus.Errorf("can not generate credentials for database - %s", err)
 				return r.manageError(ctx, dbusercr, err, false)
 			}
-			newDbUserSecret := kci.SecretBuilder(dbusercr.Spec.SecretName, dbusercr.Namespace, secretData)
-			err = r.Create(ctx, newDbUserSecret)
-			if err != nil {
-				// failed to create secret
-				return r.manageError(ctx, dbusercr, err, false)
-			}
-			userSecret = newDbUserSecret
+			userSecret = kci.SecretBuilder(dbusercr.Spec.SecretName, dbusercr.Namespace, secretData)
 		} else {
 			logrus.Errorf("could not get database secret - %s", err)
 			return r.manageError(ctx, dbusercr, err, true)
 		}
 	}
 
+	err = r.kubeHelper.ModifyObject(ctx, userSecret)
+	if err != nil {
+		// failed to create secret
+		return r.manageError(ctx, dbusercr, err, false)
+	}
 	creds, err := parseDbUserSecretData(dbcr.Status.Engine, userSecret.Data)
 	if err != nil {
 		return r.manageError(ctx, dbusercr, err, false)
@@ -143,8 +148,11 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	dbuser.Password = creds.Password
 	dbuser.Username = fmt.Sprintf("%s-%s", dbusercr.GetObjectMeta().GetNamespace(), dbusercr.GetObjectMeta().GetName())
 
-	if dbusercr.GetDeletionTimestamp() != nil {
+	if dbusercr.IsDeleted() {
 		if commonhelper.ContainsString(dbusercr.ObjectMeta.Finalizers, "dbuser."+dbusercr.Name) {
+			if err := r.handleTemplatedCredentials(ctx, dbcr, dbusercr, dbuser); err != nil {
+				return r.manageError(ctx, dbusercr, err, true)
+			}
 			if err := database.DeleteUser(db, dbuser, adminCred); err != nil {
 				logrus.Errorf("DBUser: namespace=%s, name=%s failed deleting a user - %s", dbusercr.Namespace, dbusercr.Name, err)
 				return r.manageError(ctx, dbusercr, err, false)
@@ -194,6 +202,9 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 				if err := database.UpdateUser(db, dbuser, adminCred); err != nil {
 					return r.manageError(ctx, dbusercr, err, false)
 				}
+			}
+			if err := r.handleTemplatedCredentials(ctx, dbcr, dbusercr, dbuser); err != nil {
+				return r.manageError(ctx, dbusercr, err, true)
 			}
 			dbusercr.Status.Status = true
 			dbusercr.Status.DatabaseName = dbusercr.Spec.DatabaseRef
@@ -317,4 +328,72 @@ func (r *DbUserReconciler) getAdminSecret(ctx context.Context, dbcr *kindav1beta
 	}
 
 	return secret, nil
+}
+
+// If dbuser has a deletion timestamp, this function will remove all the templated fields from
+// secrets and configmaps, so it's a generic function that can be used for both:
+// creating and removing
+// It's mostly a copy-paste from the database controller, maybe it might be refactored
+func (r *DbUserReconciler) handleTemplatedCredentials(ctx context.Context, dbcr *kindav1beta1.Database, dbusercr *v1beta1.DbUser, dbuser *database.DatabaseUser) error {
+	databaseSecret, err := r.getDbUserSecret(ctx, dbusercr)
+	if err != nil {
+		return err
+	}
+
+	databaseConfigMap, err := r.getDatabaseConfigMap(ctx, dbcr)
+	if err != nil {
+		return err
+	}
+
+	creds, err := dbhelper.ParseDatabaseSecretData(dbcr, databaseSecret.Data)
+	if err != nil {
+		return err
+	}
+
+	// We don't need dbuser here, because if it's not nil, templates will be built for the dbuser, not the database
+	instance := &kindav1beta1.DbInstance{}
+	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
+		return err
+	}
+
+	db, _, err := dbhelper.FetchDatabaseData(dbcr, creds, instance)
+	if err != nil {
+		return err
+	}
+
+	templateds, err := templates.NewTemplateDataSource(dbcr, dbusercr, databaseSecret, databaseConfigMap, db, dbuser)
+	if err != nil {
+		return err
+	}
+
+	if !dbusercr.IsDeleted() {
+		if err := templateds.Render(dbusercr.Spec.Credentials.Templates); err != nil {
+			return err
+		}
+	} else {
+		// Render with an empty slice, so tempalted entries are removed from Data and Annotations
+		if err := templateds.Render(kindav1beta1.Templates{}); err != nil {
+			return err
+		}
+	}
+
+	if err := r.kubeHelper.HandleCreateOrUpdate(ctx, templateds.SecretK8sObj); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *DbUserReconciler) getDatabaseConfigMap(ctx context.Context, dbcr *kindav1beta1.Database) (*corev1.ConfigMap, error) {
+	configMap := &corev1.ConfigMap{}
+	key := types.NamespacedName{
+		Namespace: dbcr.Namespace,
+		Name:      dbcr.Spec.SecretName,
+	}
+	err := r.Get(ctx, key, configMap)
+	if err != nil {
+		return nil, err
+	}
+
+	return configMap, nil
 }

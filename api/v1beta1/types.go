@@ -18,7 +18,6 @@
 package v1beta1
 
 import (
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -48,12 +47,11 @@ type Template struct {
 	Secret   bool   `json:"secret"`
 }
 
-// An interface that implements common memthods for all kinda objects
-type KindaObject interface {
-	IsCleanup() bool
-	IsDeleted() bool
-	// client.Object default methods to avoid casting later
-	GetName() string
-	GetObjectKind() schema.ObjectKind
-	GetUID() types.UID
+type Templates []*Template
+
+// Credentials should be used to setup everything relates to k8s secrets and configmaps
+// TODO(@allanger): Field .spec.secretName should be moved here in the v1beta2 version
+type Credentials struct {
+	// Templates to add custom entries to ConfigMaps and Secrets
+	Templates Templates `json:"templates,omitempty"`
 }

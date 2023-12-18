@@ -53,9 +53,12 @@ func (e *secretEventHandler) Update(ctx context.Context, evt event.UpdateEvent, 
 		secretOld := evt.ObjectOld.(*corev1.Secret)
 
 		labels := secretNew.GetLabels()
-		if _, ok := labels[consts.USED_BY_KIND_LABEL_KEY]; !ok {
+		kind, ok := labels[consts.USED_BY_KIND_LABEL_KEY]
+		if !ok {
 			logrus.Errorf("Secret handler won't trigger reconciliation, because %s label is empty", consts.USED_BY_KIND_LABEL_KEY)
 			return
+		} else if kind != "Database" {
+			logrus.Infof("Secret handler won't trigger reconciliation, because %s labels doesn't have value 'Database'", consts.USED_BY_KIND_LABEL_KEY)
 		}
 
 		dbcrName, ok := labels[consts.USED_BY_NAME_LABEL_KEY]

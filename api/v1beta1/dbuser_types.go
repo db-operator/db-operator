@@ -31,7 +31,9 @@ type DbUserSpec struct {
 	// Currently only readOnly and readWrite are supported by the operator
 	AccessType string `json:"accessType"`
 	// SecretName name that should be used to save user's credentials
-	SecretName string `json:"secretName"`
+	SecretName  string      `json:"secretName"`
+	Credentials Credentials `json:"credentials,omitempty"`
+	Cleanup     bool        `json:"cleanup,omitempty"`
 }
 
 // DbUserStatus defines the observed state of DbUser
@@ -93,9 +95,13 @@ func IsAccessTypeSupported(wantedAccessType string) error {
 
 // DbUsers don't have cleanup feature implemented
 func (dbu *DbUser) IsCleanup() bool {
-	return false
+	return dbu.Spec.Cleanup
 }
 
 func (dbu *DbUser) IsDeleted() bool {
 	return dbu.GetDeletionTimestamp() != nil
+}
+
+func (dbu *DbUser) GetSecretName() string {
+	return dbu.Spec.SecretName
 }

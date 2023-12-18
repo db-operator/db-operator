@@ -60,6 +60,11 @@ func (r *DbUser) ValidateUpdate(old runtime.Object) (admission.Warnings, error) 
 		return nil, fmt.Errorf("couldn't get the previous version of %s", r.Name)
 	}
 
+	if r.Spec.Credentials.Templates != nil {
+		if err := ValidateTemplates(r.Spec.Credentials.Templates, false); err != nil {
+			return nil, err
+		}
+	}
 	return nil, nil
 }
 

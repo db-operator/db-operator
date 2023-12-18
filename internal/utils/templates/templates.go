@@ -25,6 +25,7 @@ import (
 
 	"github.com/db-operator/db-operator/api/v1beta1"
 	"github.com/db-operator/db-operator/pkg/consts"
+	"github.com/db-operator/db-operator/pkg/types"
 	"github.com/db-operator/db-operator/pkg/utils/database"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -127,6 +128,7 @@ func isBlocked(blockedKeys []string, key string) bool {
 // TemplateDataSource  should be only the database resource
 type TemplateDataSources struct {
 	DatabaseK8sObj  *v1beta1.Database
+	DbUserK8sObj    *v1beta1.DbUser
 	SecretK8sObj    *corev1.Secret
 	ConfigMapK8sObj *corev1.ConfigMap
 	DatabaseObj     database.Database
@@ -138,6 +140,7 @@ type TemplateDataSources struct {
 // If DbUser (second argument) is provided, the templater will be working with a secret that belongs to a dbuser
 func NewTemplateDataSource(
 	databaseK8s *v1beta1.Database,
+	dbuserk8s *v1beta1.DbUser,
 	secretK8s *corev1.Secret,
 	configmapK8s *corev1.ConfigMap,
 	db database.Database,
@@ -152,10 +155,19 @@ func NewTemplateDataSource(
 	if configmapK8s == nil {
 		return nil, errors.New("configmap must be passed")
 	}
-	secretName := databaseK8s.Spec.SecretName
+
+	var secretName string
+	var caller types.KindaObject
+	if dbuserk8s != nil {
+		caller = dbuserk8s
+		secretName = caller.GetSecretName()
+	} else {
+		caller = databaseK8s
+		secretName = caller.GetSecretName()
+	}
 
 	if secretK8s.Name != secretName {
-		return nil, fmt.Errorf("secret %s doesn't belong to the database %s", secretK8s.Name, databaseK8s.Name)
+		return nil, fmt.Errorf("secret %s doesn't belong to the %s %s", secretK8s.Name, caller.GetObjectKind().GroupVersionKind().GroupKind().Kind, caller.GetName())
 	}
 
 	if configmapK8s.Name != databaseK8s.Spec.SecretName {
@@ -171,6 +183,7 @@ func NewTemplateDataSource(
 
 	return &TemplateDataSources{
 		DatabaseK8sObj:  databaseK8s,
+		DbUserK8sObj:    dbuserk8s,
 		SecretK8sObj:    secretK8s,
 		ConfigMapK8sObj: configmapK8s,
 		DatabaseObj:     db,

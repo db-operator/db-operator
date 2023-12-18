@@ -55,6 +55,33 @@ spec:
                 description: AccessType that should be given to a user Currently only
                   readOnly and readWrite are supported by the operator
                 type: string
+              cleanup:
+                type: boolean
+              credentials:
+                description: 'Credentials should be used to setup everything relates
+                  to k8s secrets and configmaps TODO(@allanger): Field .spec.secretName
+                  should be moved here in the v1beta2 version'
+                properties:
+                  templates:
+                    description: Templates to add custom entries to ConfigMaps and
+                      Secrets
+                    items:
+                      description: Tempaltes to add custom entries to ConfigMaps and
+                        Secrets
+                      properties:
+                        name:
+                          type: string
+                        secret:
+                          type: boolean
+                        template:
+                          type: string
+                      required:
+                      - name
+                      - secret
+                      - template
+                      type: object
+                    type: array
+                type: object
               databaseRef:
                 description: DatabaseRef should contain a name of a Database to create
                   a user there Database should be in the same namespace with the user

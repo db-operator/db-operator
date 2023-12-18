@@ -4,12 +4,13 @@ import (
 	"testing"
 
 	"github.com/db-operator/db-operator/api/v1beta1"
+	"github.com/db-operator/db-operator/pkg/types"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var dbin v1beta1.KindaObject
+var dbin types.KindaObject
 
 func TestKindObjectDbToClientObject(t *testing.T) {
 	dbin = &v1beta1.Database{
@@ -67,6 +68,6 @@ func TestKindObjectDbinToClientObject(t *testing.T) {
 	dbObj, ok := dbin.(client.Object)
 	assert.True(t, ok)
 
-	assert.Equal(t, dbObj.GetName(), "dbinstance	")
+	assert.Equal(t, dbObj.GetName(), "dbinstance")
 	assert.Equal(t, dbObj.GetNamespace(), "default")
 }

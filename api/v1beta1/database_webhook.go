@@ -84,7 +84,7 @@ func (r *Database) ValidateCreate() (admission.Warnings, error) {
 	}
 
 	if r.Spec.Credentials.Templates != nil {
-		if err := ValidateTemplates(r.Spec.Credentials.Templates); err != nil {
+		if err := ValidateTemplates(r.Spec.Credentials.Templates, true); err != nil {
 			return nil, err
 		}
 	}
@@ -109,7 +109,7 @@ func (r *Database) ValidateUpdate(old runtime.Object) (admission.Warnings, error
 	}
 
 	if r.Spec.Credentials.Templates != nil {
-		if err := ValidateTemplates(r.Spec.Credentials.Templates); err != nil {
+		if err := ValidateTemplates(r.Spec.Credentials.Templates, true); err != nil {
 			return nil, err
 		}
 	}
@@ -143,54 +143,6 @@ func ValidateSecretTemplates(templates map[string]string) error {
 		}
 	}
 	return nil
-}
-
-var (
-	helpers   []string = []string{"Protocol", "Hostname", "Port", "Password", "Username", "Password", "Database"}
-	functions []string = []string{"Secret", "ConfigMap", "Query"}
-)
-
-func ValidateTemplates(templates Templates) error {
-	for _, template := range templates {
-
-		// This regexp is getting fields from mustache templates so then they can be compared to allowed fields
-		reg := "{{\\s*\\.([\\w\\.]+)\\s*(.*?)\\s*}}"
-		r, _ := regexp.Compile(reg)
-
-		fields := r.FindAllStringSubmatch(template.Template, -1)
-		for _, field := range fields {
-			if validHelperField(field[1]) {
-				continue
-			}
-			if !validFunctionField(field[1]) {
-				err := fmt.Errorf("%s is invalid: %v is a field that is not allowed for templating, please use one of these: %v, %v",
-					template.Name, field[1], helpers, functions)
-				return err
-			}
-			if !validFunctionArg(field[2]) {
-				err := fmt.Errorf("%s is invalid: Functions arguments must be not emty and  wrapped in quotes, example: {{ .Secret \\\"PASSWORD\\\" }}", template.Name)
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func validHelperField(field string) bool {
-	return slices.Contains(helpers, field)
-}
-
-func validFunctionField(field string) bool {
-	return slices.Contains(functions, field)
-}
-
-func validFunctionArg(field string) bool {
-	if len(field) == 0 {
-		return false
-	}
-	functionReg := "\".*\""
-	fr, _ := regexp.Compile(functionReg)
-	return fr.MatchString(field)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type

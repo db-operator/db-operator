@@ -48,15 +48,6 @@ type Postgres struct {
 	Template string `json:"template,omitempty"`
 }
 
-// Credentials should be used to setup everything relates to k8s secrets and configmaps
-// TODO(@allanger): Field .spec.secretName should be moved here in the v1beta2 version
-type Credentials struct {
-	// Templates to add custom entries to ConfigMaps and Secrets
-	Templates Templates `json:"templates,omitempty"`
-}
-
-type Templates []*Template
-
 // DatabaseStatus defines the observed state of Database
 type DatabaseStatus struct {
 	// Important: Run "make generate" to regenerate code after modifying this file
@@ -133,6 +124,10 @@ func (db *Database) IsCleanup() bool {
 
 func (db *Database) IsDeleted() bool {
 	return db.GetDeletionTimestamp() != nil
+}
+
+func (db *Database) GetSecretName() string {
+	return db.Spec.SecretName
 }
 
 func (db *Database) ToClientObject() client.Object {

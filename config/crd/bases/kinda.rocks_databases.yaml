@@ -381,8 +381,8 @@ spec:
                     description: Templates to add custom entries to ConfigMaps and
                       Secrets
                     items:
-                      description: Tempaltes to add custom entries to comfigmaps and
-                        secrets
+                      description: Tempaltes to add custom entries to ConfigMaps and
+                        Secrets
                       properties:
                         name:
                           type: string

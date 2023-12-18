@@ -198,4 +198,9 @@ func (dbin *DbInstance) IsDeleted() bool {
 	return dbin.GetDeletionTimestamp() != nil
 }
 
+// This method isn's supported by dbin
+func (dbin *DbInstance) GetSecretName() string {
+	return ""
+}
+
 func (db *DbInstance) Hub() {}
