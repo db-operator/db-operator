@@ -24,5 +24,5 @@ import (
 )
 
 func init() {
-	metrics.Registry.MustRegister(promDBsPhaseTime, promDBsPhase, promDBsStatus, promDBsPhaseError, promDBInstancesPhase, promDBInstancesPhaseTime)
+	metrics.Registry.MustRegister(promDBsPhaseTime, promDBsStatus, promDBsPhaseError, promDBInstancesPhase, promDBInstancesPhaseTime)
 }

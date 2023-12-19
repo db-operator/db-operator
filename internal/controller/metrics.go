@@ -22,18 +22,6 @@ import (
 )
 
 var (
-	promDBsPhase = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Namespace: "db_operator",
-		Subsystem: "database",
-		Name:      "phase",
-		Help:      "Return information about the phase of a database (cr) object",
-	},
-		[]string{
-			"db_namespace",
-			"dbinstance",
-			"database",
-		})
-
 	promDBsStatus = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: "db_operator",
 		Subsystem: "database",
@@ -86,27 +74,6 @@ var (
 			"phase",
 		})
 )
-
-func dbPhaseToFloat64(phase string) float64 {
-	phaseMap := map[string]float64{
-		"default":                   -10,
-		"":                          0,
-		dbPhaseCreate:               10,
-		dbPhaseConfigMap:            20,
-		dbPhaseInstanceAccessSecret: 25,
-		dbPhaseProxy:                30,
-		dbPhaseBackupJob:            40,
-		dbPhaseMonitoring:           45,
-		dbPhaseFinish:               50,
-		dbPhaseReady:                100,
-	}
-
-	if _, found := phaseMap[phase]; found {
-		return phaseMap[phase]
-	}
-
-	return phaseMap["default"]
-}
 
 func dbInstancePhaseToFloat64(phase string) float64 {
 	phaseMap := map[string]float64{
