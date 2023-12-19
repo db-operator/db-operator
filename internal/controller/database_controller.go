@@ -76,7 +76,6 @@ var (
 	dbPhaseSecretsTemplating    = "SecretsTemplating"
 	dbPhaseConfigMap            = "InfoConfigMapCreating"
 	dbPhaseTemplating           = "Templating"
-	dbPhaseMonitoring           = "MonitoringCreating"
 	dbPhaseBackupJob            = "BackupJobCreating"
 	dbPhaseFinish               = "Finishing"
 	dbPhaseReady                = "Ready"
@@ -114,7 +113,6 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}()
 
 	promDBsStatus.WithLabelValues(dbcr.Namespace, dbcr.Spec.Instance, dbcr.Name).Set(boolToFloat64(dbcr.Status.Status))
-	promDBsPhase.WithLabelValues(dbcr.Namespace, dbcr.Spec.Instance, dbcr.Name).Set(dbPhaseToFloat64(dbcr.Status.Phase))
 
 	// Init the kubehelper object
 	r.kubeHelper = kubehelper.NewKubeHelper(r.Client, r.Recorder, dbcr)
