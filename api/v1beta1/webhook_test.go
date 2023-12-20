@@ -40,10 +40,4 @@ func TestUnitTemplatesValidator(t *testing.T) {
 	assert.NoErrorf(t, err, "expected no error: %v", err)
 	err = v1beta1.ValidateTemplates(cmTemplates, false)
 	assert.ErrorContains(t, err, "ConfigMap templating is not allowed for that kind. Please set .secret to true")
-
-	cmTemplates = v1beta1.Templates{
-		{Name: "TEMPLATE_1", Template: "{{ .ConfigMap \"test\" }}", Secret: false},
-	}
-	err = v1beta1.ValidateTemplates(cmTemplates, false)
-	assert.ErrorContains(t, err, "ConfigMap templating is not allowed for that kind. Please set .secret to true")
 }

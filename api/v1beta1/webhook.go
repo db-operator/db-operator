@@ -27,20 +27,17 @@ import (
 
 var (
 	helpers       []string = []string{"Protocol", "Hostname", "Port", "Password", "Username", "Password", "Database"}
-	functions     []string = []string{"Secret", "ConfigMap", "Query"}
-	userFunctions []string = []string{"ConfigMap"}
+	allowedFunctions     []string = []string{"Secret", "ConfigMap", "Query"}
 )
 
 // Make sure that credentials.templates are correct
 // ConfigMaps templating is not allowed for DbUser, that's why we have
 //
-//	the second argument: cmAllowed. It should be set to false when
-//	validation is called by dbuser_webhook.
+// the second argument: cmAllowed. It should be set to false when
+// validation is called by dbuser_webhook.
 func ValidateTemplates(templates Templates, cmAllowed bool) error {
 	for _, template := range templates {
-		allowedFunctions := functions
 		if !cmAllowed {
-			allowedFunctions = userFunctions
 			if !template.Secret {
 				err := errors.New("ConfigMap templating is not allowed for that kind. Please set .secret to true")
 				return err
@@ -74,7 +71,7 @@ func validHelperField(field string) bool {
 }
 
 func validFunctionField(field string) bool {
-	return slices.Contains(functions, field)
+	return slices.Contains(allowedFunctions, field)
 }
 
 func validFunctionArg(field string) bool {
