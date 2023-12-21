@@ -113,7 +113,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 	}()
 
-	r.Recorder.Event(dbcr, "Normal", phase, "Started reconciling db-operator managed databases")
+	r.Recorder.Event(dbcr, "Normal", phase, "Started reconciling db-operator managed database")
 	promDBsStatus.WithLabelValues(dbcr.Namespace, dbcr.Spec.Instance, dbcr.Name).Set(boolToFloat64(dbcr.Status.Status))
 
 	// Init the kubehelper object
