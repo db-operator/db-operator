@@ -732,7 +732,7 @@ func (r *DatabaseReconciler) handleTemplatedCredentials(ctx context.Context, dbc
 		return err
 	}
 
-	if dbcr.GetDeletionTimestamp() != nil {
+	if !dbcr.IsDeleted() {
 		if err := templateds.Render(dbcr.Spec.Credentials.Templates); err != nil {
 			return err
 		}
