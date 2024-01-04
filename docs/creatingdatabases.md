@@ -56,7 +56,7 @@ spec:
 With `credentials.templates` you can add new entries to database ConfigMap and Secret. This feature uses go templates, so you can build custom string using either predefined helper functions:
 
 - Protocol: Depends on the db engine. Possible values are mysql/postgresql
-- Host: The same value as for db host in the connection configmap 
+- Hostname: The same value as for db host in the connection configmap 
 - Port: The same value as for db port in the connection configmap 
 - Database: The same value as for db name in the creds secret
 - Username: The same value as for database user in the creds secret
