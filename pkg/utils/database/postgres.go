@@ -160,7 +160,7 @@ func (p Postgres) dropPublicSchema(admin *DatabaseUser) error {
 
 func (p Postgres) createSchemas(ac4tor *DatabaseUser) error {
 	for _, s := range p.Schemas {
-		createSchema := fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", s)
+		createSchema := fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS \"%s\";", s)
 		if err := p.executeExec(p.Database, createSchema, ac4tor); err != nil {
 			logrus.Errorf("failed to create schema %s, %s", s, err)
 			return err
