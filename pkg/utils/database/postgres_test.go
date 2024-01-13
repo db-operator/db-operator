@@ -420,7 +420,7 @@ func TestPostgresNoSchemas(t *testing.T) {
 func TestPostgresSchemas(t *testing.T) {
 	admin := getPostgresAdmin()
 	p, dbu := testPostgres()
-	p.Schemas = []string{"schema_1", "schema_2"}
+	p.Schemas = []string{"schema_1", "schema_2", "schema-3"}
 
 	assert.Error(t, p.checkSchemas(dbu))
 	assert.NoError(t, p.createSchemas(admin))
