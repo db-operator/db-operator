@@ -18,22 +18,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // DbBackupSpec defines the desired state of DbBackup
 type DbBackupSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of DbBackup. Edit dbbackup_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// A name of a database object that manages a database
+	// that one wants to backup
+	Database string `json:"database"`
+	// A cron expression to be used in a cronjob
+	Cron string	`json:"cron"`
 }
 
 // DbBackupStatus defines the observed state of DbBackup
 type DbBackupStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	LastBackupStatus bool `json:"lastBackupStatus"`
 }
 
 //+kubebuilder:object:root=true

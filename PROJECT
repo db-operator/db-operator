@@ -65,6 +65,9 @@ resources:
   kind: DbBackup
   path: github.com/db-operator/db-operator/api/v1beta1
   version: v1beta1
+  webhooks:
+    validation: true
+    webhookVersion: v1
 - api:
     crdVersion: v1
     namespaced: true
@@ -73,4 +76,7 @@ resources:
   kind: DbRestore
   path: github.com/db-operator/db-operator/api/v1beta1
   version: v1beta1
+  webhooks:
+    validation: true
+    webhookVersion: v1
 version: "3"
