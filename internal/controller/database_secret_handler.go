@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package controllers
+package controller
 
 import (
 	"bytes"
