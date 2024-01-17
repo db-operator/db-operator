@@ -1,0 +1,27 @@
+# permissions for end users to view dbrestores.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: dbrestore-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: db-operator
+    app.kubernetes.io/part-of: db-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: dbrestore-viewer-role
+rules:
+- apiGroups:
+  - kinda.rocks
+  resources:
+  - dbrestores
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - kinda.rocks
+  resources:
+  - dbrestores/status
+  verbs:
+  - get

@@ -57,4 +57,20 @@ resources:
   webhooks:
     validation: true
     webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: kinda.rocks
+  kind: DbBackup
+  path: github.com/db-operator/db-operator/api/v1beta1
+  version: v1beta1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: kinda.rocks
+  kind: DbRestore
+  path: github.com/db-operator/db-operator/api/v1beta1
+  version: v1beta1
 version: "3"

@@ -1,0 +1,12 @@
+apiVersion: kinda.rocks/v1beta1
+kind: DbRestore
+metadata:
+  labels:
+    app.kubernetes.io/name: dbrestore
+    app.kubernetes.io/instance: dbrestore-sample
+    app.kubernetes.io/part-of: db-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: db-operator
+  name: dbrestore-sample
+spec:
+  # TODO(user): Add fields here

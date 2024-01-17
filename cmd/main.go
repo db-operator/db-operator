@@ -30,6 +30,7 @@ import (
 
 	kindarocksv1alpha1 "github.com/db-operator/db-operator/api/v1alpha1"
 	kindarocksv1beta1 "github.com/db-operator/db-operator/api/v1beta1"
+	"github.com/db-operator/db-operator/internal/controller"
 	controllers "github.com/db-operator/db-operator/internal/controller"
 	"github.com/db-operator/db-operator/pkg/config"
 	"github.com/db-operator/db-operator/pkg/utils/thirdpartyapi"
@@ -164,6 +165,20 @@ func main() {
 		}
 	}
 
+	if err = (&controller.DbBackupReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "DbBackup")
+		os.Exit(1)
+	}
+	if err = (&controller.DbRestoreReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "DbRestore")
+		os.Exit(1)
+	}
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
