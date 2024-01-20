@@ -246,7 +246,7 @@ func (r *DbInstanceReconciler) create(ctx context.Context, dbin *kindav1beta1.Db
 	info, err := dbinstance.Create(instance)
 	if err != nil {
 		if err == dbinstance.ErrAlreadyExists {
-			log.V(5).Info("instance already exists in backend, updating instance")
+			log.V(2).Info("instance already exists in backend, updating instance")
 			info, err = dbinstance.Update(instance)
 			if err != nil {
 				log.Error(err, "failed updating instance")

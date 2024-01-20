@@ -219,7 +219,7 @@ func (tds *TemplateDataSources) ConfigMap(entry string) (string, error) {
 
 // Get the data directly from the database
 func (tds *TemplateDataSources) Query(query string) (string, error) {
-	tds.Log.V(0).Info("Querying data from database is experimental, use cautiously and feel free to create github issues")
+	tds.Log.Info("Querying data from database is experimental, use cautiously and feel free to create github issues")
 	result, err := tds.DatabaseObj.QueryAsUser(query, tds.DatabaseUser)
 	if err != nil {
 		return "", err
