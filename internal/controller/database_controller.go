@@ -134,7 +134,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	 * ------------------------------------------------------------- */
 	if dbcr.Status.Engine != "" {
 		if err := r.healthCheck(ctx, dbcr); err != nil {
-			log.V(0).Info("Healthcheck is failed")
+			log.Info("Healthcheck is failed")
 			dbcr.Status.Status = false
 			err = r.Status().Update(ctx, dbcr)
 			if err != nil {
@@ -600,7 +600,7 @@ func (r *DatabaseReconciler) handleInstanceAccessSecret(ctx context.Context, dbc
 	}
 
 	if backend, _ := instance.GetBackendType(); backend != "google" {
-		log.V(5).Info("doesn't need instance access secret skipping...")
+		log.V(2).Info("doesn't need instance access secret skipping...")
 		return nil
 	}
 
