@@ -23,11 +23,15 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/klog/v2/klogr"
 )
+
+
+var logger = klogr.New()
 
 func TestUnitLoadConfig(t *testing.T) {
 	os.Setenv("CONFIG_PATH", "./test/config_ok.yaml")
-	confLoad := LoadConfig(logr.New(logr.Discard().GetSink()))
+	confLoad := LoadConfig(logger)
 	confStatic := Config{}
 
 	confStatic.Instances.Google.ClientSecretName = "cloudsql-readonly-serviceaccount"
@@ -43,7 +47,7 @@ func TestUnitLoadConfigFailCases(t *testing.T) {
 	expectedFatal := true
 	os.Setenv("CONFIG_PATH", "./test/config_NotFound.yaml")
 
-	LoadConfig(logr.New(logr.Discard().GetSink()))
+	LoadConfig(logger)
 	assert.Equal(t, expectedFatal, fatalCalled)
 
 	os.Setenv("CONFIG_PATH", "./test/config_Invalid.yaml")
@@ -53,7 +57,7 @@ func TestUnitLoadConfigFailCases(t *testing.T) {
 
 func TestUnitBackupResourceConfig(t *testing.T) {
 	os.Setenv("CONFIG_PATH", "./test/config_backup.yaml")
-	conf := LoadConfig(logr.New(logr.Discard().GetSink()))
+	conf := LoadConfig(logger)
 	assert.Equal(t, conf.Backup.Resource.Requests.Cpu, "50m")
 	assert.Equal(t, conf.Backup.Resource.Requests.Memory, "50Mi")
 	assert.Equal(t, conf.Backup.Resource.Limits.Cpu, "100m")
