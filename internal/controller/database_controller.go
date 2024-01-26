@@ -87,7 +87,7 @@ var (
 //+kubebuilder:rbac:groups=kinda.rocks,resources=databases/finalizers,verbs=update
 
 func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var phase = dbPhaseReconcile
+	phase := dbPhaseReconcile
 	_ = r.Log.WithValues("database", req.NamespacedName)
 	reconcilePeriod := r.Interval * time.Second
 	reconcileResult := reconcile.Result{RequeueAfter: reconcilePeriod}
@@ -252,7 +252,7 @@ func (r *DatabaseReconciler) isFullReconcile(ctx context.Context, dbcr *kindav1b
 func (r *DatabaseReconciler) handleDbCreateOrUpdate(ctx context.Context, dbcr *kindav1beta1.Database, mustReconcile bool) (reconcile.Result, error) {
 	var err error
 
-	var phase = dbPhaseCreateOrUpdate
+	phase := dbPhaseCreateOrUpdate
 	r.Recorder.Event(dbcr, "Normal", phase, "Starting process to create or update databases")
 
 	reconcilePeriod := r.Interval * time.Second
