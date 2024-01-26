@@ -26,8 +26,8 @@ import (
 )
 
 var (
-	helpers       []string = []string{"Protocol", "Hostname", "Port", "Password", "Username", "Password", "Database"}
-	allowedFunctions     []string = []string{"Secret", "ConfigMap", "Query"}
+	helpers          []string = []string{"Protocol", "Hostname", "Port", "Password", "Username", "Password", "Database"}
+	allowedFunctions []string = []string{"Secret", "ConfigMap", "Query"}
 )
 
 // Make sure that credentials.templates are correct
