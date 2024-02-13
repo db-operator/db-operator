@@ -23,6 +23,7 @@ import (
 	"github.com/db-operator/db-operator/pkg/consts"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -210,3 +211,46 @@ func (kh *KubeHelper) BuildOwnerReference() metav1.OwnerReference {
 	}
 	return ownership
 }
+
+const (
+	SECRET = "secret"
+	CONFIGMAP = "configmap"
+)
+func (kh *KubeHelper) GetValueFrom(ctx context.Context, kind, name, key string) (string, error) {
+	nsName := types.NamespacedName{
+		Namespace: kh.Caller.GetNamespace(),
+		Name: name,
+	}
+	switch kind {
+	case SECRET:
+		obj := &corev1.Secret{}
+		if err := kh.Cli.Get(ctx, nsName, obj); err != nil {
+			return "", err
+		}
+		val, ok :=  GetValueByKey(obj.Data, key)
+		if !ok{
+			return "", fmt.Errorf("secret %s doesn't contain key %s", name, key)
+		}
+		return string(val), nil
+	case CONFIGMAP:
+		obj := &corev1.ConfigMap{}
+		if err := kh.Cli.Get(ctx, nsName, obj); err != nil {
+			return "", err
+		}
+		val, ok :=  GetValueByKey(obj.Data, key)
+		if !ok{
+			return "", fmt.Errorf("secret %s doesn't contain key %s", name, key)
+		}
+		return val, nil
+	default:
+		err := fmt.Errorf("unknown source kine: %s", kind)
+		return "", err
+	}
+}
+
+
+func GetValueByKey[T string | []byte](data map[string]T, key string) (T, bool) {
+	val, ok := data[key]
+	return val, ok
+}
+

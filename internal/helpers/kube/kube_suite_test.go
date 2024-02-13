@@ -413,6 +413,80 @@ var _ = Describe("KubeHelpers test", func() {
 			Expect(secretCopy.GetLabels()).To(Equal(expectedUsedByLabels))
 		})
 	})
+	Context("Test the value getter", func(){
+		It("Get from Secret", func(){
+			secretName := "suite-7-test-1"
+			secretCopy := secret.DeepCopy()
+			secretCopy.SetName(secretName)
+			rec := record.NewFakeRecorder(1)
+			kh := kube.NewKubeHelper(k8sClient, rec, database)
+			err := kh.Cli.Create(ctx, secretCopy)
+			Expect(err).NotTo(HaveOccurred())
+			secretCopy.Data = map[string][]byte{
+				"test": []byte("test"),
+			}
+			err = kh.Cli.Update(ctx, secretCopy)
+			Expect(err).NotTo(HaveOccurred())
+
+			val, err := kh.GetValueFrom(ctx, kube.SECRET, secretName, "test")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(val).To(Equal("test"))
+
+		})
+		It("Get from ConfigMap", func(){
+			cmName := "suite-7-test-2"
+			cmCopy := configmap.DeepCopy()
+			cmCopy.SetName(cmName)
+			rec := record.NewFakeRecorder(1)
+			kh := kube.NewKubeHelper(k8sClient, rec, database)
+			err := kh.Cli.Create(ctx, cmCopy)
+			Expect(err).NotTo(HaveOccurred())
+			cmCopy.Data = map[string]string{
+				"test": "test",
+			}
+			err = kh.Cli.Update(ctx, cmCopy)
+			Expect(err).NotTo(HaveOccurred())
+
+			val, err := kh.GetValueFrom(ctx, kube.CONFIGMAP, cmName, "test")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(val).To(Equal("test"))
+
+		})
+		It("Get from Secret with error", func(){
+			secretName := "suite-7-test-3"
+			secretCopy := secret.DeepCopy()
+			secretCopy.SetName(secretName)
+			rec := record.NewFakeRecorder(1)
+			kh := kube.NewKubeHelper(k8sClient, rec, database)
+			err := kh.Cli.Create(ctx, secretCopy)
+			Expect(err).NotTo(HaveOccurred())
+			secretCopy.Data = map[string][]byte{
+				"test": []byte("test"),
+			}
+			err = kh.Cli.Update(ctx, secretCopy)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = kh.GetValueFrom(ctx, kube.SECRET, secretName, "dummy")
+			Expect(err).To(HaveOccurred())
+		})
+		It("Get from ConfigMap with error", func(){
+			cmName := "suite-7-test-4"
+			cmCopy := configmap.DeepCopy()
+			cmCopy.SetName(cmName)
+			rec := record.NewFakeRecorder(1)
+			kh := kube.NewKubeHelper(k8sClient, rec, database)
+			err := kh.Cli.Create(ctx, cmCopy)
+			Expect(err).NotTo(HaveOccurred())
+			cmCopy.Data = map[string]string{
+				"test": "test",
+			}
+			err = kh.Cli.Update(ctx, cmCopy)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = kh.GetValueFrom(ctx, kube.CONFIGMAP, cmName, "dummy")
+			Expect(err).To(HaveOccurred())
+		})
+	})
 })
 
 var _ = AfterSuite(func() {
