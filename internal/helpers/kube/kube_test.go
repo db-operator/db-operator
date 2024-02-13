@@ -35,7 +35,7 @@ var (
 			Namespace: "default",
 		},
 	}
-	
+
 	configmap = &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "configmap",
@@ -318,8 +318,8 @@ func TestIsUsedByAnyNo(t *testing.T) {
 	assert.False(t, kh.IsUsedByAny(secretCopy))
 }
 
-func TestGetValueByKeyString (t *testing.T) {
-	data := map[string]string {
+func TestGetValueByKeyString(t *testing.T) {
+	data := map[string]string{
 		"test": "test",
 	}
 	val, ok := kube.GetValueByKey(data, "test")
@@ -327,8 +327,8 @@ func TestGetValueByKeyString (t *testing.T) {
 	assert.Equal(t, "test", val)
 }
 
-func TestGetValueByKeyStringNotFound (t *testing.T) {
-	data := map[string]string {
+func TestGetValueByKeyStringNotFound(t *testing.T) {
+	data := map[string]string{
 		"test": "test",
 	}
 	val, ok := kube.GetValueByKey(data, "dummy")
@@ -336,8 +336,8 @@ func TestGetValueByKeyStringNotFound (t *testing.T) {
 	assert.Equal(t, "", val)
 }
 
-func TestGetValueByKeyBytes (t *testing.T) {
-	data := map[string][]byte {
+func TestGetValueByKeyBytes(t *testing.T) {
+	data := map[string][]byte{
 		"test": []byte("test"),
 	}
 	val, ok := kube.GetValueByKey(data, "test")
@@ -345,8 +345,8 @@ func TestGetValueByKeyBytes (t *testing.T) {
 	assert.Equal(t, []byte("test"), val)
 }
 
-func TestGetValueByKeybyteNotFound (t *testing.T) {
-	data := map[string][]byte {
+func TestGetValueByKeybyteNotFound(t *testing.T) {
+	data := map[string][]byte{
 		"test": []byte("test"),
 	}
 	val, ok := kube.GetValueByKey(data, "dummy")

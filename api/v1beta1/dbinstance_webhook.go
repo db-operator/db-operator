@@ -18,8 +18,10 @@
 package v1beta1
 
 import (
+	"errors"
 	"fmt"
 
+	"github.com/db-operator/db-operator/internal/helpers/kube"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/strings/slices"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -36,8 +38,6 @@ func (r *DbInstance) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		For(r).
 		Complete()
 }
-
-// TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
 //+kubebuilder:webhook:path=/mutate-kinda-rocks-v1beta1-dbinstance,mutating=true,failurePolicy=fail,sideEffects=None,groups=kinda.rocks,resources=dbinstances,verbs=create;update,versions=v1beta1,name=mdbinstance.kb.io,admissionReviewVersions=v1
 
@@ -58,6 +58,9 @@ var _ webhook.Validator = &DbInstance{}
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *DbInstance) ValidateCreate() (admission.Warnings, error) {
 	dbinstancelog.Info("validate create", "name", r.Name)
+	if err := ValidateConfigVsConfigFrom(r.Spec.Generic); err != nil {
+		return nil, err
+	}
 	if err := ValidateEngine(r.Spec.Engine); err != nil {
 		return nil, err
 	}
@@ -73,6 +76,37 @@ func (r *DbInstance) ValidateUpdate(old runtime.Object) (admission.Warnings, err
 	}
 
 	return nil, nil
+}
+
+func ValidateConfigVsConfigFrom(r *GenericInstance) error {
+	if r != nil {
+		if len(r.Host) > 0 && r.HostFrom != nil {
+			return errors.New("it's not allowed to use both host and hostFrom, please choose one")
+		}
+		if len(r.PublicIP) > 0 && r.PublicIPFrom != nil {
+			return errors.New("it's not allowed to use both publicIp and publicIpFrom, please choose one")
+		}
+		if r.Port > 0 && r.PortFrom != nil {
+			return errors.New("it's not allowed to use both port and portFrom, please choose one")
+		}
+	}
+	return nil
+}
+
+func ValidateConfigFrom(dbin *GenericInstance) error {
+	check := dbin.HostFrom
+	if check != nil && !(check.Kind == kube.CONFIGMAP || check.Kind == kube.SECRET) {
+		return fmt.Errorf("unsupported kind in hostFrom: %s", check.Kind)
+	}
+	check = dbin.PortFrom
+	if check != nil && !(check.Kind == kube.CONFIGMAP || check.Kind == kube.SECRET) {
+		return fmt.Errorf("unsupported kind in portFrom: %s", check.Kind)
+	}
+	check = dbin.PublicIPFrom
+	if check != nil && !(check.Kind == kube.CONFIGMAP || check.Kind == kube.SECRET) {
+		return fmt.Errorf("unsupported kind in publicIpFrom: %s", check.Kind)
+	}
+	return nil
 }
 
 func ValidateEngine(engine string) error {
