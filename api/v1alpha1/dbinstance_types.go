@@ -198,10 +198,10 @@ func (dbin *DbInstance) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Backup = v1beta1.DbInstanceBackup(dbin.Spec.Backup)
 	if dbin.Spec.DbInstanceSource.Generic != nil {
 		dst.Spec.DbInstanceSource.Generic = &v1beta1.GenericInstance{
-			Host:         dbin.Spec.Generic.Host,
-			Port:         dbin.Spec.Generic.Port,
-			PublicIP:     dbin.Spec.Generic.Host,
-			BackupHost:   dbin.Spec.Generic.BackupHost,
+			Host:       dbin.Spec.Generic.Host,
+			Port:       dbin.Spec.Generic.Port,
+			PublicIP:   dbin.Spec.Generic.Host,
+			BackupHost: dbin.Spec.Generic.BackupHost,
 		}
 	} else if dbin.Spec.DbInstanceSource.Google != nil {
 		dst.Spec.DbInstanceSource.Google = &v1beta1.GoogleInstance{
@@ -225,10 +225,10 @@ func (dst *DbInstance) ConvertFrom(srcRaw conversion.Hub) error {
 	dst.Spec.Backup = DbInstanceBackup(dbin.Spec.Backup)
 	if dbin.Spec.DbInstanceSource.Generic != nil {
 		dst.Spec.DbInstanceSource.Generic = &GenericInstance{
-			Host:         dbin.Spec.Generic.Host,
-			Port:         dbin.Spec.Generic.Port,
-			PublicIP:     dbin.Spec.Generic.Host,
-			BackupHost:   dbin.Spec.Generic.BackupHost,
+			Host:       dbin.Spec.Generic.Host,
+			Port:       dbin.Spec.Generic.Port,
+			PublicIP:   dbin.Spec.Generic.Host,
+			BackupHost: dbin.Spec.Generic.BackupHost,
 		}
 	} else if dbin.Spec.DbInstanceSource.Google != nil {
 		dst.Spec.DbInstanceSource.Google = &GoogleInstance{

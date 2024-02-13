@@ -413,8 +413,8 @@ var _ = Describe("KubeHelpers test", func() {
 			Expect(secretCopy.GetLabels()).To(Equal(expectedUsedByLabels))
 		})
 	})
-	Context("Test the value getter", func(){
-		It("Get from Secret", func(){
+	Context("Test the value getter", func() {
+		It("Get from Secret", func() {
 			secretName := "suite-7-test-1"
 			secretCopy := secret.DeepCopy()
 			secretCopy.SetName(secretName)
@@ -431,9 +431,8 @@ var _ = Describe("KubeHelpers test", func() {
 			val, err := kh.GetValueFrom(ctx, kube.SECRET, secretName, "test")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(val).To(Equal("test"))
-
 		})
-		It("Get from ConfigMap", func(){
+		It("Get from ConfigMap", func() {
 			cmName := "suite-7-test-2"
 			cmCopy := configmap.DeepCopy()
 			cmCopy.SetName(cmName)
@@ -450,9 +449,8 @@ var _ = Describe("KubeHelpers test", func() {
 			val, err := kh.GetValueFrom(ctx, kube.CONFIGMAP, cmName, "test")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(val).To(Equal("test"))
-
 		})
-		It("Get from Secret with error", func(){
+		It("Get from Secret with error", func() {
 			secretName := "suite-7-test-3"
 			secretCopy := secret.DeepCopy()
 			secretCopy.SetName(secretName)
@@ -469,7 +467,7 @@ var _ = Describe("KubeHelpers test", func() {
 			_, err = kh.GetValueFrom(ctx, kube.SECRET, secretName, "dummy")
 			Expect(err).To(HaveOccurred())
 		})
-		It("Get from ConfigMap with error", func(){
+		It("Get from ConfigMap with error", func() {
 			cmName := "suite-7-test-4"
 			cmCopy := configmap.DeepCopy()
 			cmCopy.SetName(cmName)

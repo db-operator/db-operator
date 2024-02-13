@@ -213,13 +213,14 @@ func (kh *KubeHelper) BuildOwnerReference() metav1.OwnerReference {
 }
 
 const (
-	SECRET = "secret"
-	CONFIGMAP = "configmap"
+	SECRET    = "Secret"
+	CONFIGMAP = "ConfigMap"
 )
+
 func (kh *KubeHelper) GetValueFrom(ctx context.Context, kind, name, key string) (string, error) {
 	nsName := types.NamespacedName{
 		Namespace: kh.Caller.GetNamespace(),
-		Name: name,
+		Name:      name,
 	}
 	switch kind {
 	case SECRET:
@@ -227,8 +228,8 @@ func (kh *KubeHelper) GetValueFrom(ctx context.Context, kind, name, key string) 
 		if err := kh.Cli.Get(ctx, nsName, obj); err != nil {
 			return "", err
 		}
-		val, ok :=  GetValueByKey(obj.Data, key)
-		if !ok{
+		val, ok := GetValueByKey(obj.Data, key)
+		if !ok {
 			return "", fmt.Errorf("secret %s doesn't contain key %s", name, key)
 		}
 		return string(val), nil
@@ -237,8 +238,8 @@ func (kh *KubeHelper) GetValueFrom(ctx context.Context, kind, name, key string) 
 		if err := kh.Cli.Get(ctx, nsName, obj); err != nil {
 			return "", err
 		}
-		val, ok :=  GetValueByKey(obj.Data, key)
-		if !ok{
+		val, ok := GetValueByKey(obj.Data, key)
+		if !ok {
 			return "", fmt.Errorf("secret %s doesn't contain key %s", name, key)
 		}
 		return val, nil
@@ -248,9 +249,7 @@ func (kh *KubeHelper) GetValueFrom(ctx context.Context, kind, name, key string) 
 	}
 }
 
-
 func GetValueByKey[T string | []byte](data map[string]T, key string) (T, bool) {
 	val, ok := data[key]
 	return val, ok
 }
-

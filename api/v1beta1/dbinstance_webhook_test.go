@@ -19,3 +19,135 @@ func TestUnitEngineInvalid(t *testing.T) {
 	err := v1beta1.ValidateEngine("dummy")
 	assert.Error(t, err)
 }
+
+func TestValidateFromSecret(t *testing.T) {
+	from := &v1beta1.FromRef{
+		Kind: "Secret",
+		Name: "name",
+		Key:  "key",
+	}
+	dbin := &v1beta1.GenericInstance{
+		HostFrom:     from,
+		PortFrom:     from,
+		PublicIPFrom: from,
+	}
+	assert.NoError(t, v1beta1.ValidateConfigFrom(dbin))
+}
+
+func TestValidateFromCM(t *testing.T) {
+	from := &v1beta1.FromRef{
+		Kind: "ConfigMap",
+		Name: "name",
+		Key:  "key",
+	}
+	dbin := &v1beta1.GenericInstance{
+		HostFrom:     from,
+		PortFrom:     from,
+		PublicIPFrom: from,
+	}
+	assert.NoError(t, v1beta1.ValidateConfigFrom(dbin))
+}
+
+func TestValidateFromUnknown(t *testing.T) {
+	from := &v1beta1.FromRef{
+		Kind: "dummy",
+		Name: "name",
+		Key:  "key",
+	}
+	dbin := &v1beta1.GenericInstance{
+		HostFrom:     from,
+		PortFrom:     from,
+		PublicIPFrom: from,
+	}
+	assert.Error(t, v1beta1.ValidateConfigFrom(dbin))
+}
+
+func TestUnitConfigHostErr(t *testing.T) {
+	spec := &v1beta1.GenericInstance{
+		Host: "host",
+		HostFrom: &v1beta1.FromRef{
+			Kind: "ConfigMap",
+			Name: "name",
+			Key:  "key",
+		},
+	}
+	assert.Error(t, v1beta1.ValidateConfigVsConfigFrom(spec))
+}
+
+func TestUnitConfigHostVal(t *testing.T) {
+	spec := &v1beta1.GenericInstance{
+		Host: "host",
+	}
+	assert.NoError(t, v1beta1.ValidateConfigVsConfigFrom(spec))
+}
+
+func TestUnitConfigHostFrom(t *testing.T) {
+	spec := &v1beta1.GenericInstance{
+		HostFrom: &v1beta1.FromRef{
+			Kind: "ConfigMap",
+			Name: "name",
+			Key:  "key",
+		},
+	}
+	assert.NoError(t, v1beta1.ValidateConfigVsConfigFrom(spec))
+}
+
+func TestUnitConfigPortErr(t *testing.T) {
+	spec := &v1beta1.GenericInstance{
+		Port: 5432,
+		PortFrom: &v1beta1.FromRef{
+			Kind: "ConfigMap",
+			Name: "name",
+			Key:  "key",
+		},
+	}
+	assert.Error(t, v1beta1.ValidateConfigVsConfigFrom(spec))
+}
+
+func TestUnitConfigPortVal(t *testing.T) {
+	spec := &v1beta1.GenericInstance{
+		Port: 5432,
+	}
+	assert.NoError(t, v1beta1.ValidateConfigVsConfigFrom(spec))
+}
+
+func TestUnitConfigPortFrom(t *testing.T) {
+	spec := &v1beta1.GenericInstance{
+		PortFrom: &v1beta1.FromRef{
+			Kind: "ConfigMap",
+			Name: "name",
+			Key:  "key",
+		},
+	}
+	assert.NoError(t, v1beta1.ValidateConfigVsConfigFrom(spec))
+}
+
+func TestUnitConfigPublicIPErr(t *testing.T) {
+	spec := &v1beta1.GenericInstance{
+		PublicIP: "123.123.123.123",
+		PublicIPFrom: &v1beta1.FromRef{
+			Kind: "ConfigMap",
+			Name: "name",
+			Key:  "key",
+		},
+	}
+	assert.Error(t, v1beta1.ValidateConfigVsConfigFrom(spec))
+}
+
+func TestUnitConfigPublicIPVal(t *testing.T) {
+	spec := &v1beta1.GenericInstance{
+		PublicIP: "123.123.123.123",
+	}
+	assert.NoError(t, v1beta1.ValidateConfigVsConfigFrom(spec))
+}
+
+func TestUnitConfigPublicIPFrom(t *testing.T) {
+	spec := &v1beta1.GenericInstance{
+		PublicIPFrom: &v1beta1.FromRef{
+			Kind: "ConfigMap",
+			Name: "name",
+			Key:  "key",
+		},
+	}
+	assert.NoError(t, v1beta1.ValidateConfigVsConfigFrom(spec))
+}
