@@ -72,13 +72,22 @@ type BackendServer struct {
 // and describes necessary informations to use instance
 // generic instance can be any backend, it must be reachable by described address and port
 type GenericInstance struct {
-	Host     string `json:"host"`
-	Port     uint16 `json:"port"`
-	PublicIP string `json:"publicIp,omitempty"`
+	Host         string  `json:"host"`
+	HostFrom     FromRef `json:"hostFrom"`
+	Port         uint16  `json:"port"`
+	PortFrom     FromRef `json:"portFrom"`
+	PublicIP     string  `json:"publicIp,omitempty"`
+	PublicIPFrom FromRef `json:"publicIpFrom,omitempty"`
 	// BackupHost address will be used for dumping database for backup
 	// Usually secondary address for primary-secondary setup or cluster lb address
 	// If it's not defined, above Host will be used as backup host address.
 	BackupHost string `json:"backupHost,omitempty"`
+}
+
+type FromRef struct {
+	Kind string `json:"kind"`
+	Name string `json:"name"`
+	Key  string `json:"key"`
 }
 
 // DbInstanceBackup defines name of google bucket to use for storing database dumps for backup when backup is enabled

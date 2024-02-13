@@ -12,6 +12,7 @@ type KindaObject interface {
 	GetSecretName() string
 	// client.Object default methods to avoid casting later
 	GetName() string
+	GetNamespace() string
 	GetObjectKind() schema.ObjectKind
 	GetUID() types.UID
 }

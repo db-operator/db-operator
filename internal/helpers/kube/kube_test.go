@@ -35,6 +35,13 @@ var (
 			Namespace: "default",
 		},
 	}
+	
+	configmap = &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "configmap",
+			Namespace: "default",
+		},
+	}
 
 	database = &kindav1beta1.Database{
 		TypeMeta: metav1.TypeMeta{
@@ -309,4 +316,40 @@ func TestIsUsedByAnyNo(t *testing.T) {
 	kh := &kube.KubeHelper{}
 	secretCopy := secret.DeepCopy()
 	assert.False(t, kh.IsUsedByAny(secretCopy))
+}
+
+func TestGetValueByKeyString (t *testing.T) {
+	data := map[string]string {
+		"test": "test",
+	}
+	val, ok := kube.GetValueByKey(data, "test")
+	assert.True(t, ok)
+	assert.Equal(t, "test", val)
+}
+
+func TestGetValueByKeyStringNotFound (t *testing.T) {
+	data := map[string]string {
+		"test": "test",
+	}
+	val, ok := kube.GetValueByKey(data, "dummy")
+	assert.False(t, ok)
+	assert.Equal(t, "", val)
+}
+
+func TestGetValueByKeyBytes (t *testing.T) {
+	data := map[string][]byte {
+		"test": []byte("test"),
+	}
+	val, ok := kube.GetValueByKey(data, "test")
+	assert.True(t, ok)
+	assert.Equal(t, []byte("test"), val)
+}
+
+func TestGetValueByKeybyteNotFound (t *testing.T) {
+	data := map[string][]byte {
+		"test": []byte("test"),
+	}
+	val, ok := kube.GetValueByKey(data, "dummy")
+	assert.False(t, ok)
+	assert.Equal(t, []byte(nil), val)
 }
