@@ -428,7 +428,7 @@ var _ = Describe("KubeHelpers test", func() {
 			err = kh.Cli.Update(ctx, secretCopy)
 			Expect(err).NotTo(HaveOccurred())
 
-			val, err := kh.GetValueFrom(ctx, kube.SECRET, secretName, "test")
+			val, err := kh.GetValueFrom(ctx, kube.SECRET, "default", secretName, "test")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(val).To(Equal("test"))
 		})
@@ -446,7 +446,7 @@ var _ = Describe("KubeHelpers test", func() {
 			err = kh.Cli.Update(ctx, cmCopy)
 			Expect(err).NotTo(HaveOccurred())
 
-			val, err := kh.GetValueFrom(ctx, kube.CONFIGMAP, cmName, "test")
+			val, err := kh.GetValueFrom(ctx, kube.CONFIGMAP, "default", cmName, "test")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(val).To(Equal("test"))
 		})
@@ -464,7 +464,7 @@ var _ = Describe("KubeHelpers test", func() {
 			err = kh.Cli.Update(ctx, secretCopy)
 			Expect(err).NotTo(HaveOccurred())
 
-			_, err = kh.GetValueFrom(ctx, kube.SECRET, secretName, "dummy")
+			_, err = kh.GetValueFrom(ctx, kube.SECRET, "default", secretName, "dummy")
 			Expect(err).To(HaveOccurred())
 		})
 		It("Get from ConfigMap with error", func() {
@@ -481,7 +481,7 @@ var _ = Describe("KubeHelpers test", func() {
 			err = kh.Cli.Update(ctx, cmCopy)
 			Expect(err).NotTo(HaveOccurred())
 
-			_, err = kh.GetValueFrom(ctx, kube.CONFIGMAP, cmName, "dummy")
+			_, err = kh.GetValueFrom(ctx, kube.CONFIGMAP, "default", cmName, "dummy")
 			Expect(err).To(HaveOccurred())
 		})
 	})

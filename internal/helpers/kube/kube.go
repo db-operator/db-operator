@@ -217,9 +217,9 @@ const (
 	CONFIGMAP = "ConfigMap"
 )
 
-func (kh *KubeHelper) GetValueFrom(ctx context.Context, kind, name, key string) (string, error) {
+func (kh *KubeHelper) GetValueFrom(ctx context.Context, kind, namespace, name, key string) (string, error) {
 	nsName := types.NamespacedName{
-		Namespace: kh.Caller.GetNamespace(),
+		Namespace: namespace,
 		Name:      name,
 	}
 	switch kind {

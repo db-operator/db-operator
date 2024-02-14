@@ -255,13 +255,58 @@ spec:
                     type: string
                   host:
                     type: string
+                  hostFrom:
+                    properties:
+                      key:
+                        type: string
+                      kind:
+                        type: string
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                    required:
+                    - key
+                    - kind
+                    - name
+                    - namespace
+                    type: object
                   port:
                     type: integer
+                  portFrom:
+                    properties:
+                      key:
+                        type: string
+                      kind:
+                        type: string
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                    required:
+                    - key
+                    - kind
+                    - name
+                    - namespace
+                    type: object
                   publicIp:
                     type: string
-                required:
-                - host
-                - port
+                  publicIpFrom:
+                    properties:
+                      key:
+                        type: string
+                      kind:
+                        type: string
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                    required:
+                    - key
+                    - kind
+                    - name
+                    - namespace
+                    type: object
                 type: object
               google:
                 description: GoogleInstance is used when instance type is Google Cloud
