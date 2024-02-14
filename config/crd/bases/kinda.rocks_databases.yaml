@@ -17,6 +17,10 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - description: current db phase
+      jsonPath: .status.phase
+      name: Phase
+      type: string
     - description: current db status
       jsonPath: .status.status
       name: Status
@@ -276,6 +280,11 @@ spec:
                 type: object
               monitorUserSecret:
                 type: string
+              phase:
+                description: 'Important: Run "make generate" to regenerate code after
+                  modifying this file Add custom validation using kubebuilder tags:
+                  https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html'
+                type: string
               proxyStatus:
                 description: DatabaseProxyStatus defines whether proxy for database
                   is enabled or not if so, provide information
@@ -299,6 +308,7 @@ spec:
             required:
             - database
             - instanceRef
+            - phase
             - status
             - user
             type: object
@@ -447,6 +457,9 @@ spec:
                 - status
                 type: object
               status:
+                description: 'Important: Run "make generate" to regenerate code after
+                  modifying this file Add custom validation using kubebuilder tags:
+                  https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html'
                 type: boolean
               user:
                 type: string

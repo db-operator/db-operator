@@ -19,10 +19,12 @@ package controllers
 import (
 	"context"
 	"errors"
+	"strconv"
 	"time"
 
 	kindav1beta1 "github.com/db-operator/db-operator/api/v1beta1"
 	commonhelper "github.com/db-operator/db-operator/internal/helpers/common"
+	kubehelper "github.com/db-operator/db-operator/internal/helpers/kube"
 	proxyhelper "github.com/db-operator/db-operator/internal/helpers/proxy"
 	"github.com/db-operator/db-operator/pkg/config"
 	"github.com/db-operator/db-operator/pkg/utils/database"
@@ -34,6 +36,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -50,10 +53,12 @@ var (
 // DbInstanceReconciler reconciles a DbInstance object
 type DbInstanceReconciler struct {
 	client.Client
-	Log      logr.Logger
-	Scheme   *runtime.Scheme
-	Interval time.Duration
-	Conf     *config.Config
+	Log        logr.Logger
+	Scheme     *runtime.Scheme
+	Interval   time.Duration
+	Recorder   record.EventRecorder
+	Conf       *config.Config
+	kubeHelper *kubehelper.KubeHelper
 }
 
 //+kubebuilder:rbac:groups=kinda.rocks,resources=dbinstances,verbs=get;list;watch;create;update;patch;delete
@@ -96,6 +101,7 @@ func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		}
 	}()
 
+	r.kubeHelper = kubehelper.NewKubeHelper(r.Client, r.Recorder, dbin)
 	// Check if spec changed
 	if commonhelper.IsDBInstanceSpecChanged(ctx, dbin) {
 		logrus.Infof("Instance: name=%s spec changed", dbin.Name)
@@ -191,10 +197,48 @@ func (r *DbInstanceReconciler) create(ctx context.Context, dbin *kindav1beta1.Db
 
 		instance = dbinstance.GsqlNew(name, config, user, password, apiEndpoint)
 	case "generic":
+		var host string
+		var port uint16
+		var publicIP string
+
+		from := dbin.Spec.Generic.HostFrom
+		if from != nil {
+			host, err = r.kubeHelper.GetValueFrom(ctx, from.Kind, from.Namespace, from.Name, from.Key)
+			if err != nil {
+				return err
+			}
+		} else {
+			host = dbin.Spec.Generic.Host
+		}
+
+		from = dbin.Spec.Generic.PortFrom
+		if from != nil {
+			portStr, err := r.kubeHelper.GetValueFrom(ctx, from.Kind, from.Namespace, from.Name, from.Key)
+			if err != nil {
+				return err
+			}
+			port64, err := strconv.ParseUint(portStr, 10, 64)
+			if err != nil {
+				return err
+			}
+			port = uint16(port64)
+		} else {
+			port = dbin.Spec.Generic.Port
+		}
+
+		from = dbin.Spec.Generic.PublicIPFrom
+		if from != nil {
+			publicIP, err = r.kubeHelper.GetValueFrom(ctx, from.Kind, from.Namespace, from.Name, from.Key)
+			if err != nil {
+				return err
+			}
+		} else {
+			publicIP = dbin.Spec.Generic.PublicIP
+		}
 		instance = &dbinstance.Generic{
-			Host:         dbin.Spec.Generic.Host,
-			Port:         dbin.Spec.Generic.Port,
-			PublicIP:     dbin.Spec.Generic.PublicIP,
+			Host:         host,
+			Port:         port,
+			PublicIP:     publicIP,
 			Engine:       dbin.Spec.Engine,
 			User:         cred.Username,
 			Password:     cred.Password,

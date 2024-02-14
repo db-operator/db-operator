@@ -72,10 +72,10 @@ type BackendServer struct {
 // and describes necessary informations to use instance
 // generic instance can be any backend, it must be reachable by described address and port
 type GenericInstance struct {
-	Host         string   `json:"host"`
-	HostFrom     *FromRef `json:"hostFrom"`
-	Port         uint16   `json:"port"`
-	PortFrom     *FromRef `json:"portFrom"`
+	Host         string   `json:"host,omitempty"`
+	HostFrom     *FromRef `json:"hostFrom,omitempty"`
+	Port         uint16   `json:"port,omitempty"`
+	PortFrom     *FromRef `json:"portFrom,omitempty"`
 	PublicIP     string   `json:"publicIp,omitempty"`
 	PublicIPFrom *FromRef `json:"publicIpFrom,omitempty"`
 	// BackupHost address will be used for dumping database for backup
@@ -85,9 +85,10 @@ type GenericInstance struct {
 }
 
 type FromRef struct {
-	Kind string `json:"kind"`
-	Name string `json:"name"`
-	Key  string `json:"key"`
+	Kind      string `json:"kind"`
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+	Key       string `json:"key"`
 }
 
 // DbInstanceBackup defines name of google bucket to use for storing database dumps for backup when backup is enabled
