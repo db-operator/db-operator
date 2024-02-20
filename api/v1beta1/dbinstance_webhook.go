@@ -46,17 +46,17 @@ var _ webhook.Defaulter = &DbInstance{}
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *DbInstance) Default() {
 	dbinstancelog.Info("default", "name", r.Name)
-
-	// TODO(user): fill in your defaulting logic.
 }
 
-// TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 //+kubebuilder:webhook:path=/validate-kinda-rocks-v1beta1-dbinstance,mutating=false,failurePolicy=fail,sideEffects=None,groups=kinda.rocks,resources=dbinstances,verbs=create;update,versions=v1beta1,name=vdbinstance.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Validator = &DbInstance{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *DbInstance) ValidateCreate() (admission.Warnings, error) {
+	if r.Spec.Google != nil {
+		fmt.Println("Google instances are deprecated, and will be removed in v1beta2")
+	}
 	dbinstancelog.Info("validate create", "name", r.Name)
 	if err := ValidateConfigVsConfigFrom(r.Spec.Generic); err != nil {
 		return nil, err
@@ -69,6 +69,9 @@ func (r *DbInstance) ValidateCreate() (admission.Warnings, error) {
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *DbInstance) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
+	if r.Spec.Google != nil {
+		fmt.Println("Google instances are deprecated, and will be removed in v1beta2")
+	}
 	dbinstancelog.Info("validate update", "name", r.Name)
 	immutableErr := "cannot change %s, the field is immutable"
 	if r.Spec.Engine != old.(*DbInstance).Spec.Engine {
