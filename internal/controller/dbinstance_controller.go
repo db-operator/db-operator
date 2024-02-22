@@ -201,8 +201,7 @@ func (r *DbInstanceReconciler) create(ctx context.Context, dbin *kindav1beta1.Db
 		var port uint16
 		var publicIP string
 
-		from := dbin.Spec.Generic.HostFrom
-		if from != nil {
+		if from := dbin.Spec.Generic.HostFrom; from != nil {
 			host, err = r.kubeHelper.GetValueFrom(ctx, from.Kind, from.Namespace, from.Name, from.Key)
 			if err != nil {
 				return err
@@ -211,8 +210,7 @@ func (r *DbInstanceReconciler) create(ctx context.Context, dbin *kindav1beta1.Db
 			host = dbin.Spec.Generic.Host
 		}
 
-		from = dbin.Spec.Generic.PortFrom
-		if from != nil {
+		if from := dbin.Spec.Generic.PortFrom; from != nil {
 			portStr, err := r.kubeHelper.GetValueFrom(ctx, from.Kind, from.Namespace, from.Name, from.Key)
 			if err != nil {
 				return err
@@ -226,8 +224,7 @@ func (r *DbInstanceReconciler) create(ctx context.Context, dbin *kindav1beta1.Db
 			port = dbin.Spec.Generic.Port
 		}
 
-		from = dbin.Spec.Generic.PublicIPFrom
-		if from != nil {
+		if from := dbin.Spec.Generic.PublicIPFrom; from != nil {
 			publicIP, err = r.kubeHelper.GetValueFrom(ctx, from.Kind, from.Namespace, from.Name, from.Key)
 			if err != nil {
 				return err

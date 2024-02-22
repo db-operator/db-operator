@@ -99,15 +99,15 @@ func ValidateConfigVsConfigFrom(r *GenericInstance) error {
 func ValidateConfigFrom(dbin *GenericInstance) error {
 	check := dbin.HostFrom
 	if check != nil && !(check.Kind == kube.CONFIGMAP || check.Kind == kube.SECRET) {
-		return fmt.Errorf("unsupported kind in hostFrom: %s", check.Kind)
+		return fmt.Errorf("unsupported kind in hostFrom: %s, please use %s or %s", check.Kind, kube.CONFIGMAP, kube.SECRET)
 	}
 	check = dbin.PortFrom
 	if check != nil && !(check.Kind == kube.CONFIGMAP || check.Kind == kube.SECRET) {
-		return fmt.Errorf("unsupported kind in portFrom: %s", check.Kind)
+		return fmt.Errorf("unsupported kind in portFrom: %s, please use %s or %s", check.Kind, kube.CONFIGMAP, kube.SECRET)
 	}
 	check = dbin.PublicIPFrom
 	if check != nil && !(check.Kind == kube.CONFIGMAP || check.Kind == kube.SECRET) {
-		return fmt.Errorf("unsupported kind in publicIpFrom: %s", check.Kind)
+		return fmt.Errorf("unsupported kind in publicIpFrom: %s, please use %s or %s", check.Kind, kube.CONFIGMAP, kube.SECRET)
 	}
 	return nil
 }
