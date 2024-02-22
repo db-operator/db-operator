@@ -101,7 +101,7 @@ type DbInstanceMonitoring struct {
 	Enabled bool `json:"enabled"`
 }
 
-// DbInstanceSSLConnection defines weather connection from db-operator to instance has to be ssl or not
+// DbInstanceSSLConnection defines weather connectioi from db-operator to instance has to be ssl or not
 type DbInstanceSSLConnection struct {
 	Enabled bool `json:"enabled"`
 	// SkipVerity use SSL connection, but don't check against a CA

@@ -230,7 +230,7 @@ func (kh *KubeHelper) GetValueFrom(ctx context.Context, kind, namespace, name, k
 		}
 		val, ok := GetValueByKey(obj.Data, key)
 		if !ok {
-			return "", fmt.Errorf("secret %s doesn't contain key %s", name, key)
+			return "", fmt.Errorf("secret %s/%s doesn't contain key %s", namespace, name, key)
 		}
 		return string(val), nil
 	case CONFIGMAP:
@@ -240,11 +240,11 @@ func (kh *KubeHelper) GetValueFrom(ctx context.Context, kind, namespace, name, k
 		}
 		val, ok := GetValueByKey(obj.Data, key)
 		if !ok {
-			return "", fmt.Errorf("secret %s doesn't contain key %s", name, key)
+			return "", fmt.Errorf("secret %s/%s doesn't contain key %s", namespace, name, key)
 		}
 		return val, nil
 	default:
-		err := fmt.Errorf("unknown source kine: %s", kind)
+		err := fmt.Errorf("unknown source kind: %s, please use %s or %s", kind, CONFIGMAP, SECRET)
 		return "", err
 	}
 }
