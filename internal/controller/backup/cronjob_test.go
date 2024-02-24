@@ -40,10 +40,10 @@ func TestGCSBackupCronGsql(t *testing.T) {
 	dbcr.Spec.Backup.Cron = "* * * * *"
 	log := logr.New(logr.Discard().GetSink())
 	os.Setenv("CONFIG_PATH", "./test/backup_config.yaml")
-	conf := config.LoadConfig(log)
+	conf, _:= config.LoadConfig(log)
 
 	instance.Spec.Engine = "postgres"
-	funcCronObject, err := GCSBackupCron(&conf, dbcr, instance)
+	funcCronObject, err := GCSBackupCron(conf, dbcr, instance)
 	if err != nil {
 		fmt.Print(err)
 	}
@@ -51,7 +51,7 @@ func TestGCSBackupCronGsql(t *testing.T) {
 	assert.Equal(t, "postgresbackupimage:latest", funcCronObject.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Image)
 
 	instance.Spec.Engine = "mysql"
-	funcCronObject, err = GCSBackupCron(&conf, dbcr, instance)
+	funcCronObject, err = GCSBackupCron(conf, dbcr, instance)
 	if err != nil {
 		fmt.Print(err)
 	}
@@ -74,10 +74,10 @@ func TestUnitGCSBackupCronGeneric(t *testing.T) {
 	dbcr.Spec.Backup.Cron = "* * * * *"
 
 	os.Setenv("CONFIG_PATH", "./test/backup_config.yaml")
-	conf := config.LoadConfig(logr.New(logr.Discard().GetSink()))
+	conf, _ := config.LoadConfig(logr.New(logr.Discard().GetSink()))
 
 	instance.Spec.Engine = "postgres"
-	funcCronObject, err := GCSBackupCron(&conf, dbcr, instance)
+	funcCronObject, err := GCSBackupCron(conf, dbcr, instance)
 	if err != nil {
 		fmt.Print(err)
 	}
@@ -85,7 +85,7 @@ func TestUnitGCSBackupCronGeneric(t *testing.T) {
 	assert.Equal(t, "postgresbackupimage:latest", funcCronObject.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Image)
 
 	instance.Spec.Engine = "mysql"
-	funcCronObject, err = GCSBackupCron(&conf, dbcr, instance)
+	funcCronObject, err = GCSBackupCron(conf, dbcr, instance)
 	if err != nil {
 		fmt.Print(err)
 	}
@@ -100,12 +100,12 @@ func TestUnitGCSBackupCronGeneric(t *testing.T) {
 
 func TestUnitGetResourceRequirements(t *testing.T) {
 	os.Setenv("CONFIG_PATH", "./test/backup_config.yaml")
-	conf := config.LoadConfig(logr.New(logr.Discard().GetSink()))
+	conf, _ := config.LoadConfig(logr.New(logr.Discard().GetSink()))
 
 	expected := v1.ResourceRequirements{
 		Requests: map[v1.ResourceName]resource.Quantity{v1.ResourceCPU: resource.MustParse("50m"), v1.ResourceMemory: resource.MustParse("50Mi")},
 		Limits:   map[v1.ResourceName]resource.Quantity{v1.ResourceCPU: resource.MustParse("100m"), v1.ResourceMemory: resource.MustParse("100Mi")},
 	}
-	result := getResourceRequirements(&conf)
+	result := getResourceRequirements(conf)
 	assert.Equal(t, expected, result)
 }
