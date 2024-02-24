@@ -113,7 +113,11 @@ func main() {
 		}
 	} else {
 		setupLog.Info("Starting controller")
-		conf := config.LoadConfig(ctrl.Log)
+		conf, err := config.LoadConfig(ctrl.Log)
+		if err != nil {
+			setupLog.Error(err, "an error occured when reading the config")	
+			os.Exit(1)
+		}
 
 		interval := os.Getenv("RECONCILE_INTERVAL")
 		i, err := strconv.ParseInt(interval, 10, 64)
@@ -128,7 +132,7 @@ func main() {
 			Scheme:   mgr.GetScheme(),
 			Interval: time.Duration(i),
 			Recorder: mgr.GetEventRecorderFor("dbinstance-controller"),
-			Conf:     &conf,
+			Conf:     conf,
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DbInstance")
 			os.Exit(1)
@@ -144,7 +148,7 @@ func main() {
 			Scheme:          mgr.GetScheme(),
 			Recorder:        mgr.GetEventRecorderFor("database-controller"),
 			Interval:        time.Duration(i),
-			Conf:            &conf,
+			Conf:            conf,
 			WatchNamespaces: namespaces,
 			CheckChanges:    checkForChanges,
 		}).SetupWithManager(mgr); err != nil {

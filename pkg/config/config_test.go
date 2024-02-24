@@ -19,9 +19,6 @@ package config
 import (
 	"os"
 	"testing"
-
-	"github.com/go-logr/logr"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/klog/v2/klogr"
 )
@@ -31,7 +28,7 @@ var logger = klogr.New()
 
 func TestUnitLoadConfig(t *testing.T) {
 	os.Setenv("CONFIG_PATH", "./test/config_ok.yaml")
-	confLoad := LoadConfig(logger)
+	confLoad, _ := LoadConfig(logger)
 	confStatic := Config{}
 
 	confStatic.Instances.Google.ClientSecretName = "cloudsql-readonly-serviceaccount"
@@ -40,24 +37,20 @@ func TestUnitLoadConfig(t *testing.T) {
 }
 
 func TestUnitLoadConfigFailCases(t *testing.T) {
-	// rollback ExitFunc to default
-	defer func() { logrus.StandardLogger().ExitFunc = nil }()
-	fatalCalled := false
-	logrus.StandardLogger().ExitFunc = func(int) { fatalCalled = true }
-	expectedFatal := true
 	os.Setenv("CONFIG_PATH", "./test/config_NotFound.yaml")
-
-	LoadConfig(logger)
-	assert.Equal(t, expectedFatal, fatalCalled)
+	conf, err := LoadConfig(logger)
+	assert.Error(t, err)
+	assert.Nil(t, conf)	
 
 	os.Setenv("CONFIG_PATH", "./test/config_Invalid.yaml")
-	LoadConfig(logr.New(logr.Discard().GetSink()))
-	assert.Equal(t, expectedFatal, fatalCalled)
+	conf, err = LoadConfig(logger)
+	assert.Error(t, err)
+	assert.Nil(t, conf)	
 }
 
 func TestUnitBackupResourceConfig(t *testing.T) {
 	os.Setenv("CONFIG_PATH", "./test/config_backup.yaml")
-	conf := LoadConfig(logger)
+	conf, _ := LoadConfig(logger)
 	assert.Equal(t, conf.Backup.Resource.Requests.Cpu, "50m")
 	assert.Equal(t, conf.Backup.Resource.Requests.Memory, "50Mi")
 	assert.Equal(t, conf.Backup.Resource.Limits.Cpu, "100m")

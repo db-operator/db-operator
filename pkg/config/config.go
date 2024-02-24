@@ -25,23 +25,24 @@ import (
 )
 
 // LoadConfig reads config file for db-operator from defined path and parse
-func LoadConfig(log logr.Logger) Config {
+func LoadConfig(log logr.Logger) (*Config, error) {
 	path := kci.StringNotEmpty(os.Getenv("CONFIG_PATH"), "/srv/config/config.yaml")
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		log.Error(err, "failed to open config file")
-		os.Exit(1)
+		return nil, err
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		log.Error(err, "Loading of configuration failed")
-		os.Exit(1)
+		return nil, err
 	}
 
-	conf := Config{}
+	conf := &Config{}
 
 	err = yaml.Unmarshal(data, &conf)
 	if err != nil {
 		log.Error(err, "decode of configuration failed")
+		return nil, err
 	}
-	return conf
+	return conf, nil
 }
