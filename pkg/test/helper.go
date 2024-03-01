@@ -17,10 +17,9 @@
 package test
 
 import (
+	"log"
 	"os"
 	"strconv"
-
-	"github.com/sirupsen/logrus"
 )
 
 // GetMysqlHost set mysql host which used by unit test
@@ -36,7 +35,7 @@ func GetMysqlPort() uint16 {
 	if value, ok := os.LookupEnv("MYSQL_PORT"); ok {
 		port, err := strconv.Atoi(value)
 		if err != nil {
-			logrus.Fatal(err)
+			log.Fatal(err)
 		}
 		return uint16(port)
 	}
@@ -64,7 +63,7 @@ func GetPostgresPort() uint16 {
 	if value, ok := os.LookupEnv("POSTGRES_PORT"); ok {
 		port, err := strconv.Atoi(value)
 		if err != nil {
-			logrus.Fatal(err)
+			log.Fatal(err)
 		}
 		return uint16(port)
 	}

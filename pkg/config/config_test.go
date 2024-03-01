@@ -19,10 +19,10 @@ package config
 import (
 	"os"
 	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"k8s.io/klog/v2/klogr"
 )
-
 
 var logger = klogr.New()
 
@@ -40,12 +40,12 @@ func TestUnitLoadConfigFailCases(t *testing.T) {
 	os.Setenv("CONFIG_PATH", "./test/config_NotFound.yaml")
 	conf, err := LoadConfig(logger)
 	assert.Error(t, err)
-	assert.Nil(t, conf)	
+	assert.Nil(t, conf)
 
 	os.Setenv("CONFIG_PATH", "./test/config_Invalid.yaml")
 	conf, err = LoadConfig(logger)
 	assert.Error(t, err)
-	assert.Nil(t, conf)	
+	assert.Nil(t, conf)
 }
 
 func TestUnitBackupResourceConfig(t *testing.T) {

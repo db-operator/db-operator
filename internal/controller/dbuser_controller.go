@@ -126,7 +126,7 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return r.manageError(ctx, dbusercr, err, false)
 	}
 
-	db, dbuser, err := dbhelper.FetchDatabaseData(dbcr, creds, instance)
+	db, dbuser, err := dbhelper.FetchDatabaseData(ctx, dbcr, creds, instance)
 	if err != nil {
 		// failed to determine database type
 		return r.manageError(ctx, dbusercr, err, false)
@@ -357,7 +357,7 @@ func (r *DbUserReconciler) handleTemplatedCredentials(ctx context.Context, dbcr 
 		return err
 	}
 
-	db, _, err := dbhelper.FetchDatabaseData(dbcr, creds, instance)
+	db, _, err := dbhelper.FetchDatabaseData(ctx, dbcr, creds, instance)
 	if err != nil {
 		return err
 	}
