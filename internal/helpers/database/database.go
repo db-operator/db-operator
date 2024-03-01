@@ -17,6 +17,7 @@
 package database
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -25,21 +26,22 @@ import (
 	"github.com/db-operator/db-operator/pkg/consts"
 	"github.com/db-operator/db-operator/pkg/utils/database"
 	"github.com/db-operator/db-operator/pkg/utils/kci"
-	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-func FetchDatabaseData(dbcr *kindav1beta1.Database, dbCred database.Credentials, instance *kindav1beta1.DbInstance) (database.Database, *database.DatabaseUser, error) {
+func FetchDatabaseData(ctx context.Context, dbcr *kindav1beta1.Database, dbCred database.Credentials, instance *kindav1beta1.DbInstance) (database.Database, *database.DatabaseUser, error) {
+	log := log.FromContext(ctx)
 	host := instance.Status.Info["DB_CONN"]
 	port, err := strconv.Atoi(instance.Status.Info["DB_PORT"])
 	if err != nil {
-		logrus.Errorf("can't get port information from the instanceRef %s - %s", dbcr.Name, err)
+		log.Error(err, "can't get port information from the instanceRef")
 		return nil, nil, err
 	}
 
 	backend, err := instance.GetBackendType()
 	if err != nil {
-		logrus.Errorf("could not get backend type %s - %s", dbcr.Name, err)
+		log.Error(err, "could not get backend type")
 		return nil, nil, err
 	}
 
@@ -66,6 +68,7 @@ func FetchDatabaseData(dbcr *kindav1beta1.Database, dbCred database.Credentials,
 			Schemas:          dbcr.Spec.Postgres.Schemas,
 			Template:         dbcr.Spec.Postgres.Template,
 			MainUser:         dbuser,
+			Log:              log,
 		}
 		return db, dbuser, nil
 
@@ -77,6 +80,7 @@ func FetchDatabaseData(dbcr *kindav1beta1.Database, dbCred database.Credentials,
 			Database:     dbCred.Name,
 			SSLEnabled:   instance.Spec.SSLConnection.Enabled,
 			SkipCAVerify: instance.Spec.SSLConnection.SkipVerify,
+			Log:          log,
 		}
 
 		return db, dbuser, nil

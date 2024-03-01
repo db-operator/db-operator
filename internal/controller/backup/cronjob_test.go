@@ -40,7 +40,7 @@ func TestGCSBackupCronGsql(t *testing.T) {
 	dbcr.Spec.Backup.Cron = "* * * * *"
 	log := logr.New(logr.Discard().GetSink())
 	os.Setenv("CONFIG_PATH", "./test/backup_config.yaml")
-	conf, _:= config.LoadConfig(log)
+	conf, _ := config.LoadConfig(log)
 
 	instance.Spec.Engine = "postgres"
 	funcCronObject, err := GCSBackupCron(conf, dbcr, instance)

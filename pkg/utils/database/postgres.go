@@ -26,10 +26,10 @@ import (
 	// Don't delete below package. Used for driver "cloudsqlpostgres"
 	_ "github.com/GoogleCloudPlatform/cloudsql-proxy/proxy/dialers/postgres"
 	"github.com/db-operator/db-operator/pkg/utils/kci"
+	"github.com/go-logr/logr"
 
 	// Don't delete below package. Used for driver "postgres"
 	"github.com/lib/pq"
-	"github.com/sirupsen/logrus"
 )
 
 // Postgres is a database interface, abstraced object
@@ -51,6 +51,7 @@ type Postgres struct {
 	//  it's required to set default priveleges
 	//  for additional users
 	MainUser *DatabaseUser
+	Log      logr.Logger
 }
 
 const postgresDefaultSSLMode = "disable"
@@ -96,7 +97,8 @@ func (p Postgres) getDbConn(dbname, user, password string) (*sql.DB, error) {
 func (p Postgres) executeExec(database, query string, admin *DatabaseUser) error {
 	db, err := p.getDbConn(database, admin.Username, admin.Password)
 	if err != nil {
-		logrus.Fatalf("failed to open db connection: %s", err)
+		p.Log.Error(err, "failed to open a db connection")
+		return err
 	}
 
 	defer db.Close()
@@ -108,7 +110,8 @@ func (p Postgres) executeExec(database, query string, admin *DatabaseUser) error
 func (p Postgres) execAsUser(query string, user *DatabaseUser) error {
 	db, err := p.getDbConn(p.Database, user.Username, user.Password)
 	if err != nil {
-		logrus.Fatalf("failed to open db connection: %s", err)
+		p.Log.Error(err, "failed to open a db connection")
+		return err
 	}
 
 	defer db.Close()
@@ -132,14 +135,15 @@ func (p Postgres) isUserExist(admin *DatabaseUser, user *DatabaseUser) bool {
 func (p Postgres) isRowExist(database, query, user, password string) bool {
 	db, err := p.getDbConn(database, user, password)
 	if err != nil {
-		logrus.Fatal(err)
+		p.Log.Error(err, "failed to open a db connection")
+		return false
 	}
 	defer db.Close()
 
 	var name string
 	err = db.QueryRow(query).Scan(&name)
 	if err != nil {
-		logrus.Debugf("failed executing query %s - %s", query, err)
+		p.Log.V(2).Info("failed executing query", "error", err)
 		return false
 	}
 	return true
@@ -152,7 +156,7 @@ func (p Postgres) dropPublicSchema(admin *DatabaseUser) error {
 
 	drop := "DROP SCHEMA IF EXISTS public;"
 	if err := p.executeExec(p.Database, drop, admin); err != nil {
-		logrus.Errorf("failed to drop the schema Public: %s", err)
+		p.Log.Error(err, "failed to drop the schema Public")
 		return err
 	}
 	return nil
@@ -162,7 +166,7 @@ func (p Postgres) createSchemas(ac4tor *DatabaseUser) error {
 	for _, s := range p.Schemas {
 		createSchema := fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS \"%s\";", s)
 		if err := p.executeExec(p.Database, createSchema, ac4tor); err != nil {
-			logrus.Errorf("failed to create schema %s, %s", s, err)
+			p.Log.Error(err, "failed to create schema", "schema", s)
 			return err
 		}
 	}
@@ -172,13 +176,13 @@ func (p Postgres) createSchemas(ac4tor *DatabaseUser) error {
 
 func (p Postgres) checkSchemas(user *DatabaseUser) error {
 	if p.DropPublicSchema {
-		query := "SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname = 'public';"
+		query := "SELECT 1 FROM pg_cataLog.pg_namespace WHERE nspname = 'public';"
 		if p.isRowExist(p.Database, query, user.Username, user.Password) {
 			return fmt.Errorf("schema public still exists")
 		}
 	}
 	for _, s := range p.Schemas {
-		query := fmt.Sprintf("SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname = '%s';", s)
+		query := fmt.Sprintf("SELECT 1 FROM pg_cataLog.pg_namespace WHERE nspname = '%s';", s)
 		if !p.isRowExist(p.Database, query, user.Username, user.Password) {
 			return fmt.Errorf("couldn't find schema %s in database %s", s, p.Database)
 		}
@@ -305,13 +309,14 @@ func (p Postgres) GetDatabaseAddress() DatabaseAddress {
 func (p Postgres) QueryAsUser(query string, user *DatabaseUser) (string, error) {
 	db, err := p.getDbConn(p.Database, user.Username, user.Password)
 	if err != nil {
-		logrus.Fatal(err)
+		p.Log.Error(err, "failed to open a db connection")
+		return "", err
 	}
 	defer db.Close()
 
 	var result string
 	if err := db.QueryRow(query).Scan(&result); err != nil {
-		logrus.Errorf("failed executing query %s - %s", query, err)
+		p.Log.Error(err, "failed executing query", "query", query)
 		return "", err
 	}
 	return result, nil
@@ -320,7 +325,7 @@ func (p Postgres) QueryAsUser(query string, user *DatabaseUser) (string, error) 
 func (p Postgres) createDatabase(admin *DatabaseUser) error {
 	var create string
 	if len(p.Template) > 0 {
-		logrus.Infof("Creating database %s from template %s", p.Database, p.Template)
+		p.Log.Info("Creating database from template", "database", p.Database, "template", p.Template)
 		create = fmt.Sprintf("CREATE DATABASE \"%s\" TEMPLATE \"%s\";", p.Database, p.Template)
 	} else {
 		create = fmt.Sprintf("CREATE DATABASE \"%s\";", p.Database)
@@ -329,7 +334,7 @@ func (p Postgres) createDatabase(admin *DatabaseUser) error {
 	if !p.isDbExist(admin) {
 		err := p.executeExec("postgres", create, admin)
 		if err != nil {
-			logrus.Errorf("failed creating postgres database %s", err)
+			p.Log.Error(err, "failed creating postgres database", err)
 			return err
 		}
 	}
@@ -351,13 +356,13 @@ func (p Postgres) createDatabase(admin *DatabaseUser) error {
 			return fmt.Errorf("can not drop public schema - %s", err)
 		}
 		if len(p.Schemas) == 0 {
-			logrus.Info("the public schema is dropped, but no additional schemas are created, schema creation must be handled on the application side now")
+			p.Log.Info("the public schema is dropped, but no additional schemas are created, schema creation must be handled on the application side now")
 		}
 	}
 
 	if len(p.Schemas) > 0 {
 		if err := p.createSchemas(admin); err != nil {
-			logrus.Errorf("failed creating additional schemas %s", err)
+			p.Log.Error(err, "failed creating additional schemas")
 			return err
 		}
 	}
@@ -372,7 +377,7 @@ func (p Postgres) deleteDatabase(admin *DatabaseUser) error {
 	if p.isDbExist(admin) {
 		err := p.executeExec("postgres", revoke, admin)
 		if err != nil {
-			logrus.Errorf("failed revoking connection on database %s - %s", revoke, err)
+			p.Log.Error(err, "failed revoking connection on database", "connection", revoke)
 			return err
 		}
 
@@ -380,14 +385,14 @@ func (p Postgres) deleteDatabase(admin *DatabaseUser) error {
 			err := p.executeExec("postgres", delete, admin)
 			if err != nil {
 				// This error will result in a retry
-				logrus.Debugf("failed error: %s...retry...", err)
+				p.Log.V(2).Info("failed with error, retrying", "error", err)
 				return err
 			}
 
 			return nil
 		})
 		if err != nil {
-			logrus.Debugf("retry failed  %s", err)
+			p.Log.V(2).Info("failed with error, retrying", "error", err)
 			return err
 		}
 	}
@@ -397,12 +402,12 @@ func (p Postgres) deleteDatabase(admin *DatabaseUser) error {
 func (p Postgres) createOrUpdateUser(admin *DatabaseUser, user *DatabaseUser) error {
 	if !p.isUserExist(admin, user) {
 		if err := p.createUser(admin, user); err != nil {
-			logrus.Errorf("failed creating postgres user - %s", err)
+			p.Log.Error(err, "failed creating postgres user")
 			return err
 		}
 	} else {
 		if err := p.updateUser(admin, user); err != nil {
-			logrus.Errorf("failed updating postgres user - %s", err)
+			p.Log.Error(err, "failed updating postgres user")
 			return err
 		}
 	}
@@ -419,7 +424,7 @@ func (p Postgres) createUser(admin *DatabaseUser, user *DatabaseUser) error {
 	if !p.isUserExist(admin, user) {
 		err := p.executeExec("postgres", create, admin)
 		if err != nil {
-			logrus.Errorf("failed creating postgres user - %s", err)
+			p.Log.Error(err, "failed creating postgres user")
 			return err
 		}
 	} else {
@@ -443,7 +448,7 @@ func (p Postgres) updateUser(admin *DatabaseUser, user *DatabaseUser) error {
 	} else {
 		err := p.executeExec("postgres", update, admin)
 		if err != nil {
-			logrus.Errorf("failed updating postgres user %s - %s", update, err)
+			p.Log.Error(err, "failed updating postgres user", "query", update)
 			return err
 		}
 	}
@@ -463,7 +468,7 @@ func (p Postgres) setUserPermission(admin *DatabaseUser, user *DatabaseUser) err
 	// Grant user role to the admin user. It's required to make generic instances work with Azure.
 	assignRoleToAdmin := fmt.Sprintf("GRANT \"%s\" TO \"%s\";", user.Username, admin.Username)
 	if err := p.executeExec(p.Database, assignRoleToAdmin, admin); err != nil {
-		logrus.Errorf("failed granting %s to %s: %s", user.Username, admin.Username, err)
+		p.Log.Error(err, "failed granting user to admin", "username", user.Username, "admin", admin.Username)
 	}
 
 	switch user.AccessType {
@@ -471,19 +476,19 @@ func (p Postgres) setUserPermission(admin *DatabaseUser, user *DatabaseUser) err
 		grant := fmt.Sprintf("GRANT ALL PRIVILEGES ON DATABASE \"%s\" TO \"%s\";", p.Database, user.Username)
 		err := p.executeExec("postgres", grant, admin)
 		if err != nil {
-			logrus.Errorf("failed granting postgres user %s - %s", grant, err)
+			p.Log.Error(err, "failed granting all priveleges to user", "query", grant)
 			return err
 		}
 		grantCreateToAdmin := fmt.Sprintf("GRANT CREATE ON DATABASE \"%s\" to \"%s\";", p.Database, admin.Username)
 		if err := p.executeExec(p.Database, grantCreateToAdmin, admin); err != nil {
-			logrus.Errorf("failed to grant usage access to %s on database %s: %s", user.Username, p.Database, err)
+			p.Log.Error(err, "failed to grant usage access on database", "username", user.Username, "database", p.Database)
 			return err
 		}
 
 		for _, s := range schemas {
 			grantUserAccess := fmt.Sprintf("GRANT ALL ON SCHEMA \"%s\" TO \"%s\"", s, user.Username)
 			if err := p.executeExec(p.Database, grantUserAccess, admin); err != nil {
-				logrus.Errorf("failed to grant usage access to %s on schema %s: %s", user.Username, s, err)
+				p.Log.Error(err, "failed to grant usage access on schema", "username", user.Username, "schema", s)
 				return err
 			}
 		}
@@ -498,17 +503,17 @@ func (p Postgres) setUserPermission(admin *DatabaseUser, user *DatabaseUser) err
 			)
 			err := p.executeExec(p.Database, grantUsage, admin)
 			if err != nil {
-				logrus.Errorf("failed updating postgres user %s - %s", grantTables, err)
+				p.Log.Error(err, "failed updating postgres user", "query", grantTables)
 				return err
 			}
 			err = p.executeExec(p.Database, grantTables, admin)
 			if err != nil {
-				logrus.Errorf("failed updating postgres user %s - %s", grantTables, err)
+				p.Log.Error(err, "failed updating postgres user", "query", grantTables)
 				return err
 			}
 			err = p.executeExec(p.Database, defaultPrivileges, admin)
 			if err != nil {
-				logrus.Errorf("failed updating postgres user %s - %s", defaultPrivileges, err)
+				p.Log.Error(err, "failed updating postgres user", "query", defaultPrivileges)
 				return err
 			}
 		}
@@ -523,17 +528,17 @@ func (p Postgres) setUserPermission(admin *DatabaseUser, user *DatabaseUser) err
 			)
 			err := p.executeExec(p.Database, grantUsage, admin)
 			if err != nil {
-				logrus.Errorf("failed updating postgres user %s - %s", grantTables, err)
+				p.Log.Error(err, "failed updating postgres user", "query", grantTables)
 				return err
 			}
 			err = p.executeExec(p.Database, grantTables, admin)
 			if err != nil {
-				logrus.Errorf("failed updating postgres user %s - %s", grantTables, err)
+				p.Log.Error(err, "failed updating postgres user", "query", grantTables)
 				return err
 			}
 			err = p.executeExec(p.Database, defaultPrivileges, admin)
 			if err != nil {
-				logrus.Errorf("failed updating postgres user %s - %s", defaultPrivileges, err)
+				p.Log.Error(err, "failed updating postgres user", "query", defaultPrivileges)
 				return err
 			}
 		}
@@ -558,17 +563,17 @@ func (p Postgres) deleteUser(admin *DatabaseUser, user *DatabaseUser) error {
 				user.Username,
 			)
 			if err := p.executeExec(p.Database, revokeDefaults, p.MainUser); err != nil {
-				logrus.Errorf("failed removing default privileges from \"%s\" on schema %s: %s", user.Username, schema, err)
+				p.Log.Error(err, "failed removing default privileges from schema", "username", user.Username, "schema", schema)
 				return err
 			}
 			revokeAll := fmt.Sprintf("REVOKE ALL ON SCHEMA \"%s\" FROM \"%s\";", schema, user.Username)
 			if err := p.executeExec(p.Database, revokeAll, admin); err != nil {
-				logrus.Errorf("failed revoking privileges from %s on schema %s: %s", user.Username, schema, err)
+				p.Log.Error(err, "failed revoking privileges from schema", "username", user.Username, "schema", schema)
 				return err
 			}
 			dropOwned := fmt.Sprintf("DROP OWNED BY \"%s\";", user.Username)
 			if err := p.executeExec(p.Database, dropOwned, admin); err != nil {
-				logrus.Errorf("failed dropping owned by %s: %s", user.Username, err)
+				p.Log.Error(err, "failed dropping owned", "username", user.Username, err)
 				return err
 			}
 
@@ -576,13 +581,12 @@ func (p Postgres) deleteUser(admin *DatabaseUser, user *DatabaseUser) error {
 	}
 	delete := fmt.Sprintf("DROP USER \"%s\";", user.Username)
 	if p.isUserExist(admin, user) {
-		logrus.Debugf("deleting user %s", user.Username)
 		err := p.executeExec("postgres", delete, admin)
 		if err != nil {
 			pqErr := err.(*pq.Error)
 			if pqErr.Code == "2BP01" {
 				// 2BP01 dependent_objects_still_exist
-				logrus.Infof("%s", err)
+				p.Log.Error(err, "dependent objects still exist")
 				return nil
 			}
 			return err

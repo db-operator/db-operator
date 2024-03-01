@@ -87,7 +87,7 @@ var (
 //+kubebuilder:rbac:groups=kinda.rocks,resources=databases/finalizers,verbs=update
 
 func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var phase = dbPhaseReconcile
+	phase := dbPhaseReconcile
 	log := log.FromContext(ctx)
 	reconcilePeriod := r.Interval * time.Second
 	reconcileResult := reconcile.Result{RequeueAfter: reconcilePeriod}
@@ -175,7 +175,7 @@ func (r *DatabaseReconciler) healthCheck(ctx context.Context, dbcr *kindav1beta1
 		return err
 	}
 
-	db, dbuser, err := dbhelper.FetchDatabaseData(dbcr, databaseCred, instance)
+	db, dbuser, err := dbhelper.FetchDatabaseData(ctx, dbcr, databaseCred, instance)
 	if err != nil {
 		// failed to determine database type
 		return err
@@ -489,7 +489,7 @@ func (r *DatabaseReconciler) createDatabase(ctx context.Context, dbcr *kindav1be
 		return err
 	}
 
-	db, dbuser, err := dbhelper.FetchDatabaseData(dbcr, databaseCred, instance)
+	db, dbuser, err := dbhelper.FetchDatabaseData(ctx, dbcr, databaseCred, instance)
 	if err != nil {
 		// failed to determine database type
 		return err
@@ -559,7 +559,7 @@ func (r *DatabaseReconciler) deleteDatabase(ctx context.Context, dbcr *kindav1be
 		return err
 	}
 
-	db, dbuser, err := dbhelper.FetchDatabaseData(dbcr, databaseCred, instance)
+	db, dbuser, err := dbhelper.FetchDatabaseData(ctx, dbcr, databaseCred, instance)
 	if err != nil {
 		// failed to determine database type
 		return err
@@ -739,7 +739,7 @@ func (r *DatabaseReconciler) handleTemplatedCredentials(ctx context.Context, dbc
 		return err
 	}
 
-	db, dbuser, err := dbhelper.FetchDatabaseData(dbcr, creds, instance)
+	db, dbuser, err := dbhelper.FetchDatabaseData(ctx, dbcr, creds, instance)
 	if err != nil {
 		return err
 	}
@@ -796,7 +796,7 @@ func (r *DatabaseReconciler) createTemplatedSecrets(ctx context.Context, dbcr *k
 			return err
 		}
 
-		db, _, err := dbhelper.FetchDatabaseData(dbcr, databaseCred, instance)
+		db, _, err := dbhelper.FetchDatabaseData(ctx, dbcr, databaseCred, instance)
 		if err != nil {
 			// failed to determine database type
 			return err

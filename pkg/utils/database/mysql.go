@@ -24,10 +24,10 @@ import (
 
 	"github.com/GoogleCloudPlatform/cloudsql-proxy/proxy/dialers/mysql"
 
+	"github.com/go-logr/logr"
 	// do not delete
 	"github.com/db-operator/db-operator/pkg/utils/kci"
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/sirupsen/logrus"
 )
 
 // Mysql is a database interface, abstraced object
@@ -40,6 +40,7 @@ type Mysql struct {
 	Database     string
 	SSLEnabled   bool
 	SkipCAVerify bool
+	Log          logr.Logger
 }
 
 const mysqlDefaultSSLMode = "preferred"
@@ -71,14 +72,14 @@ func (m Mysql) getDbConn(user, password string) (*sql.DB, error) {
 		// TODO: DialPassword is deprecated, it should be gone
 		db, err = mysql.DialPassword(m.Host, user, password) //nolint:all
 		if err != nil {
-			logrus.Debugf("failed to validate db connection: %s", err)
+			m.Log.Error(err, "failed to validate db connection")
 			return db, err
 		}
 	default:
 		dataSourceName := fmt.Sprintf("%s:%s@tcp(%s:%d)/?tls=%s", user, password, m.Host, m.Port, m.sslMode())
 		db, err = sql.Open("mysql", dataSourceName)
 		if err != nil {
-			logrus.Debugf("failed to validate db connection: %s", err)
+			m.Log.Error(err, "failed to validate db connection")
 			return db, err
 		}
 		db.SetMaxIdleConns(0)
@@ -90,12 +91,13 @@ func (m Mysql) getDbConn(user, password string) (*sql.DB, error) {
 func (m Mysql) executeQuery(query string, admin *DatabaseUser) error {
 	db, err := m.getDbConn(admin.Username, admin.Password)
 	if err != nil {
-		logrus.Fatalf("failed to get db connection: %s", err)
+		m.Log.Error(err, "failed to get db connection")
+		return err
 	}
 
 	rows, err := db.Query(query)
 	if err != nil {
-		logrus.Debugf("failed to execute query: %s", err)
+		m.Log.Error(err, "failed to get db connection")
 		return err
 	}
 	rows.Close()
@@ -106,12 +108,13 @@ func (m Mysql) executeQuery(query string, admin *DatabaseUser) error {
 func (m Mysql) execAsUser(query string, user *DatabaseUser) error {
 	db, err := m.getDbConn(user.Username, user.Password)
 	if err != nil {
-		logrus.Fatalf("failed to get db connection: %s", err)
+		m.Log.Error(err, "failed to get db connection")
+		return err
 	}
 
 	rows, err := db.Query(query)
 	if err != nil {
-		logrus.Debugf("failed to execute query: %s", err)
+		m.Log.Error(err, "failed to get db connection")
 		return err
 	}
 	rows.Close()
@@ -122,13 +125,14 @@ func (m Mysql) execAsUser(query string, user *DatabaseUser) error {
 func (m Mysql) isRowExist(query string, admin *DatabaseUser) bool {
 	db, err := m.getDbConn(admin.Username, admin.Password)
 	if err != nil {
-		logrus.Fatalf("failed to get db connection: %s", err)
+		m.Log.Error(err, "failed to get db connection")
+		return false
 	}
 
 	var result string
 	err = db.QueryRow(query).Scan(&result)
 	if err != nil {
-		logrus.Debug(err)
+		m.Log.Error(err, "failed to get db connection")
 		return false
 	}
 
@@ -137,14 +141,7 @@ func (m Mysql) isRowExist(query string, admin *DatabaseUser) bool {
 
 func (m Mysql) isUserExist(admin *DatabaseUser, user *DatabaseUser) bool {
 	check := fmt.Sprintf("SELECT User FROM mysql.user WHERE user='%s';", user.Username)
-
-	if m.isRowExist(check, admin) {
-		logrus.Debug("user exists")
-		return true
-	}
-
-	logrus.Debug("user doesn't exists")
-	return false
+	return m.isRowExist(check, admin)
 }
 
 // Functions that implement the `Database` interface
@@ -220,14 +217,14 @@ func (m Mysql) GetDatabaseAddress() DatabaseAddress {
 func (m Mysql) QueryAsUser(query string, user *DatabaseUser) (string, error) {
 	db, err := m.getDbConn(user.Username, user.Password)
 	if err != nil {
-		logrus.Fatalf("failed to get db connection: %s", err)
+		m.Log.Error(err, "failed to get db connection")
 		return "", err
 	}
 	defer db.Close()
 
 	var result string
 	if err := db.QueryRow(query).Scan(&result); err != nil {
-		logrus.Error(err)
+		m.Log.Error(err, "an error occured while executing a query")
 		return "", err
 	}
 	return result, nil
@@ -250,14 +247,14 @@ func (m Mysql) deleteDatabase(admin *DatabaseUser) error {
 	err := kci.Retry(3, 5*time.Second, func() error {
 		err := m.executeQuery(create, admin)
 		if err != nil {
-			logrus.Debugf("failed error: %s...retry...", err)
+			m.Log.V(2).Info("failed with error, retrying", "error", err)
 			return err
 		}
 
 		return nil
 	})
 	if err != nil {
-		logrus.Debugf("retry failed  %s", err)
+		m.Log.V(2).Info("failed with error, retrying", "error", err)
 		return err
 	}
 

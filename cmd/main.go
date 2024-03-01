@@ -23,7 +23,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -115,7 +114,7 @@ func main() {
 		setupLog.Info("Starting controller")
 		conf, err := config.LoadConfig(ctrl.Log)
 		if err != nil {
-			setupLog.Error(err, "an error occured when reading the config")	
+			setupLog.Error(err, "an error occured when reading the config")
 			os.Exit(1)
 		}
 
@@ -123,7 +122,7 @@ func main() {
 		i, err := strconv.ParseInt(interval, 10, 64)
 		if err != nil {
 			i = 60
-			logrus.Infof("Set default reconcile period to %d s for database-controller", i)
+			setupLog.Info("Set default reconcile period for database-controller", "time", interval)
 		}
 
 		if err = (&controllers.DbInstanceReconciler{
