@@ -58,7 +58,7 @@ func ValidateTemplates(templates Templates, cmAllowed bool) error {
 				return err
 			}
 			if !validFunctionArg(field[2]) {
-				err := fmt.Errorf("%s is invalid: Functions arguments must be not emty and  wrapped in quotes, example: {{ .Secret \\\"PASSWORD\\\" }}", template.Name)
+				err := fmt.Errorf("%s is invalid: Functions arguments must be not empty and wrapped in quotes, example: {{ .Secret \\\"PASSWORD\\\" }}", template.Name)
 				return err
 			}
 		}
