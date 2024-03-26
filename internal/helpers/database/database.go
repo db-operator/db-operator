@@ -68,7 +68,6 @@ func FetchDatabaseData(ctx context.Context, dbcr *kindav1beta1.Database, dbCred 
 			Schemas:          dbcr.Spec.Postgres.Schemas,
 			Template:         dbcr.Spec.Postgres.Template,
 			MainUser:         dbuser,
-			Log:              log,
 		}
 		return db, dbuser, nil
 
@@ -80,7 +79,6 @@ func FetchDatabaseData(ctx context.Context, dbcr *kindav1beta1.Database, dbCred 
 			Database:     dbCred.Name,
 			SSLEnabled:   instance.Spec.SSLConnection.Enabled,
 			SkipCAVerify: instance.Spec.SSLConnection.SkipVerify,
-			Log:          log,
 		}
 
 		return db, dbuser, nil

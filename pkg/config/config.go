@@ -20,20 +20,17 @@ import (
 	"os"
 
 	"github.com/db-operator/db-operator/pkg/utils/kci"
-	"github.com/go-logr/logr"
 	yaml "gopkg.in/yaml.v2"
 )
 
 // LoadConfig reads config file for db-operator from defined path and parse
-func LoadConfig(log logr.Logger) (*Config, error) {
+func LoadConfig() (*Config, error) {
 	path := kci.StringNotEmpty(os.Getenv("CONFIG_PATH"), "/srv/config/config.yaml")
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		log.Error(err, "failed to open config file")
 		return nil, err
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		log.Error(err, "Loading of configuration failed")
 		return nil, err
 	}
 
@@ -41,7 +38,6 @@ func LoadConfig(log logr.Logger) (*Config, error) {
 
 	err = yaml.Unmarshal(data, &conf)
 	if err != nil {
-		log.Error(err, "decode of configuration failed")
 		return nil, err
 	}
 	return conf, nil

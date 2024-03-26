@@ -17,14 +17,15 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/GoogleCloudPlatform/cloudsql-proxy/proxy/dialers/mysql"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/go-logr/logr"
 	// do not delete
 	"github.com/db-operator/db-operator/pkg/utils/kci"
 	_ "github.com/go-sql-driver/mysql"
@@ -40,7 +41,6 @@ type Mysql struct {
 	Database     string
 	SSLEnabled   bool
 	SkipCAVerify bool
-	Log          logr.Logger
 }
 
 const mysqlDefaultSSLMode = "preferred"
@@ -63,7 +63,8 @@ func (m Mysql) sslMode() string {
 	return mysqlDefaultSSLMode
 }
 
-func (m Mysql) getDbConn(user, password string) (*sql.DB, error) {
+func (m Mysql) getDbConn(ctx context.Context, user, password string) (*sql.DB, error) {
+	log := log.FromContext(ctx)
 	var db *sql.DB
 	var err error
 
@@ -72,14 +73,14 @@ func (m Mysql) getDbConn(user, password string) (*sql.DB, error) {
 		// TODO: DialPassword is deprecated, it should be gone
 		db, err = mysql.DialPassword(m.Host, user, password) //nolint:all
 		if err != nil {
-			m.Log.Error(err, "failed to validate db connection")
+			log.Error(err, "failed to validate db connection")
 			return db, err
 		}
 	default:
 		dataSourceName := fmt.Sprintf("%s:%s@tcp(%s:%d)/?tls=%s", user, password, m.Host, m.Port, m.sslMode())
 		db, err = sql.Open("mysql", dataSourceName)
 		if err != nil {
-			m.Log.Error(err, "failed to validate db connection")
+			log.Error(err, "failed to validate db connection")
 			return db, err
 		}
 		db.SetMaxIdleConns(0)
@@ -88,16 +89,17 @@ func (m Mysql) getDbConn(user, password string) (*sql.DB, error) {
 	return db, nil
 }
 
-func (m Mysql) executeQuery(query string, admin *DatabaseUser) error {
-	db, err := m.getDbConn(admin.Username, admin.Password)
+func (m Mysql) executeQuery(ctx context.Context, query string, admin *DatabaseUser) error {
+	log := log.FromContext(ctx)
+	db, err := m.getDbConn(ctx, admin.Username, admin.Password)
 	if err != nil {
-		m.Log.Error(err, "failed to get db connection")
+		log.Error(err, "failed to get db connection")
 		return err
 	}
 
 	rows, err := db.Query(query)
 	if err != nil {
-		m.Log.Error(err, "failed to get db connection")
+		log.Error(err, "failed to get db connection")
 		return err
 	}
 	rows.Close()
@@ -105,16 +107,17 @@ func (m Mysql) executeQuery(query string, admin *DatabaseUser) error {
 	return nil
 }
 
-func (m Mysql) execAsUser(query string, user *DatabaseUser) error {
-	db, err := m.getDbConn(user.Username, user.Password)
+func (m Mysql) execAsUser(ctx context.Context, query string, user *DatabaseUser) error {
+	log := log.FromContext(ctx)
+	db, err := m.getDbConn(ctx, user.Username, user.Password)
 	if err != nil {
-		m.Log.Error(err, "failed to get db connection")
+		log.Error(err, "failed to get db connection")
 		return err
 	}
 
 	rows, err := db.Query(query)
 	if err != nil {
-		m.Log.Error(err, "failed to get db connection")
+		log.Error(err, "failed to get db connection")
 		return err
 	}
 	rows.Close()
@@ -122,34 +125,35 @@ func (m Mysql) execAsUser(query string, user *DatabaseUser) error {
 	return nil
 }
 
-func (m Mysql) isRowExist(query string, admin *DatabaseUser) bool {
-	db, err := m.getDbConn(admin.Username, admin.Password)
+func (m Mysql) isRowExist(ctx context.Context, query string, admin *DatabaseUser) bool {
+	log := log.FromContext(ctx)
+	db, err := m.getDbConn(ctx, admin.Username, admin.Password)
 	if err != nil {
-		m.Log.Error(err, "failed to get db connection")
+		log.Error(err, "failed to get db connection")
 		return false
 	}
 
 	var result string
 	err = db.QueryRow(query).Scan(&result)
 	if err != nil {
-		m.Log.Error(err, "failed to get db connection")
+		log.Error(err, "failed to get db connection")
 		return false
 	}
 
 	return true
 }
 
-func (m Mysql) isUserExist(admin *DatabaseUser, user *DatabaseUser) bool {
+func (m Mysql) isUserExist(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) bool {
 	check := fmt.Sprintf("SELECT User FROM mysql.user WHERE user='%s';", user.Username)
-	return m.isRowExist(check, admin)
+	return m.isRowExist(ctx, check, admin)
 }
 
 // Functions that implement the `Database` interface
 
 // CheckStatus checks status of mysql database
 // if the connection to database works
-func (m Mysql) CheckStatus(user *DatabaseUser) error {
-	db, err := m.getDbConn(user.Username, user.Password)
+func (m Mysql) CheckStatus(ctx context.Context, user *DatabaseUser) error {
+	db, err := m.getDbConn(ctx, user.Username, user.Password)
 	if err != nil {
 		return err
 	}
@@ -168,7 +172,7 @@ func (m Mysql) CheckStatus(user *DatabaseUser) error {
 }
 
 // GetCredentials returns credentials of the mysql database
-func (m Mysql) GetCredentials(user *DatabaseUser) Credentials {
+func (m Mysql) GetCredentials(ctx context.Context, user *DatabaseUser) Credentials {
 	return Credentials{
 		Name:     m.Database,
 		Username: user.Username,
@@ -178,7 +182,7 @@ func (m Mysql) GetCredentials(user *DatabaseUser) Credentials {
 
 // ParseAdminCredentials parse admin username and password of mysql database from secret data
 // If "user" key is not defined, take "root" as admin user by default
-func (m Mysql) ParseAdminCredentials(data map[string][]byte) (*DatabaseUser, error) {
+func (m Mysql) ParseAdminCredentials(ctx context.Context, data map[string][]byte) (*DatabaseUser, error) {
 	admin := &DatabaseUser{}
 
 	_, ok := data["user"]
@@ -207,33 +211,34 @@ func (m Mysql) ParseAdminCredentials(data map[string][]byte) (*DatabaseUser, err
 	return admin, errors.New("can not find mysql admin credentials")
 }
 
-func (m Mysql) GetDatabaseAddress() DatabaseAddress {
+func (m Mysql) GetDatabaseAddress(ctx context.Context) DatabaseAddress {
 	return DatabaseAddress{
 		Host: m.Host,
 		Port: m.Port,
 	}
 }
 
-func (m Mysql) QueryAsUser(query string, user *DatabaseUser) (string, error) {
-	db, err := m.getDbConn(user.Username, user.Password)
+func (m Mysql) QueryAsUser(ctx context.Context, query string, user *DatabaseUser) (string, error) {
+	log := log.FromContext(ctx)
+	db, err := m.getDbConn(ctx, user.Username, user.Password)
 	if err != nil {
-		m.Log.Error(err, "failed to get db connection")
+		log.Error(err, "failed to get db connection")
 		return "", err
 	}
 	defer db.Close()
 
 	var result string
 	if err := db.QueryRow(query).Scan(&result); err != nil {
-		m.Log.Error(err, "an error occured while executing a query")
+		log.Error(err, "an error occured while executing a query")
 		return "", err
 	}
 	return result, nil
 }
 
-func (m Mysql) createDatabase(admin *DatabaseUser) error {
+func (m Mysql) createDatabase(ctx context.Context, admin *DatabaseUser) error {
 	create := fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%s`;", m.Database)
 
-	err := m.executeQuery(create, admin)
+	err := m.executeQuery(ctx, create, admin)
 	if err != nil {
 		return err
 	}
@@ -241,49 +246,50 @@ func (m Mysql) createDatabase(admin *DatabaseUser) error {
 	return nil
 }
 
-func (m Mysql) deleteDatabase(admin *DatabaseUser) error {
+func (m Mysql) deleteDatabase(ctx context.Context, admin *DatabaseUser) error {
+	log := log.FromContext(ctx)
 	create := fmt.Sprintf("DROP DATABASE IF EXISTS `%s`;", m.Database)
 
 	err := kci.Retry(3, 5*time.Second, func() error {
-		err := m.executeQuery(create, admin)
+		err := m.executeQuery(ctx, create, admin)
 		if err != nil {
-			m.Log.V(2).Info("failed with error, retrying", "error", err)
+			log.V(2).Info("failed with error, retrying", "error", err)
 			return err
 		}
 
 		return nil
 	})
 	if err != nil {
-		m.Log.V(2).Info("failed with error, retrying", "error", err)
+		log.V(2).Info("failed with error, retrying", "error", err)
 		return err
 	}
 
 	return nil
 }
 
-func (m Mysql) createOrUpdateUser(admin *DatabaseUser, user *DatabaseUser) error {
-	if !m.isUserExist(admin, user) {
-		if err := m.createUser(admin, user); err != nil {
+func (m Mysql) createOrUpdateUser(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error {
+	if !m.isUserExist(ctx, admin, user) {
+		if err := m.createUser(ctx, admin, user); err != nil {
 			return err
 		}
 	} else {
-		if err := m.updateUser(admin, user); err != nil {
+		if err := m.updateUser(ctx, admin, user); err != nil {
 			return err
 		}
 	}
 
-	if err := m.setUserPermission(admin, user); err != nil {
+	if err := m.setUserPermission(ctx, admin, user); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (m Mysql) createUser(admin *DatabaseUser, user *DatabaseUser) error {
+func (m Mysql) createUser(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error {
 	create := fmt.Sprintf("CREATE USER `%s` IDENTIFIED BY '%s';", user.Username, user.Password)
 
-	if !m.isUserExist(admin, user) {
-		err := m.executeQuery(create, admin)
+	if !m.isUserExist(ctx, admin, user) {
+		err := m.executeQuery(ctx, create, admin)
 		if err != nil {
 			return err
 		}
@@ -292,50 +298,50 @@ func (m Mysql) createUser(admin *DatabaseUser, user *DatabaseUser) error {
 		return err
 	}
 
-	if err := m.setUserPermission(admin, user); err != nil {
+	if err := m.setUserPermission(ctx, admin, user); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (m Mysql) updateUser(admin *DatabaseUser, user *DatabaseUser) error {
+func (m Mysql) updateUser(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error {
 	update := fmt.Sprintf("ALTER USER `%s` IDENTIFIED BY '%s';", user.Username, user.Password)
 
-	if !m.isUserExist(admin, user) {
+	if !m.isUserExist(ctx, admin, user) {
 		err := fmt.Errorf("user doesn't exist yet: %s", user.Username)
 		return err
 	} else {
-		err := m.executeQuery(update, admin)
+		err := m.executeQuery(ctx, update, admin)
 		if err != nil {
 			return err
 		}
 	}
 
-	if err := m.setUserPermission(admin, user); err != nil {
+	if err := m.setUserPermission(ctx, admin, user); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (m Mysql) setUserPermission(admin *DatabaseUser, user *DatabaseUser) error {
+func (m Mysql) setUserPermission(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error {
 	switch user.AccessType {
 	case ACCESS_TYPE_MAINUSER:
 		grant := fmt.Sprintf("GRANT ALL PRIVILEGES ON `%s`.* TO '%s'@'%%';", m.Database, user.Username)
-		err := m.executeQuery(grant, admin)
+		err := m.executeQuery(ctx, grant, admin)
 		if err != nil {
 			return err
 		}
 	case ACCESS_TYPE_READONLY:
 		grant := fmt.Sprintf("GRANT SELECT ON `%s`.* TO '%s'@'%%';", m.Database, user.Username)
-		err := m.executeQuery(grant, admin)
+		err := m.executeQuery(ctx, grant, admin)
 		if err != nil {
 			return err
 		}
 	case ACCESS_TYPE_READWRITE:
 		grant := fmt.Sprintf("GRANT SELECT, UPDATE, INSERT, DELETE ON `%s`.* TO '%s'@'%%';", m.Database, user.Username)
-		err := m.executeQuery(grant, admin)
+		err := m.executeQuery(ctx, grant, admin)
 		if err != nil {
 			return err
 		}
@@ -346,11 +352,11 @@ func (m Mysql) setUserPermission(admin *DatabaseUser, user *DatabaseUser) error 
 	return nil
 }
 
-func (m Mysql) deleteUser(admin *DatabaseUser, user *DatabaseUser) error {
+func (m Mysql) deleteUser(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error {
 	delete := fmt.Sprintf("DROP USER `%s`;", user.Username)
 
-	if m.isUserExist(admin, user) {
-		err := m.executeQuery(delete, admin)
+	if m.isUserExist(ctx, admin, user) {
+		err := m.executeQuery(ctx, delete, admin)
 		if err != nil {
 			return err
 		}

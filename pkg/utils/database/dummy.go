@@ -16,6 +16,8 @@
 
 package database
 
+import "context"
+
 const (
 	DB_DUMMY_HOSTNAME     = "hostname"
 	DB_DUMMY_PORT         = 1122
@@ -37,7 +39,7 @@ type Dummy struct {
 }
 
 // QueryAsUser implements Database.
-func (d Dummy) QueryAsUser(query string, user *DatabaseUser) (string, error) {
+func (d Dummy) QueryAsUser(ctx context.Context, query string, user *DatabaseUser) (string, error) {
 	if d.Error != nil {
 		return "", d.Error
 	}
@@ -45,17 +47,17 @@ func (d Dummy) QueryAsUser(query string, user *DatabaseUser) (string, error) {
 }
 
 // CheckStatus implements Database.
-func (Dummy) CheckStatus(user *DatabaseUser) error {
+func (Dummy) CheckStatus(ctx context.Context, user *DatabaseUser) error {
 	panic("unimplemented")
 }
 
 // GetCredentials implements Database.
-func (Dummy) GetCredentials(user *DatabaseUser) Credentials {
+func (Dummy) GetCredentials(ctx context.Context, user *DatabaseUser) Credentials {
 	panic("unimplemented")
 }
 
 // GetDatabaseAddress implements Database.
-func (Dummy) GetDatabaseAddress() DatabaseAddress {
+func (Dummy) GetDatabaseAddress(ctx context.Context) DatabaseAddress {
 	return DatabaseAddress{
 		Host: DB_DUMMY_HOSTNAME,
 		Port: DB_DUMMY_PORT,
@@ -63,46 +65,46 @@ func (Dummy) GetDatabaseAddress() DatabaseAddress {
 }
 
 // ParseAdminCredentials implements Database.
-func (Dummy) ParseAdminCredentials(data map[string][]byte) (*DatabaseUser, error) {
+func (Dummy) ParseAdminCredentials(ctx context.Context, data map[string][]byte) (*DatabaseUser, error) {
 	panic("unimplemented")
 }
 
 // createDatabase implements Database.
-func (Dummy) createDatabase(admin *DatabaseUser) error {
+func (Dummy) createDatabase(ctx context.Context, admin *DatabaseUser) error {
 	panic("unimplemented")
 }
 
 // createOrUpdateUser implements Database.
-func (Dummy) createOrUpdateUser(admin *DatabaseUser, user *DatabaseUser) error {
+func (Dummy) createOrUpdateUser(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error {
 	panic("unimplemented")
 }
 
 // createUser implements Database.
-func (Dummy) createUser(admin *DatabaseUser, user *DatabaseUser) error {
+func (Dummy) createUser(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error {
 	panic("unimplemented")
 }
 
 // deleteDatabase implements Database.
-func (Dummy) deleteDatabase(admin *DatabaseUser) error {
+func (Dummy) deleteDatabase(ctx context.Context, admin *DatabaseUser) error {
 	panic("unimplemented")
 }
 
 // deleteUser implements Database.
-func (Dummy) deleteUser(admin *DatabaseUser, user *DatabaseUser) error {
+func (Dummy) deleteUser(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error {
 	panic("unimplemented")
 }
 
 // execAsUser implements Database.
-func (Dummy) execAsUser(query string, user *DatabaseUser) error {
+func (Dummy) execAsUser(ctx context.Context, query string, user *DatabaseUser) error {
 	panic("unimplemented")
 }
 
 // setUserPermission implements Database.
-func (Dummy) setUserPermission(admin *DatabaseUser, user *DatabaseUser) error {
+func (Dummy) setUserPermission(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error {
 	panic("unimplemented")
 }
 
 // updateUser implements Database.
-func (Dummy) updateUser(admin *DatabaseUser, user *DatabaseUser) error {
+func (Dummy) updateUser(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error {
 	panic("unimplemented")
 }

@@ -16,9 +16,11 @@
 
 package database
 
+import "context"
+
 // CreateDatabase executes queries to create database
-func CreateDatabase(db Database, admin *DatabaseUser) error {
-	err := db.createDatabase(admin)
+func CreateDatabase(ctx context.Context, db Database, admin *DatabaseUser) error {
+	err := db.createDatabase(ctx, admin)
 	if err != nil {
 		return err
 	}
@@ -26,8 +28,8 @@ func CreateDatabase(db Database, admin *DatabaseUser) error {
 }
 
 // DeleteDatabase executes queries to delete database and user
-func DeleteDatabase(db Database, admin *DatabaseUser) error {
-	err := db.deleteDatabase(admin)
+func DeleteDatabase(ctx context.Context, db Database, admin *DatabaseUser) error {
+	err := db.deleteDatabase(ctx, admin)
 	if err != nil {
 		return err
 	}
@@ -36,8 +38,8 @@ func DeleteDatabase(db Database, admin *DatabaseUser) error {
 }
 
 // CreateOrUpdateUser executes queries to create or update user
-func CreateOrUpdateUser(db Database, dbuser *DatabaseUser, admin *DatabaseUser) error {
-	err := db.createOrUpdateUser(admin, dbuser)
+func CreateOrUpdateUser(ctx context.Context, db Database, dbuser *DatabaseUser, admin *DatabaseUser) error {
+	err := db.createOrUpdateUser(ctx, admin, dbuser)
 	if err != nil {
 		return err
 	}
@@ -45,24 +47,24 @@ func CreateOrUpdateUser(db Database, dbuser *DatabaseUser, admin *DatabaseUser) 
 }
 
 // CreateUser executes queries to a create user
-func CreateUser(db Database, dbuser *DatabaseUser, admin *DatabaseUser) error {
-	err := db.createUser(admin, dbuser)
+func CreateUser(ctx context.Context, db Database, dbuser *DatabaseUser, admin *DatabaseUser) error {
+	err := db.createUser(ctx, admin, dbuser)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func UpdateUser(db Database, dbuser *DatabaseUser, admin *DatabaseUser) error {
-	err := db.createOrUpdateUser(admin, dbuser)
+func UpdateUser(ctx context.Context, db Database, dbuser *DatabaseUser, admin *DatabaseUser) error {
+	err := db.createOrUpdateUser(ctx, admin, dbuser)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func DeleteUser(db Database, dbuser *DatabaseUser, admin *DatabaseUser) error {
-	err := db.deleteUser(admin, dbuser)
+func DeleteUser(ctx context.Context, db Database, dbuser *DatabaseUser, admin *DatabaseUser) error {
+	err := db.deleteUser(ctx, admin, dbuser)
 	if err != nil {
 		return err
 	}

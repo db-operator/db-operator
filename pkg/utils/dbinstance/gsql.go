@@ -264,7 +264,7 @@ func (ins *Gsql) update() error {
 	return nil
 }
 
-func (ins *Gsql) exist() error {
+func (ins *Gsql) exist(context.Context) error {
 	_, err := ins.getInstance()
 	if err != nil {
 		logrus.Debugf("gsql instance get failed %s", err)

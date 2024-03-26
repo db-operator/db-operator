@@ -181,7 +181,7 @@ func (r *DatabaseReconciler) healthCheck(ctx context.Context, dbcr *kindav1beta1
 		return err
 	}
 
-	if err := db.CheckStatus(dbuser); err != nil {
+	if err := db.CheckStatus(ctx, dbuser); err != nil {
 		return err
 	}
 
@@ -506,18 +506,18 @@ func (r *DatabaseReconciler) createDatabase(ctx context.Context, dbcr *kindav1be
 	}
 
 	// found admin secret. parse it to connect database
-	adminCred, err := db.ParseAdminCredentials(adminSecretResource.Data)
+	adminCred, err := db.ParseAdminCredentials(ctx, adminSecretResource.Data)
 	if err != nil {
 		// failed to parse database admin secret
 		return err
 	}
 
-	err = database.CreateDatabase(db, adminCred)
+	err = database.CreateDatabase(ctx, db, adminCred)
 	if err != nil {
 		return err
 	}
 
-	err = database.CreateOrUpdateUser(db, dbuser, adminCred)
+	err = database.CreateOrUpdateUser(ctx, db, dbuser, adminCred)
 	if err != nil {
 		return err
 	}
@@ -572,18 +572,18 @@ func (r *DatabaseReconciler) deleteDatabase(ctx context.Context, dbcr *kindav1be
 		return err
 	}
 	// found admin secret. parse it to connect database
-	adminCred, err := db.ParseAdminCredentials(adminSecretResource.Data)
+	adminCred, err := db.ParseAdminCredentials(ctx, adminSecretResource.Data)
 	if err != nil {
 		// failed to parse database admin secret
 		return err
 	}
 
-	err = database.DeleteDatabase(db, adminCred)
+	err = database.DeleteDatabase(ctx, db, adminCred)
 	if err != nil {
 		return err
 	}
 
-	err = database.DeleteUser(db, dbuser, adminCred)
+	err = database.DeleteUser(ctx, db, dbuser, adminCred)
 	if err != nil {
 		return err
 	}
@@ -801,7 +801,7 @@ func (r *DatabaseReconciler) createTemplatedSecrets(ctx context.Context, dbcr *k
 			// failed to determine database type
 			return err
 		}
-		dbSecrets, err := secTemplates.GenerateTemplatedSecrets(dbcr, databaseCred, db.GetDatabaseAddress())
+		dbSecrets, err := secTemplates.GenerateTemplatedSecrets(dbcr, databaseCred, db.GetDatabaseAddress(ctx))
 		if err != nil {
 			return err
 		}
@@ -928,7 +928,6 @@ func (r *DatabaseReconciler) getAdminSecret(ctx context.Context, dbcr *kindav1be
 func (r *DatabaseReconciler) manageError(ctx context.Context, dbcr *kindav1beta1.Database, issue error, requeue bool, phase string) (reconcile.Result, error) {
 	dbcr.Status.Status = false
 	log := log.FromContext(ctx)
-	dbcr.Status.Status = false
 	log.Error(issue, "an error occurred during the reconciliation")
 	promDBsPhaseError.WithLabelValues(phase).Inc()
 
