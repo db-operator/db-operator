@@ -18,6 +18,7 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -26,7 +27,7 @@ import (
 	// Don't delete below package. Used for driver "cloudsqlpostgres"
 	_ "github.com/GoogleCloudPlatform/cloudsql-proxy/proxy/dialers/postgres"
 	"github.com/db-operator/db-operator/pkg/utils/kci"
-	"github.com/go-logr/logr"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	// Don't delete below package. Used for driver "postgres"
 	"github.com/lib/pq"
@@ -51,7 +52,6 @@ type Postgres struct {
 	//  it's required to set default priveleges
 	//  for additional users
 	MainUser *DatabaseUser
-	Log      logr.Logger
 }
 
 const postgresDefaultSSLMode = "disable"
@@ -94,10 +94,11 @@ func (p Postgres) getDbConn(dbname, user, password string) (*sql.DB, error) {
 	return db, err
 }
 
-func (p Postgres) executeExec(database, query string, admin *DatabaseUser) error {
+func (p Postgres) executeExec(ctx context.Context, database, query string, admin *DatabaseUser) error {
+	log := log.FromContext(ctx)
 	db, err := p.getDbConn(database, admin.Username, admin.Password)
 	if err != nil {
-		p.Log.Error(err, "failed to open a db connection")
+		log.Error(err, "failed to open a db connection")
 		return err
 	}
 
@@ -107,10 +108,11 @@ func (p Postgres) executeExec(database, query string, admin *DatabaseUser) error
 	return err
 }
 
-func (p Postgres) execAsUser(query string, user *DatabaseUser) error {
+func (p Postgres) execAsUser(ctx context.Context, query string, user *DatabaseUser) error {
+	log := log.FromContext(ctx)
 	db, err := p.getDbConn(p.Database, user.Username, user.Password)
 	if err != nil {
-		p.Log.Error(err, "failed to open a db connection")
+		log.Error(err, "failed to open a db connection")
 		return err
 	}
 
@@ -120,22 +122,23 @@ func (p Postgres) execAsUser(query string, user *DatabaseUser) error {
 	return err
 }
 
-func (p Postgres) isDbExist(admin *DatabaseUser) bool {
+func (p Postgres) isDbExist(ctx context.Context, admin *DatabaseUser) bool {
 	check := fmt.Sprintf("SELECT 1 FROM pg_database WHERE datname = '%s';", p.Database)
 
-	return p.isRowExist("postgres", check, admin.Username, admin.Password)
+	return p.isRowExist(ctx, "postgres", check, admin.Username, admin.Password)
 }
 
-func (p Postgres) isUserExist(admin *DatabaseUser, user *DatabaseUser) bool {
+func (p Postgres) isUserExist(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) bool {
 	check := fmt.Sprintf("SELECT 1 FROM pg_user WHERE usename = '%s';", user.Username)
 
-	return p.isRowExist("postgres", check, admin.Username, admin.Password)
+	return p.isRowExist(ctx, "postgres", check, admin.Username, admin.Password)
 }
 
-func (p Postgres) isRowExist(database, query, user, password string) bool {
+func (p Postgres) isRowExist(ctx context.Context, database, query, user, password string) bool {
+	log := log.FromContext(ctx)
 	db, err := p.getDbConn(database, user, password)
 	if err != nil {
-		p.Log.Error(err, "failed to open a db connection")
+		log.Error(err, "failed to open a db connection")
 		return false
 	}
 	defer db.Close()
@@ -143,30 +146,32 @@ func (p Postgres) isRowExist(database, query, user, password string) bool {
 	var name string
 	err = db.QueryRow(query).Scan(&name)
 	if err != nil {
-		p.Log.V(2).Info("failed executing query", "error", err)
+		log.V(2).Info("failed executing query", "error", err)
 		return false
 	}
 	return true
 }
 
-func (p Postgres) dropPublicSchema(admin *DatabaseUser) error {
+func (p Postgres) dropPublicSchema(ctx context.Context, admin *DatabaseUser) error {
+	log := log.FromContext(ctx)
 	if p.Monitoring {
 		return fmt.Errorf("can not drop public schema when monitoring is enabled on instance level")
 	}
 
 	drop := "DROP SCHEMA IF EXISTS public;"
-	if err := p.executeExec(p.Database, drop, admin); err != nil {
-		p.Log.Error(err, "failed to drop the schema Public")
+	if err := p.executeExec(ctx, p.Database, drop, admin); err != nil {
+		log.Error(err, "failed to drop the schema Public")
 		return err
 	}
 	return nil
 }
 
-func (p Postgres) createSchemas(ac4tor *DatabaseUser) error {
+func (p Postgres) createSchemas(ctx context.Context, ac4tor *DatabaseUser) error {
+	log := log.FromContext(ctx)
 	for _, s := range p.Schemas {
 		createSchema := fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS \"%s\";", s)
-		if err := p.executeExec(p.Database, createSchema, ac4tor); err != nil {
-			p.Log.Error(err, "failed to create schema", "schema", s)
+		if err := p.executeExec(ctx, p.Database, createSchema, ac4tor); err != nil {
+			log.Error(err, "failed to create schema", "schema", s)
 			return err
 		}
 	}
@@ -174,26 +179,26 @@ func (p Postgres) createSchemas(ac4tor *DatabaseUser) error {
 	return nil
 }
 
-func (p Postgres) checkSchemas(user *DatabaseUser) error {
+func (p Postgres) checkSchemas(ctx context.Context, user *DatabaseUser) error {
 	if p.DropPublicSchema {
 		query := "SELECT 1 FROM pg_cataLog.pg_namespace WHERE nspname = 'public';"
-		if p.isRowExist(p.Database, query, user.Username, user.Password) {
+		if p.isRowExist(ctx, p.Database, query, user.Username, user.Password) {
 			return fmt.Errorf("schema public still exists")
 		}
 	}
 	for _, s := range p.Schemas {
 		query := fmt.Sprintf("SELECT 1 FROM pg_cataLog.pg_namespace WHERE nspname = '%s';", s)
-		if !p.isRowExist(p.Database, query, user.Username, user.Password) {
+		if !p.isRowExist(ctx, p.Database, query, user.Username, user.Password) {
 			return fmt.Errorf("couldn't find schema %s in database %s", s, p.Database)
 		}
 	}
 	return nil
 }
 
-func (p Postgres) addExtensions(admin *DatabaseUser) error {
+func (p Postgres) addExtensions(ctx context.Context, admin *DatabaseUser) error {
 	for _, ext := range p.Extensions {
 		query := fmt.Sprintf("CREATE EXTENSION IF NOT EXISTS \"%s\";", ext)
-		err := p.executeExec(p.Database, query, admin)
+		err := p.executeExec(ctx, p.Database, query, admin)
 		if err != nil {
 			return err
 		}
@@ -201,11 +206,11 @@ func (p Postgres) addExtensions(admin *DatabaseUser) error {
 	return nil
 }
 
-func (p Postgres) enableMonitoring(admin *DatabaseUser) error {
+func (p Postgres) enableMonitoring(ctx context.Context, admin *DatabaseUser) error {
 	monitoringExtension := "pg_stat_statements"
 
 	query := fmt.Sprintf("CREATE EXTENSION IF NOT EXISTS \"%s\";", monitoringExtension)
-	err := p.executeExec(p.Database, query, admin)
+	err := p.executeExec(ctx, p.Database, query, admin)
 	if err != nil {
 		return err
 	}
@@ -213,10 +218,10 @@ func (p Postgres) enableMonitoring(admin *DatabaseUser) error {
 	return nil
 }
 
-func (p Postgres) checkExtensions(user *DatabaseUser) error {
+func (p Postgres) checkExtensions(ctx context.Context, user *DatabaseUser) error {
 	for _, ext := range p.Extensions {
 		query := fmt.Sprintf("SELECT 1 FROM pg_extension WHERE extname = '%s';", ext)
-		if !p.isRowExist(p.Database, query, user.Username, user.Password) {
+		if !p.isRowExist(ctx, p.Database, query, user.Username, user.Password) {
 			return fmt.Errorf("couldn't find extension %s in database %s", ext, p.Database)
 		}
 	}
@@ -228,7 +233,7 @@ func (p Postgres) checkExtensions(user *DatabaseUser) error {
 
 // CheckStatus checks status of postgres database
 // if the connection to database works
-func (p Postgres) CheckStatus(user *DatabaseUser) error {
+func (p Postgres) CheckStatus(ctx context.Context, user *DatabaseUser) error {
 	db, err := p.getDbConn(p.Database, user.Username, user.Password)
 	if err != nil {
 		return fmt.Errorf("db conn test failed - couldn't get db conn: %s", err)
@@ -240,11 +245,11 @@ func (p Postgres) CheckStatus(user *DatabaseUser) error {
 	}
 	res.Close()
 
-	if err := p.checkSchemas(user); err != nil {
+	if err := p.checkSchemas(ctx, user); err != nil {
 		return err
 	}
 
-	if err := p.checkExtensions(user); err != nil {
+	if err := p.checkExtensions(ctx, user); err != nil {
 		return err
 	}
 
@@ -252,7 +257,7 @@ func (p Postgres) CheckStatus(user *DatabaseUser) error {
 }
 
 // GetCredentials returns credentials of the postgres database
-func (p Postgres) GetCredentials(user *DatabaseUser) Credentials {
+func (p Postgres) GetCredentials(ctx context.Context, user *DatabaseUser) Credentials {
 	return Credentials{
 		Name:     p.Database,
 		Username: user.Username,
@@ -262,7 +267,7 @@ func (p Postgres) GetCredentials(user *DatabaseUser) Credentials {
 
 // ParseAdminCredentials parse admin username and password of postgres database from secret data
 // If "user" key is not defined, take "postgres" as admin user by default
-func (p Postgres) ParseAdminCredentials(data map[string][]byte) (*DatabaseUser, error) {
+func (p Postgres) ParseAdminCredentials(ctx context.Context, data map[string][]byte) (*DatabaseUser, error) {
 	admin := &DatabaseUser{}
 
 	_, ok := data["user"]
@@ -299,70 +304,72 @@ func (p Postgres) ParseAdminCredentials(data map[string][]byte) (*DatabaseUser, 
 	return admin, errors.New("can not find postgres admin credentials")
 }
 
-func (p Postgres) GetDatabaseAddress() DatabaseAddress {
+func (p Postgres) GetDatabaseAddress(ctx context.Context) DatabaseAddress {
 	return DatabaseAddress{
 		Host: p.Host,
 		Port: p.Port,
 	}
 }
 
-func (p Postgres) QueryAsUser(query string, user *DatabaseUser) (string, error) {
+func (p Postgres) QueryAsUser(ctx context.Context, query string, user *DatabaseUser) (string, error) {
+	log := log.FromContext(ctx)
 	db, err := p.getDbConn(p.Database, user.Username, user.Password)
 	if err != nil {
-		p.Log.Error(err, "failed to open a db connection")
+		log.Error(err, "failed to open a db connection")
 		return "", err
 	}
 	defer db.Close()
 
 	var result string
 	if err := db.QueryRow(query).Scan(&result); err != nil {
-		p.Log.Error(err, "failed executing query", "query", query)
+		log.Error(err, "failed executing query", "query", query)
 		return "", err
 	}
 	return result, nil
 }
 
-func (p Postgres) createDatabase(admin *DatabaseUser) error {
+func (p Postgres) createDatabase(ctx context.Context, admin *DatabaseUser) error {
+	log := log.FromContext(ctx)
 	var create string
 	if len(p.Template) > 0 {
-		p.Log.Info("Creating database from template", "database", p.Database, "template", p.Template)
+		log.Info("Creating database from template", "database", p.Database, "template", p.Template)
 		create = fmt.Sprintf("CREATE DATABASE \"%s\" TEMPLATE \"%s\";", p.Database, p.Template)
 	} else {
 		create = fmt.Sprintf("CREATE DATABASE \"%s\";", p.Database)
 	}
 
-	if !p.isDbExist(admin) {
-		err := p.executeExec("postgres", create, admin)
+	if !p.isDbExist(ctx, admin) {
+		err := p.executeExec(ctx, "postgres", create, admin)
 		if err != nil {
-			p.Log.Error(err, "failed creating postgres database", err)
+			log.Error(err, "failed creating postgres database", err)
 			return err
 		}
 	}
 
 	if p.Monitoring {
-		err := p.enableMonitoring(admin)
+		err := p.enableMonitoring(ctx, admin)
 		if err != nil {
 			return fmt.Errorf("can not enable monitoring - %s", err)
 		}
 	}
 
-	err := p.addExtensions(admin)
+	err := p.addExtensions(ctx, admin)
 	if err != nil {
 		return fmt.Errorf("can not add extension - %s", err)
 	}
 
 	if p.DropPublicSchema {
-		if err := p.dropPublicSchema(admin); err != nil {
+		if err := p.dropPublicSchema(ctx, admin); err != nil {
 			return fmt.Errorf("can not drop public schema - %s", err)
 		}
 		if len(p.Schemas) == 0 {
-			p.Log.Info("the public schema is dropped, but no additional schemas are created, schema creation must be handled on the application side now")
+			log.Info("the public schema is dropped, but no additional schemas are created, schema creation must be handled on the application side now")
 		}
 	}
 
 	if len(p.Schemas) > 0 {
-		if err := p.createSchemas(admin); err != nil {
-			p.Log.Error(err, "failed creating additional schemas")
+		if err := p.createSchemas(ctx, admin); err != nil {
+			log.Error(err, "failed creating additional schemas")
 			return err
 		}
 	}
@@ -370,61 +377,64 @@ func (p Postgres) createDatabase(admin *DatabaseUser) error {
 	return nil
 }
 
-func (p Postgres) deleteDatabase(admin *DatabaseUser) error {
+func (p Postgres) deleteDatabase(ctx context.Context, admin *DatabaseUser) error {
+	log := log.FromContext(ctx)
 	revoke := fmt.Sprintf("REVOKE CONNECT ON DATABASE \"%s\" FROM PUBLIC, \"%s\";", p.Database, admin.Username)
 	delete := fmt.Sprintf("DROP DATABASE \"%s\";", p.Database)
 
-	if p.isDbExist(admin) {
-		err := p.executeExec("postgres", revoke, admin)
+	if p.isDbExist(ctx, admin) {
+		err := p.executeExec(ctx, "postgres", revoke, admin)
 		if err != nil {
-			p.Log.Error(err, "failed revoking connection on database", "connection", revoke)
+			log.Error(err, "failed revoking connection on database", "connection", revoke)
 			return err
 		}
 
 		err = kci.Retry(3, 5*time.Second, func() error {
-			err := p.executeExec("postgres", delete, admin)
+			err := p.executeExec(ctx, "postgres", delete, admin)
 			if err != nil {
 				// This error will result in a retry
-				p.Log.V(2).Info("failed with error, retrying", "error", err)
+				log.V(2).Info("failed with error, retrying", "error", err)
 				return err
 			}
 
 			return nil
 		})
 		if err != nil {
-			p.Log.V(2).Info("failed with error, retrying", "error", err)
+			log.V(2).Info("failed with error, retrying", "error", err)
 			return err
 		}
 	}
 	return nil
 }
 
-func (p Postgres) createOrUpdateUser(admin *DatabaseUser, user *DatabaseUser) error {
-	if !p.isUserExist(admin, user) {
-		if err := p.createUser(admin, user); err != nil {
-			p.Log.Error(err, "failed creating postgres user")
+func (p Postgres) createOrUpdateUser(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error {
+	log := log.FromContext(ctx)
+	if !p.isUserExist(ctx, admin, user) {
+		if err := p.createUser(ctx, admin, user); err != nil {
+			log.Error(err, "failed creating postgres user")
 			return err
 		}
 	} else {
-		if err := p.updateUser(admin, user); err != nil {
-			p.Log.Error(err, "failed updating postgres user")
+		if err := p.updateUser(ctx, admin, user); err != nil {
+			log.Error(err, "failed updating postgres user")
 			return err
 		}
 	}
 
-	if err := p.setUserPermission(admin, user); err != nil {
+	if err := p.setUserPermission(ctx, admin, user); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (p Postgres) createUser(admin *DatabaseUser, user *DatabaseUser) error {
+func (p Postgres) createUser(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error {
+	log := log.FromContext(ctx)
 	create := fmt.Sprintf("CREATE USER \"%s\" WITH ENCRYPTED PASSWORD '%s' NOSUPERUSER;", user.Username, user.Password)
 
-	if !p.isUserExist(admin, user) {
-		err := p.executeExec("postgres", create, admin)
+	if !p.isUserExist(ctx, admin, user) {
+		err := p.executeExec(ctx, "postgres", create, admin)
 		if err != nil {
-			p.Log.Error(err, "failed creating postgres user")
+			log.Error(err, "failed creating postgres user")
 			return err
 		}
 	} else {
@@ -432,34 +442,36 @@ func (p Postgres) createUser(admin *DatabaseUser, user *DatabaseUser) error {
 		return err
 	}
 
-	if err := p.setUserPermission(admin, user); err != nil {
+	if err := p.setUserPermission(ctx, admin, user); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (p Postgres) updateUser(admin *DatabaseUser, user *DatabaseUser) error {
+func (p Postgres) updateUser(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error {
+	log := log.FromContext(ctx)
 	update := fmt.Sprintf("ALTER ROLE \"%s\" WITH ENCRYPTED PASSWORD '%s';", user.Username, user.Password)
 
-	if !p.isUserExist(admin, user) {
+	if !p.isUserExist(ctx, admin, user) {
 		err := fmt.Errorf("user doesn't exist yet: %s", user.Username)
 		return err
 	} else {
-		err := p.executeExec("postgres", update, admin)
+		err := p.executeExec(ctx, "postgres", update, admin)
 		if err != nil {
-			p.Log.Error(err, "failed updating postgres user", "query", update)
+			log.Error(err, "failed updating postgres user", "query", update)
 			return err
 		}
 	}
 
-	if err := p.setUserPermission(admin, user); err != nil {
+	if err := p.setUserPermission(ctx, admin, user); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (p Postgres) setUserPermission(admin *DatabaseUser, user *DatabaseUser) error {
+func (p Postgres) setUserPermission(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error {
+	log := log.FromContext(ctx)
 	schemas := p.Schemas
 	if !p.DropPublicSchema {
 		schemas = append(schemas, "public")
@@ -467,28 +479,28 @@ func (p Postgres) setUserPermission(admin *DatabaseUser, user *DatabaseUser) err
 
 	// Grant user role to the admin user. It's required to make generic instances work with Azure.
 	assignRoleToAdmin := fmt.Sprintf("GRANT \"%s\" TO \"%s\";", user.Username, admin.Username)
-	if err := p.executeExec(p.Database, assignRoleToAdmin, admin); err != nil {
-		p.Log.Error(err, "failed granting user to admin", "username", user.Username, "admin", admin.Username)
+	if err := p.executeExec(ctx, p.Database, assignRoleToAdmin, admin); err != nil {
+		log.Error(err, "failed granting user to admin", "username", user.Username, "admin", admin.Username)
 	}
 
 	switch user.AccessType {
 	case ACCESS_TYPE_MAINUSER:
 		grant := fmt.Sprintf("GRANT ALL PRIVILEGES ON DATABASE \"%s\" TO \"%s\";", p.Database, user.Username)
-		err := p.executeExec("postgres", grant, admin)
+		err := p.executeExec(ctx, "postgres", grant, admin)
 		if err != nil {
-			p.Log.Error(err, "failed granting all priveleges to user", "query", grant)
+			log.Error(err, "failed granting all priveleges to user", "query", grant)
 			return err
 		}
 		grantCreateToAdmin := fmt.Sprintf("GRANT CREATE ON DATABASE \"%s\" to \"%s\";", p.Database, admin.Username)
-		if err := p.executeExec(p.Database, grantCreateToAdmin, admin); err != nil {
-			p.Log.Error(err, "failed to grant usage access on database", "username", user.Username, "database", p.Database)
+		if err := p.executeExec(ctx, p.Database, grantCreateToAdmin, admin); err != nil {
+			log.Error(err, "failed to grant usage access on database", "username", user.Username, "database", p.Database)
 			return err
 		}
 
 		for _, s := range schemas {
 			grantUserAccess := fmt.Sprintf("GRANT ALL ON SCHEMA \"%s\" TO \"%s\"", s, user.Username)
-			if err := p.executeExec(p.Database, grantUserAccess, admin); err != nil {
-				p.Log.Error(err, "failed to grant usage access on schema", "username", user.Username, "schema", s)
+			if err := p.executeExec(ctx, p.Database, grantUserAccess, admin); err != nil {
+				log.Error(err, "failed to grant usage access on schema", "username", user.Username, "schema", s)
 				return err
 			}
 		}
@@ -501,19 +513,19 @@ func (p Postgres) setUserPermission(admin *DatabaseUser, user *DatabaseUser) err
 				s,
 				user.Username,
 			)
-			err := p.executeExec(p.Database, grantUsage, admin)
+			err := p.executeExec(ctx, p.Database, grantUsage, admin)
 			if err != nil {
-				p.Log.Error(err, "failed updating postgres user", "query", grantTables)
+				log.Error(err, "failed updating postgres user", "query", grantTables)
 				return err
 			}
-			err = p.executeExec(p.Database, grantTables, admin)
+			err = p.executeExec(ctx, p.Database, grantTables, admin)
 			if err != nil {
-				p.Log.Error(err, "failed updating postgres user", "query", grantTables)
+				log.Error(err, "failed updating postgres user", "query", grantTables)
 				return err
 			}
-			err = p.executeExec(p.Database, defaultPrivileges, admin)
+			err = p.executeExec(ctx, p.Database, defaultPrivileges, admin)
 			if err != nil {
-				p.Log.Error(err, "failed updating postgres user", "query", defaultPrivileges)
+				log.Error(err, "failed updating postgres user", "query", defaultPrivileges)
 				return err
 			}
 		}
@@ -526,19 +538,19 @@ func (p Postgres) setUserPermission(admin *DatabaseUser, user *DatabaseUser) err
 				s,
 				user.Username,
 			)
-			err := p.executeExec(p.Database, grantUsage, admin)
+			err := p.executeExec(ctx, p.Database, grantUsage, admin)
 			if err != nil {
-				p.Log.Error(err, "failed updating postgres user", "query", grantTables)
+				log.Error(err, "failed updating postgres user", "query", grantTables)
 				return err
 			}
-			err = p.executeExec(p.Database, grantTables, admin)
+			err = p.executeExec(ctx, p.Database, grantTables, admin)
 			if err != nil {
-				p.Log.Error(err, "failed updating postgres user", "query", grantTables)
+				log.Error(err, "failed updating postgres user", "query", grantTables)
 				return err
 			}
-			err = p.executeExec(p.Database, defaultPrivileges, admin)
+			err = p.executeExec(ctx, p.Database, defaultPrivileges, admin)
 			if err != nil {
-				p.Log.Error(err, "failed updating postgres user", "query", defaultPrivileges)
+				log.Error(err, "failed updating postgres user", "query", defaultPrivileges)
 				return err
 			}
 		}
@@ -550,8 +562,9 @@ func (p Postgres) setUserPermission(admin *DatabaseUser, user *DatabaseUser) err
 	return nil
 }
 
-func (p Postgres) deleteUser(admin *DatabaseUser, user *DatabaseUser) error {
-	if user.AccessType != ACCESS_TYPE_MAINUSER && p.isUserExist(admin, user) {
+func (p Postgres) deleteUser(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error {
+	log := log.FromContext(ctx)
+	if user.AccessType != ACCESS_TYPE_MAINUSER && p.isUserExist(ctx, admin, user) {
 		schemas := p.Schemas
 		if !p.DropPublicSchema {
 			schemas = append(schemas, "public")
@@ -562,31 +575,31 @@ func (p Postgres) deleteUser(admin *DatabaseUser, user *DatabaseUser) error {
 				schema,
 				user.Username,
 			)
-			if err := p.executeExec(p.Database, revokeDefaults, p.MainUser); err != nil {
-				p.Log.Error(err, "failed removing default privileges from schema", "username", user.Username, "schema", schema)
+			if err := p.executeExec(ctx, p.Database, revokeDefaults, p.MainUser); err != nil {
+				log.Error(err, "failed removing default privileges from schema", "username", user.Username, "schema", schema)
 				return err
 			}
 			revokeAll := fmt.Sprintf("REVOKE ALL ON SCHEMA \"%s\" FROM \"%s\";", schema, user.Username)
-			if err := p.executeExec(p.Database, revokeAll, admin); err != nil {
-				p.Log.Error(err, "failed revoking privileges from schema", "username", user.Username, "schema", schema)
+			if err := p.executeExec(ctx, p.Database, revokeAll, admin); err != nil {
+				log.Error(err, "failed revoking privileges from schema", "username", user.Username, "schema", schema)
 				return err
 			}
 			dropOwned := fmt.Sprintf("DROP OWNED BY \"%s\";", user.Username)
-			if err := p.executeExec(p.Database, dropOwned, admin); err != nil {
-				p.Log.Error(err, "failed dropping owned", "username", user.Username, err)
+			if err := p.executeExec(ctx, p.Database, dropOwned, admin); err != nil {
+				log.Error(err, "failed dropping owned", "username", user.Username, err)
 				return err
 			}
 
 		}
 	}
 	delete := fmt.Sprintf("DROP USER \"%s\";", user.Username)
-	if p.isUserExist(admin, user) {
-		err := p.executeExec("postgres", delete, admin)
+	if p.isUserExist(ctx, admin, user) {
+		err := p.executeExec(ctx, "postgres", delete, admin)
 		if err != nil {
 			pqErr := err.(*pq.Error)
 			if pqErr.Code == "2BP01" {
 				// 2BP01 dependent_objects_still_exist
-				p.Log.Error(err, "dependent objects still exist")
+				log.Error(err, "dependent objects still exist")
 				return nil
 			}
 			return err

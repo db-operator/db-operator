@@ -147,7 +147,7 @@ func TestUnitPsqlTemplatedSecretGeneratationWithProxy(t *testing.T) {
 	}
 
 	db, _, _ := dbhelper.FetchDatabaseData(ctx, postgresDbCr, testDbcred, &instance)
-	connString, err := templates.GenerateTemplatedSecrets(postgresDbCr, testDbcred, db.GetDatabaseAddress())
+	connString, err := templates.GenerateTemplatedSecrets(postgresDbCr, testDbcred, db.GetDatabaseAddress(ctx))
 	if err != nil {
 		t.Logf("Unexpected error: %s", err)
 		t.Fail()
@@ -180,7 +180,7 @@ func TestUnitPsqlCustomSecretGeneratation(t *testing.T) {
 	}
 
 	db, _, _ := dbhelper.FetchDatabaseData(ctx, postgresDbCr, testDbcred, &instance)
-	templatedSecrets, err := templates.GenerateTemplatedSecrets(postgresDbCr, testDbcred, db.GetDatabaseAddress())
+	templatedSecrets, err := templates.GenerateTemplatedSecrets(postgresDbCr, testDbcred, db.GetDatabaseAddress(ctx))
 	if err != nil {
 		t.Logf("unexpected error: %s", err)
 		t.Fail()
@@ -197,7 +197,7 @@ func TestUnitWrongTemplatedSecretGeneratation(t *testing.T) {
 	}
 
 	db, _, _ := dbhelper.FetchDatabaseData(ctx, postgresDbCr, testDbcred, &instance)
-	_, err := templates.GenerateTemplatedSecrets(postgresDbCr, testDbcred, db.GetDatabaseAddress())
+	_, err := templates.GenerateTemplatedSecrets(postgresDbCr, testDbcred, db.GetDatabaseAddress(ctx))
 	errSubstr := "can't evaluate field User in type templates.SecretsTemplatesFields"
 
 	assert.Contains(t, err.Error(), errSubstr, "the error doesn't contain expected substring")
@@ -217,7 +217,7 @@ func TestUnitBlockedTempatedKeysGeneratation(t *testing.T) {
 		"TMPL": []byte("DUMMY"),
 	}
 	db, _, _ := dbhelper.FetchDatabaseData(ctx, postgresDbCr, testDbcred, &instance)
-	sercretData, err := templates.GenerateTemplatedSecrets(postgresDbCr, testDbcred, db.GetDatabaseAddress())
+	sercretData, err := templates.GenerateTemplatedSecrets(postgresDbCr, testDbcred, db.GetDatabaseAddress(ctx))
 	if err != nil {
 		t.Logf("unexpected error: %s", err)
 		t.Fail()
@@ -242,7 +242,7 @@ func TestUnitObsoleteFieldsRemoving(t *testing.T) {
 	}
 
 	db, _, _ := dbhelper.FetchDatabaseData(ctx, postgresDbCr, testDbcred, &instance)
-	secretData, err := templates.GenerateTemplatedSecrets(postgresDbCr, testDbcred, db.GetDatabaseAddress())
+	secretData, err := templates.GenerateTemplatedSecrets(postgresDbCr, testDbcred, db.GetDatabaseAddress(ctx))
 	if err != nil {
 		t.Logf("unexpected error: %s", err)
 		t.Fail()

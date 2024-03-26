@@ -16,6 +16,8 @@
 
 package database
 
+import "context"
+
 const (
 	ACCESS_TYPE_READONLY  = "readOnly"
 	ACCESS_TYPE_READWRITE = "readWrite"
@@ -50,17 +52,17 @@ type AdminCredentials struct {
 
 // Database is interface for CRUD operate of different types of databases
 type Database interface {
-	CheckStatus(user *DatabaseUser) error
-	GetCredentials(user *DatabaseUser) Credentials
-	ParseAdminCredentials(data map[string][]byte) (*DatabaseUser, error)
-	GetDatabaseAddress() DatabaseAddress
-	QueryAsUser(query string, user *DatabaseUser) (string, error)
-	createDatabase(admin *DatabaseUser) error
-	deleteDatabase(admin *DatabaseUser) error
-	createOrUpdateUser(admin *DatabaseUser, user *DatabaseUser) error
-	createUser(admin *DatabaseUser, user *DatabaseUser) error
-	updateUser(admin *DatabaseUser, user *DatabaseUser) error
-	deleteUser(admin *DatabaseUser, user *DatabaseUser) error
-	setUserPermission(admin *DatabaseUser, user *DatabaseUser) error
-	execAsUser(query string, user *DatabaseUser) error
+	CheckStatus(ctx context.Context, user *DatabaseUser) error
+	GetCredentials(ctx context.Context, user *DatabaseUser) Credentials
+	ParseAdminCredentials(ctx context.Context, data map[string][]byte) (*DatabaseUser, error)
+	GetDatabaseAddress(ctx context.Context) DatabaseAddress
+	QueryAsUser(ctx context.Context, query string, user *DatabaseUser) (string, error)
+	createDatabase(ctx context.Context, admin *DatabaseUser) error
+	deleteDatabase(ctx context.Context, admin *DatabaseUser) error
+	createOrUpdateUser(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error
+	createUser(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error
+	updateUser(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error
+	deleteUser(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error
+	setUserPermission(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error
+	execAsUser(ctx context.Context, query string, user *DatabaseUser) error
 }

@@ -17,6 +17,7 @@
 package database
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -29,18 +30,18 @@ func TestCreatePostgres(t *testing.T) {
 
 	admin := getPostgresAdmin()
 
-	err := CreateDatabase(p, admin)
+	err := CreateDatabase(context.TODO(), p, admin)
 	assert.Errorf(t, err, "Should get error %v", err)
 
 	p.Database = "testdb"
-	err = CreateDatabase(p, admin)
+	err = CreateDatabase(context.TODO(), p, admin)
 	assert.NoErrorf(t, err, "Unexpected error %v", err)
 
-	err = CreateOrUpdateUser(p, dbu, admin)
+	err = CreateOrUpdateUser(context.TODO(), p, dbu, admin)
 	assert.Errorf(t, err, "Should get error %v", err)
 
 	dbu.Username = "testuser"
-	err = CreateOrUpdateUser(p, dbu, admin)
+	err = CreateOrUpdateUser(context.TODO(), p, dbu, admin)
 	assert.NoErrorf(t, err, "Unexpected error %v", err)
 }
 
@@ -51,14 +52,14 @@ func TestCreateMysql(t *testing.T) {
 
 	admin := getMysqlAdmin()
 	t.Log(m.Database)
-	err := CreateDatabase(m, admin)
+	err := CreateDatabase(context.TODO(), m, admin)
 	assert.NoErrorf(t, err, "Unexpected error %v", err)
 
-	err = CreateUser(m, dbu, admin)
+	err = CreateUser(context.TODO(), m, dbu, admin)
 	assert.Errorf(t, err, "Should get error %v", err)
 
 	dbu.Username = "testuser"
-	err = CreateUser(m, dbu, admin)
+	err = CreateUser(context.TODO(), m, dbu, admin)
 	assert.NoErrorf(t, err, "Unexpected error %v", err)
 }
 
@@ -67,10 +68,10 @@ func TestDeletePostgres(t *testing.T) {
 	admin := getPostgresAdmin()
 
 	p.Database = "testdb"
-	err := DeleteDatabase(p, admin)
+	err := DeleteDatabase(context.TODO(), p, admin)
 	assert.NoErrorf(t, err, "Unexpected error %v", err)
 
-	err = DeleteUser(p, dbu, admin)
+	err = DeleteUser(context.TODO(), p, dbu, admin)
 	assert.NoErrorf(t, err, "Unexpected error %v", err)
 }
 
@@ -79,9 +80,9 @@ func TestDeleteMysql(t *testing.T) {
 	admin := getMysqlAdmin()
 
 	m.Database = "testdb"
-	err := DeleteDatabase(m, admin)
+	err := DeleteDatabase(context.TODO(), m, admin)
 	assert.NoErrorf(t, err, "Unexpected error %v", err)
 
-	err = DeleteUser(m, dbu, admin)
+	err = DeleteUser(context.TODO(), m, dbu, admin)
 	assert.NoErrorf(t, err, "Unexpected error %v", err)
 }

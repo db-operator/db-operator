@@ -164,7 +164,7 @@ func (r *DbInstanceReconciler) create(ctx context.Context, dbin *kindav1beta1.Db
 	}
 
 	db := database.New(dbin.Spec.Engine)
-	cred, err := db.ParseAdminCredentials(secret.Data)
+	cred, err := db.ParseAdminCredentials(ctx, secret.Data)
 	if err != nil {
 		return err
 	}
@@ -243,11 +243,11 @@ func (r *DbInstanceReconciler) create(ctx context.Context, dbin *kindav1beta1.Db
 		return errors.New("not supported backend type")
 	}
 
-	info, err := dbinstance.Create(instance)
+	info, err := dbinstance.Create(ctx, instance)
 	if err != nil {
 		if err == dbinstance.ErrAlreadyExists {
 			log.V(2).Info("instance already exists in backend, updating instance")
-			info, err = dbinstance.Update(instance)
+			info, err = dbinstance.Update(ctx, instance)
 			if err != nil {
 				log.Error(err, "failed updating instance")
 				return err

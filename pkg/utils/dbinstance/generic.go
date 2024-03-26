@@ -17,6 +17,7 @@
 package dbinstance
 
 import (
+	"context"
 	"errors"
 	"strconv"
 
@@ -67,7 +68,7 @@ func (ins *Generic) state() (string, error) {
 	return "NOT_SUPPORTED", nil
 }
 
-func (ins *Generic) exist() error {
+func (ins *Generic) exist(ctx context.Context) error {
 	db, err := makeInterface(ins)
 	if err != nil {
 		logrus.Errorf("can not check if instance exists because of %s", err)
@@ -78,7 +79,7 @@ func (ins *Generic) exist() error {
 		Password: ins.Password,
 	}
 
-	err = db.CheckStatus(dbuser)
+	err = db.CheckStatus(ctx, dbuser)
 	if err != nil {
 		logrus.Error(err)
 		return err

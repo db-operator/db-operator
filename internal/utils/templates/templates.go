@@ -18,6 +18,7 @@ package templates
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"html/template"
@@ -220,7 +221,7 @@ func (tds *TemplateDataSources) ConfigMap(entry string) (string, error) {
 // Get the data directly from the database
 func (tds *TemplateDataSources) Query(query string) (string, error) {
 	tds.Log.Info("Querying data from database is experimental, use cautiously and feel free to create github issues")
-	result, err := tds.DatabaseObj.QueryAsUser(query, tds.DatabaseUser)
+	result, err := tds.DatabaseObj.QueryAsUser(context.TODO(), query, tds.DatabaseUser)
 	if err != nil {
 		return "", err
 	}
@@ -275,7 +276,7 @@ func (tds *TemplateDataSources) Database() (string, error) {
 // Hostname
 func (tds *TemplateDataSources) Hostname() (string, error) {
 	if !tds.DatabaseK8sObj.Status.ProxyStatus.Status {
-		dbAddress := tds.DatabaseObj.GetDatabaseAddress()
+		dbAddress := tds.DatabaseObj.GetDatabaseAddress(context.TODO())
 		return dbAddress.Host, nil
 	} else {
 		return tds.DatabaseK8sObj.Status.ProxyStatus.ServiceName, nil
@@ -285,7 +286,7 @@ func (tds *TemplateDataSources) Hostname() (string, error) {
 // Port
 func (tds *TemplateDataSources) Port() (int32, error) {
 	if !tds.DatabaseK8sObj.Status.ProxyStatus.Status {
-		dbAddress := tds.DatabaseObj.GetDatabaseAddress()
+		dbAddress := tds.DatabaseObj.GetDatabaseAddress(context.TODO())
 		return int32(dbAddress.Port), nil
 	} else {
 		return tds.DatabaseK8sObj.Status.ProxyStatus.SQLPort, nil

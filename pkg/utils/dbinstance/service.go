@@ -17,12 +17,14 @@
 package dbinstance
 
 import (
+	"context"
+
 	"github.com/sirupsen/logrus"
 )
 
 // Create instance if not exists
-func Create(ins DbInstance) (map[string]string, error) {
-	err := ins.exist()
+func Create(ctx context.Context, ins DbInstance) (map[string]string, error) {
+	err := ins.exist(ctx)
 	if err == nil {
 		return nil, ErrAlreadyExists
 	}
@@ -43,8 +45,8 @@ func Create(ins DbInstance) (map[string]string, error) {
 }
 
 // Update instance if instance exists
-func Update(ins DbInstance) (map[string]string, error) {
-	err := ins.exist()
+func Update(ctx context.Context, ins DbInstance) (map[string]string, error) {
+	err := ins.exist(ctx)
 	if err != nil {
 		return nil, ErrNotExists
 	}

@@ -137,7 +137,7 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return r.manageError(ctx, dbusercr, err, false)
 	}
 
-	adminCred, err := db.ParseAdminCredentials(adminSecretResource.Data)
+	adminCred, err := db.ParseAdminCredentials(ctx, adminSecretResource.Data)
 	if err != nil {
 		// failed to parse database admin secret
 		return r.manageError(ctx, dbusercr, err, false)
@@ -152,7 +152,7 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			if err := r.handleTemplatedCredentials(ctx, dbcr, dbusercr, dbuser); err != nil {
 				return r.manageError(ctx, dbusercr, err, true)
 			}
-			if err := database.DeleteUser(db, dbuser, adminCred); err != nil {
+			if err := database.DeleteUser(ctx, db, dbuser, adminCred); err != nil {
 				log.Error(err, "failed deleting a user")
 				return r.manageError(ctx, dbusercr, err, false)
 			}
@@ -180,7 +180,7 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		if !dbusercr.Status.Status {
 			if !dbusercr.Status.Created {
 				r.Log.Info(fmt.Sprintf("creating a user: %s", dbusercr.GetObjectMeta().GetName()))
-				if err := database.CreateUser(db, dbuser, adminCred); err != nil {
+				if err := database.CreateUser(ctx, db, dbuser, adminCred); err != nil {
 					return r.manageError(ctx, dbusercr, err, false)
 				}
 				kci.AddFinalizer(&dbusercr.ObjectMeta, "dbuser."+dbusercr.Name)
@@ -198,7 +198,7 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 				dbusercr.Status.Created = true
 			} else {
 				r.Log.Info(fmt.Sprintf("updating a user %s", dbusercr.GetObjectMeta().GetName()))
-				if err := database.UpdateUser(db, dbuser, adminCred); err != nil {
+				if err := database.UpdateUser(ctx, db, dbuser, adminCred); err != nil {
 					return r.manageError(ctx, dbusercr, err, false)
 				}
 			}
