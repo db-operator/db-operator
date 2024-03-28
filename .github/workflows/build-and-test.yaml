@@ -225,10 +225,6 @@ jobs:
           sudo apt-get remove mysql-server --purge
           sudo apt-get install apparmor-profiles
           sudo apparmor_parser -R /etc/apparmor.d/usr.sbin.mysqld
-<<<<<<< HEAD
-=======
-
->>>>>>> f0e919d (Add Red Hat buildah-build action)
       - name: Run the unit tests
         run: ./scripts/test_database -d mysql -i ${{ matrix.image }} -f ./resources/test/docker-compose-mysql-tmpl.yml
   mariadb-test:
