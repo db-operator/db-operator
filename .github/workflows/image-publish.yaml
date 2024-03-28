@@ -31,7 +31,7 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version: ${{ env.go_version }}
-      
+
       - name: Compile Binary
         env:
           GOOS: ${{ env.go_os }}
@@ -85,17 +85,13 @@ jobs:
 
       - name: Create a docker manifest for a versioned container
         run: |
-          docker manifest create ghcr.io/${{ env.manufacturer }}/${{ env.product_name }}:${{ github.event.release.tag_name }} \
-            --amend ghcr.io/${{ env.manufacturer }}/${{ env.product_name }}:${{ github.event.release.tag_name }}-amd64 \
-            --amend ghcr.io/${{ env.manufacturer }}/${{ env.product_name }}:${{ github.event.release.tag_name }}-arm64
+          docker buildx imagetools create -t ghcr.io/${{ env.manufacturer }}/${{ env.product_name }}:${{ github.event.release.tag_name }} \
+            ghcr.io/${{ env.manufacturer }}/${{ env.product_name }}:${{ github.event.release.tag_name }}-amd64 \
+            ghcr.io/${{ env.manufacturer }}/${{ env.product_name }}:${{ github.event.release.tag_name }}-arm64
 
       - name: Create a manifest for the latest container
         run: |
-          docker manifest create ghcr.io/${{ env.manufacturer }}/${{ env.product_name }}:latest \
-            --amend ghcr.io/${{ env.manufacturer }}/${{ env.product_name }}:latest-amd64 \
-            --amend ghcr.io/${{ env.manufacturer }}/${{ env.product_name }}:latest-arm64
+          docker buildx imagetools create -t ghcr.io/${{ env.manufacturer }}/${{ env.product_name }}:latest \
+            ghcr.io/${{ env.manufacturer }}/${{ env.product_name }}:latest-amd64 \
+            ghcr.io/${{ env.manufacturer }}/${{ env.product_name }}:latest-arm64
 
-      - name: Push the manifest
-        run: |
-          docker manifest push ghcr.io/${{ env.manufacturer }}/${{ env.product_name }}:${{ github.event.release.tag_name }}
-          docker manifest push ghcr.io/${{ env.manufacturer }}/${{ env.product_name }}:latest 
