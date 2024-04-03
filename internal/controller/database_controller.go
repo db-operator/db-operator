@@ -717,7 +717,6 @@ func (r *DatabaseReconciler) handleProxy(ctx context.Context, dbcr *kindav1beta1
 // secrets and configmaps, so it's a generic function that can be used for both:
 // creating and removing
 func (r *DatabaseReconciler) handleTemplatedCredentials(ctx context.Context, dbcr *kindav1beta1.Database) error {
-	log := log.FromContext(ctx)
 	databaseSecret, err := r.getDatabaseSecret(ctx, dbcr)
 	if err != nil {
 		return err
@@ -744,7 +743,7 @@ func (r *DatabaseReconciler) handleTemplatedCredentials(ctx context.Context, dbc
 		return err
 	}
 
-	templateds, err := templates.NewTemplateDataSource(dbcr, nil, databaseSecret, databaseConfigMap, db, dbuser, log)
+	templateds, err := templates.NewTemplateDataSource(dbcr, nil, databaseSecret, databaseConfigMap, db, dbuser)
 	if err != nil {
 		return err
 	}
