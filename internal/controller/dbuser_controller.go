@@ -335,7 +335,6 @@ func (r *DbUserReconciler) getAdminSecret(ctx context.Context, dbcr *kindav1beta
 // creating and removing
 // It's mostly a copy-paste from the database controller, maybe it might be refactored
 func (r *DbUserReconciler) handleTemplatedCredentials(ctx context.Context, dbcr *kindav1beta1.Database, dbusercr *v1beta1.DbUser, dbuser *database.DatabaseUser) error {
-	log := log.FromContext(ctx)
 	databaseSecret, err := r.getDbUserSecret(ctx, dbusercr)
 	if err != nil {
 		return err
@@ -362,7 +361,7 @@ func (r *DbUserReconciler) handleTemplatedCredentials(ctx context.Context, dbcr 
 		return err
 	}
 
-	templateds, err := templates.NewTemplateDataSource(dbcr, dbusercr, databaseSecret, databaseConfigMap, db, dbuser, log)
+	templateds, err := templates.NewTemplateDataSource(dbcr, dbusercr, databaseSecret, databaseConfigMap, db, dbuser)
 	if err != nil {
 		return err
 	}
