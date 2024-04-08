@@ -380,6 +380,9 @@ func (r *DbUserReconciler) handleTemplatedCredentials(ctx context.Context, dbcr 
 	if err := r.kubeHelper.HandleCreateOrUpdate(ctx, templateds.SecretK8sObj); err != nil {
 		return err
 	}
+	
+	// Set it to nil explicitly to ensure it's picked up by the GC
+	templateds = nil
 
 	return nil
 }

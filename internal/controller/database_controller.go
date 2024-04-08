@@ -766,7 +766,8 @@ func (r *DatabaseReconciler) handleTemplatedCredentials(ctx context.Context, dbc
 	if err := r.kubeHelper.HandleCreateOrUpdate(ctx, templateds.ConfigMapK8sObj); err != nil {
 		return err
 	}
-
+	// Set it to nil explicitly to ensure it's picked up by the GC
+	templateds = nil
 	return nil
 }
 
