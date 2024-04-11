@@ -341,7 +341,7 @@ func (p Postgres) createDatabase(ctx context.Context, admin *DatabaseUser) error
 	if !p.isDbExist(ctx, admin) {
 		err := p.executeExec(ctx, "postgres", create, admin)
 		if err != nil {
-			log.Error(err, "failed creating postgres database", err)
+			log.Error(err, "failed creating postgres database")
 			return err
 		}
 	}
@@ -586,7 +586,7 @@ func (p Postgres) deleteUser(ctx context.Context, admin *DatabaseUser, user *Dat
 			}
 			dropOwned := fmt.Sprintf("DROP OWNED BY \"%s\";", user.Username)
 			if err := p.executeExec(ctx, p.Database, dropOwned, admin); err != nil {
-				log.Error(err, "failed dropping owned", "username", user.Username, err)
+				log.Error(err, "failed dropping owned", "username", user.Username)
 				return err
 			}
 
