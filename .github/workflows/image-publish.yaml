@@ -60,6 +60,8 @@ jobs:
           context: .
           file: Dockerfile-ci
           platforms: ${{ env.go_os }}/${{ matrix.docker_arch }}
+          build-args: |
+            OPERATOR_VERSION=${{ github.ref_name }}
           tags: |
             ghcr.io/${{ env.manufacturer }}/${{ env.product_name }}:latest-${{ matrix.go_arch }}
             ghcr.io/${{ env.manufacturer }}/${{ env.product_name }}:${{ github.event.release.tag_name }}-${{ matrix.go_arch }}
