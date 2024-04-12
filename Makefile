@@ -69,7 +69,7 @@ help: ## show this help
 
 .PHONY: build
 build: ## Build a container
-	$(CONTAINER_TOOL) build ${CONTAINER_TOOL_ARGS} -t ${IMAGE_TAG} . ${CONTAINER_TOOL_NAMESPACE_ARG}
+	$(CONTAINER_TOOL) build ${CONTAINER_TOOL_ARGS} -t ${IMAGE_TAG} . ${CONTAINER_TOOL_NAMESPACE_ARG} --build-arg="OPERATOR_VERSION=v1.0.0-dev"
 	$(CONTAINER_TOOL) save ${CONTAINER_TOOL_NAMESPACE_ARG} ${IMAGE_TAG} -o my-image.tar
 
 # ---------------------------------------------------------------------

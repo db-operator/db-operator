@@ -27,6 +27,8 @@ import (
 	crdv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
+var OperatorVersion string
+
 func IsDBChanged(dbcr *kindav1beta1.Database, databaseSecret *corev1.Secret) bool {
 	annotations := dbcr.ObjectMeta.GetAnnotations()
 
