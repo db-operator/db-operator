@@ -536,6 +536,7 @@ func (r *DatabaseReconciler) createDatabase(ctx context.Context, dbcr *kindav1be
 		return err
 	}
 
+	dbcr.Status.OperatorVersion = commonhelper.OperatorVersion
 	dbcr.Status.DatabaseName = databaseCred.Name
 	dbcr.Status.UserName = databaseCred.Username
 	log.Info("successfully created")
