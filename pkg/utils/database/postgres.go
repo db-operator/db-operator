@@ -380,12 +380,26 @@ func (p Postgres) createDatabase(ctx context.Context, admin *DatabaseUser) error
 func (p Postgres) deleteDatabase(ctx context.Context, admin *DatabaseUser) error {
 	log := log.FromContext(ctx)
 	revoke := fmt.Sprintf("REVOKE CONNECT ON DATABASE \"%s\" FROM PUBLIC, \"%s\";", p.Database, admin.Username)
+	refuseNewConn := fmt.Sprintf("ALTER DATABASE \"%s\" allow_connections = off;", p.Database)
+	terminateExistingConn := fmt.Sprintf("SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname = \'%s\';", p.Database)
 	delete := fmt.Sprintf("DROP DATABASE \"%s\";", p.Database)
 
 	if p.isDbExist(ctx, admin) {
 		err := p.executeExec(ctx, "postgres", revoke, admin)
 		if err != nil {
 			log.Error(err, "failed revoking connection on database", "connection", revoke)
+			return err
+		}
+
+		err := p.executeExec(ctx, "postgres", refuseNewConn, admin)
+		if err != nil {
+			log.Error(err, "failed refusing new database connection on database", "connection", refuseNewConn)
+			return err
+		}
+
+		err := p.executeExec(ctx, "postgres", terminateExistingConn, admin)
+		if err != nil {
+			log.Error(err, "failed terminating existing connection on database", "connection", terminateExistingConn)
 			return err
 		}
 
