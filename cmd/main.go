@@ -18,6 +18,8 @@ package main
 
 import (
 	"flag"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"strconv"
 	"strings"
@@ -64,6 +66,7 @@ func main() {
 	var enableLeaderElection bool
 	var checkForChanges bool
 	var isWebhook bool
+	var enableProfiler bool
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":60000", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&checkForChanges, "check-for-changes", false,
@@ -72,6 +75,7 @@ func main() {
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.BoolVar(&isWebhook, "webhook", false, "Starts the webhook server when set.")
+	flag.BoolVar(&enableProfiler, "enable-profiler", false, "If true, db-operator will start with a profiler on port 54321.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -80,6 +84,15 @@ func main() {
 	webhookSrv := webhook.NewServer(webhook.Options{
 		Port: 9443,
 	})
+	if enableProfiler {
+		setupLog.Info("Enabling profiler", "port", "54321")
+		go func() {
+			if err := http.ListenAndServe("localhost:54321", nil); err != nil {
+				setupLog.Error(err, "Couldn't start profiler")
+				os.Exit(1)
+			}
+		}()
+	}
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
