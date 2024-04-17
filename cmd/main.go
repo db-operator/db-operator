@@ -18,6 +18,8 @@ package main
 
 import (
 	"flag"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"strconv"
 	"strings"
@@ -58,6 +60,9 @@ func init() {
 }
 
 func main() {
+	go func() {
+		http.ListenAndServe("localhost:54321", nil)
+	}()
 	var metricsAddr string
 	var probeAddr string
 	var enableLeaderElection bool
