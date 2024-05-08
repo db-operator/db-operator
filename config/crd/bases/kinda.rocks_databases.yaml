@@ -483,7 +483,6 @@ spec:
             required:
             - database
             - engine
-            - operatorVersion
             - status
             - user
             type: object
