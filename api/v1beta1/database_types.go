@@ -58,7 +58,7 @@ type DatabaseStatus struct {
 	DatabaseName          string              `json:"database"`
 	UserName              string              `json:"user"`
 	Engine                string              `json:"engine"`
-	OperatorVersion       string              `json:"operatorVersion"`
+	OperatorVersion       string              `json:"operatorVersion,omitempty"`
 }
 
 // DatabaseProxyStatus defines whether proxy for database is enabled or not
