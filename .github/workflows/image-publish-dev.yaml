@@ -39,7 +39,7 @@ jobs:
         run: |
           go build -tags build -o ${{ env.product_name }} ${{ env.main_go_path }}
           go build -tags build -o ${{ env.product_name }} \
-            -ldflags="-X \"github.com/db-operator/db-operator/internal/helpers/common.OperatorVersion=v${{ github.sha }}"\" \
+            -ldflags="-X \"github.com/db-operator/db-operator/internal/helpers/common.OperatorVersion=v${{ github.sha }}\"" \
             ${{ env.main_go_path }}
 
       - name: Set up Docker Buildx
