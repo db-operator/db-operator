@@ -121,7 +121,7 @@ func main() {
 		interval := os.Getenv("RECONCILE_INTERVAL")
 		i, err := strconv.ParseInt(interval, 10, 64)
 		if err != nil {
-			i = 60
+			i = int64(60 * time.Second)
 			setupLog.Info("Set default reconcile period for database-controller", "time", interval)
 		}
 
