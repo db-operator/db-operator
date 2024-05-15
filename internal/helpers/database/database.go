@@ -50,6 +50,9 @@ func FetchDatabaseData(ctx context.Context, dbcr *kindav1beta1.Database, dbCred 
 	dbuser := &database.DatabaseUser{
 		Username: dbCred.Username,
 		Password: dbCred.Password,
+		// By default it's set to true, should be overridden
+		// according to CR only in the dbuser controller
+		GrantToAdmin: true,
 	}
 
 	switch dbcr.Status.Engine {

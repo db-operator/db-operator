@@ -1,4 +1,4 @@
-FROM registry.hub.docker.com/library/golang:1.20.5-alpine3.18 as builder
+FROM registry.hub.docker.com/library/golang:1.22.2-alpine3.18 as builder
 
 ARG OPERATOR_VERSION
 

@@ -17,8 +17,12 @@
 package v1beta1
 
 import (
+	"errors"
 	"fmt"
+	"slices"
+	"strings"
 
+	"github.com/db-operator/db-operator/pkg/consts"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -41,17 +45,45 @@ var _ webhook.Validator = &DbUser{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *DbUser) ValidateCreate() (admission.Warnings, error) {
+	warnings := []string{}
+	if err := TestExtraPrivileges(r.Spec.ExtraPrivileges); err != nil {
+		return nil, err
+	}
+	if len(r.Spec.ExtraPrivileges) > 0 {
+		warnings = append(warnings,
+			"extra privileges is an experimental feature, please use at your own risk and feel free to open GitHub issues.")
+	}
+
 	dbuserlog.Info("validate create", "name", r.Name)
 	if err := IsAccessTypeSupported(r.Spec.AccessType); err != nil {
 		return nil, err
 	}
 
-	return nil, nil
+	return warnings, nil
+}
+
+func TestExtraPrivileges(priveleges []string) error {
+	for _, privelege := range priveleges {
+		if strings.ToUpper(privelege) == consts.ALL_PRIVILEGES {
+			return errors.New("it's not allowed to grant ALL PRIVILEGES")
+
+		}
+	}
+	return nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *DbUser) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
+	warnings := []string{}
 	dbuserlog.Info("validate update", "name", r.Name)
+
+	if len(r.Spec.ExtraPrivileges) > 0 {
+		warnings = append(warnings,
+			"extra privileges is an experimental feature, please use at your own risk and feel free to open GitHub issues.")
+	}
+	if err := TestExtraPrivileges(r.Spec.ExtraPrivileges); err != nil {
+		return nil, err
+	}
 	if err := IsAccessTypeSupported(r.Spec.AccessType); err != nil {
 		return nil, err
 	}
@@ -59,13 +91,25 @@ func (r *DbUser) ValidateUpdate(old runtime.Object) (admission.Warnings, error) 
 	if !ok {
 		return nil, fmt.Errorf("couldn't get the previous version of %s", r.Name)
 	}
-
 	if r.Spec.Credentials.Templates != nil {
 		if err := ValidateTemplates(r.Spec.Credentials.Templates, false); err != nil {
 			return nil, err
 		}
 	}
-	return nil, nil
+	if old.(*DbUser).Spec.GrantToAdmin != r.Spec.GrantToAdmin {
+		return nil, errors.New("grantToAdmin is an immutable field")
+	}
+	for _, role := range old.(*DbUser).Spec.ExtraPrivileges {
+		if !slices.Contains(r.Spec.ExtraPrivileges, role) {
+			warnings = append(
+				warnings,
+				fmt.Sprintf("extra priveleges can't be removed by the operator, please manualy revoke %s from the user %s",
+					role, r.Name),
+			)
+		}
+	}
+
+	return warnings, nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type

@@ -33,9 +33,11 @@ type Credentials struct {
 }
 
 type DatabaseUser struct {
-	Username   string `yaml:"user"`
-	Password   string `yaml:"password"`
-	AccessType string
+	Username        string `yaml:"user"`
+	Password        string `yaml:"password"`
+	AccessType      string
+	ExtraPrivileges []string
+	GrantToAdmin    bool
 }
 
 // DatabaseAddress contains host and port of a database instance

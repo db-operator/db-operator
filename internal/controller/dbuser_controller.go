@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/db-operator/db-operator/api/v1beta1"
@@ -125,12 +126,22 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
 		return r.manageError(ctx, dbusercr, err, false)
 	}
-
+	// Check if chosen ExtraPriveleges are allowed on the instance
+	for _, priv := range dbusercr.Spec.ExtraPrivileges {
+		if !slices.Contains(instance.Spec.AllowedPriveleges, priv) {
+			err := fmt.Errorf("role %s is not allowed on the instance %s", priv, instance.Name)
+			return r.manageError(ctx, dbusercr, err, false)
+		}
+	}
 	db, dbuser, err := dbhelper.FetchDatabaseData(ctx, dbcr, creds, instance)
 	if err != nil {
 		// failed to determine database type
 		return r.manageError(ctx, dbusercr, err, false)
 	}
+
+	// Add extra privileges
+	dbuser.ExtraPrivileges = dbusercr.Spec.ExtraPrivileges
+	dbuser.GrantToAdmin = dbusercr.Spec.GrantToAdmin
 	adminSecretResource, err := r.getAdminSecret(ctx, dbcr)
 	if err != nil {
 		// failed to get admin secret
@@ -380,7 +391,7 @@ func (r *DbUserReconciler) handleTemplatedCredentials(ctx context.Context, dbcr 
 	if err := r.kubeHelper.HandleCreateOrUpdate(ctx, templateds.SecretK8sObj); err != nil {
 		return err
 	}
-	
+
 	// Set it to nil explicitly to ensure it's picked up by the GC
 	templateds = nil
 

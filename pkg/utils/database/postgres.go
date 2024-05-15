@@ -51,7 +51,7 @@ type Postgres struct {
 	// A user that is created with the Database
 	//  it's required to set default priveleges
 	//  for additional users
-	MainUser *DatabaseUser
+	MainUser     *DatabaseUser
 }
 
 const postgresDefaultSSLMode = "disable"
@@ -478,9 +478,11 @@ func (p Postgres) setUserPermission(ctx context.Context, admin *DatabaseUser, us
 	}
 
 	// Grant user role to the admin user. It's required to make generic instances work with Azure.
-	assignRoleToAdmin := fmt.Sprintf("GRANT \"%s\" TO \"%s\";", user.Username, admin.Username)
-	if err := p.executeExec(ctx, p.Database, assignRoleToAdmin, admin); err != nil {
-		log.Error(err, "failed granting user to admin", "username", user.Username, "admin", admin.Username)
+	if user.GrantToAdmin {
+		assignRoleToAdmin := fmt.Sprintf("GRANT \"%s\" TO \"%s\";", user.Username, admin.Username)
+		if err := p.executeExec(ctx, p.Database, assignRoleToAdmin, admin); err != nil {
+			log.Error(err, "failed granting user to admin", "username", user.Username, "admin", admin.Username)
+		}
 	}
 
 	switch user.AccessType {
@@ -557,6 +559,13 @@ func (p Postgres) setUserPermission(ctx context.Context, admin *DatabaseUser, us
 	default:
 		err := fmt.Errorf("unknown access type: %s", user.AccessType)
 		return err
+	}
+
+	for _, role := range user.ExtraPrivileges {
+		grantRole := fmt.Sprintf("GRANT \"%s\" to \"%s\"", role, user.Username)
+		if err := p.executeExec(ctx, "postgres", grantRole, admin); err != nil {
+			return err
+		}
 	}
 
 	return nil

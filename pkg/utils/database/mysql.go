@@ -349,6 +349,13 @@ func (m Mysql) setUserPermission(ctx context.Context, admin *DatabaseUser, user 
 		err := fmt.Errorf("unknown access type: %s", user.AccessType)
 		return err
 	}
+	for _, role := range user.ExtraPrivileges {
+		grantRole := fmt.Sprintf("GRANT \"%s\" to \"%s\"", role, user.Username)
+		if err := m.executeQuery(ctx, grantRole, admin); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

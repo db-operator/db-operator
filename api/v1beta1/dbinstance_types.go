@@ -27,12 +27,14 @@ import (
 // DbInstanceSpec defines the desired state of DbInstance
 type DbInstanceSpec struct {
 	// Important: Run "make generate" to regenerate code after modifying this file
-	Engine           string                  `json:"engine"`
-	AdminUserSecret  NamespacedName          `json:"adminSecretRef"`
-	Backup           DbInstanceBackup        `json:"backup,omitempty"`
-	Monitoring       DbInstanceMonitoring    `json:"monitoring,omitempty"`
-	SSLConnection    DbInstanceSSLConnection `json:"sslConnection,omitempty"`
-	DbInstanceSource `json:",inline"`
+	Engine          string                  `json:"engine"`
+	AdminUserSecret NamespacedName          `json:"adminSecretRef"`
+	Backup          DbInstanceBackup        `json:"backup,omitempty"`
+	Monitoring      DbInstanceMonitoring    `json:"monitoring,omitempty"`
+	SSLConnection   DbInstanceSSLConnection `json:"sslConnection,omitempty"`
+	// A list of priveleges that are allowed to be set as Dbuser's extra priveleges
+	AllowedPriveleges []string `json:"allowedPriveleges,omitempty"`
+	DbInstanceSource  `json:",inline"`
 }
 
 // DbInstanceSource represents the source of a instance.
