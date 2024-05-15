@@ -1,11 +1,13 @@
 apiVersion: "kinda.rocks/v1beta1"
 kind: "DbUser"
 metadata:
-  name: postgres-readonly-x2
+  name: postgres-readonly-with-extra-roles
 spec:
   secretName: postgres-readonly-secret
   accessType: readOnly
   databaseRef: postgres-db
+  extraPrivileges:
+    - test_me
     #---
     #apiVersion: "kinda.rocks/v1beta1"
     #kind: "DbUser"
@@ -15,15 +17,18 @@ spec:
     #  secretName: postgres-readwrite-secret
     #  accessType: readWrite
     #  databaseRef: postgres-db
-    #---
-    #apiVersion: "kinda.rocks/v1beta1"
-    #kind: "DbUser"
-    #metadata:
-    #  name: mysql-readonly
-    #spec:
-    #  secretName: mysql-readonly-secret
-    #  accessType: readOnly
-    #  databaseRef: mysql-db
+---
+apiVersion: "kinda.rocks/v1beta1"
+kind: "DbUser"
+metadata:
+  name: mysql-extra
+spec:
+  secretName: mysql-readonly-secret-extra
+  accessType: readOnly
+  databaseRef: mysql-db
+  extraPrivileges:
+    - test_me
+
     #---
     #apiVersion: "kinda.rocks/v1beta1"
     #kind: "DbUser"

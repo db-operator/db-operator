@@ -23,10 +23,7 @@ import (
 
 	"github.com/db-operator/db-operator/pkg/test"
 	"github.com/stretchr/testify/assert"
-	"k8s.io/klog/v2/klogr"
 )
-
-var logger = klogr.New()
 
 func testMysql() (*Mysql, *DatabaseUser) {
 	return &Mysql{"local", test.GetMysqlHost(), test.GetMysqlPort(), "testdb", false, false}, &DatabaseUser{Username: "testuser", Password: "testpwd", AccessType: ACCESS_TYPE_MAINUSER}

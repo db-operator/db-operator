@@ -236,6 +236,12 @@ spec:
                 - Name
                 - Namespace
                 type: object
+              allowedPriveleges:
+                description: A list of priveleges that are allowed to be set as Dbuser's
+                  extra priveleges
+                items:
+                  type: string
+                type: array
               backup:
                 description: DbInstanceBackup defines name of google bucket to use
                   for storing database dumps for backup when backup is enabled

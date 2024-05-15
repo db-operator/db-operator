@@ -20,8 +20,10 @@ package v1beta1
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/db-operator/db-operator/internal/helpers/kube"
+	"github.com/db-operator/db-operator/pkg/consts"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/strings/slices"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -52,8 +54,22 @@ func (r *DbInstance) Default() {
 
 var _ webhook.Validator = &DbInstance{}
 
+func TestAllowedPrivileges(priveleges []string) error {
+	for _, privelege := range priveleges {
+		if strings.ToUpper(privelege) == consts.ALL_PRIVILEGES {
+			return errors.New("it's not allowed to grant ALL PRIVILEGES")
+
+		}
+	}
+	return nil
+}
+
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *DbInstance) ValidateCreate() (admission.Warnings, error) {
+	if err := TestAllowedPrivileges(r.Spec.AllowedPriveleges); err != nil {
+		return nil, err
+	}
+
 	if r.Spec.Google != nil {
 		fmt.Println("Google instances are deprecated, and will be removed in v1beta2")
 	}
@@ -69,6 +85,10 @@ func (r *DbInstance) ValidateCreate() (admission.Warnings, error) {
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *DbInstance) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
+	if err := TestAllowedPrivileges(r.Spec.AllowedPriveleges); err != nil {
+		return nil, err
+	}
+
 	if r.Spec.Google != nil {
 		fmt.Println("Google instances are deprecated, and will be removed in v1beta2")
 	}

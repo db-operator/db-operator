@@ -31,9 +31,24 @@ type DbUserSpec struct {
 	// Currently only readOnly and readWrite are supported by the operator
 	AccessType string `json:"accessType"`
 	// SecretName name that should be used to save user's credentials
-	SecretName  string      `json:"secretName"`
-	Credentials Credentials `json:"credentials,omitempty"`
-	Cleanup     bool        `json:"cleanup,omitempty"`
+	SecretName string `json:"secretName"`
+	// A list of additional roles that should be added to the user
+	ExtraPrivileges []string    `json:"extraPrivileges,omitempty"`
+	Credentials     Credentials `json:"credentials,omitempty"`
+	Cleanup         bool        `json:"cleanup,omitempty"`
+	// Should the user be granted to the admin user
+	// For example, it should be set to true on Azure instance,
+	// because the admin given by them is not a super user,
+	// but should be set to false on AWS, when rds_iam extra
+	// privilege is added
+	// By default is set to true
+	// Only applies to Postgres, doesn't have any effect on Mysql
+	// TODO: Default should be false, but not to introduce breaking 
+	//       changes it's now set to true. It should be changed in 
+	//       in the next API version
+	// +kubebuilder:default=true
+	// +optional
+	GrantToAdmin bool `json:"grantTokAdmin"`
 }
 
 // DbUserStatus defines the observed state of DbUser
