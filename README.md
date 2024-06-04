@@ -40,8 +40,8 @@ $ helm search repo kloeckneri-old/ --versions
 ### To install DB Operator with helm:
 
 ```
-$ helm repo add kloeckneri https://kloeckner-i.github.io/charts/
-$ helm install --name my-release kloeckneri/db-operator
+$ helm repo add db-operator https://db-operator.github.io/charts/
+$ helm install --name my-release db-operator/db-operator
 ```
 
 To see more options of helm values, [see chart repo]([https://github.com/db-operator/charts/tree/main/charts/db-operator])
@@ -101,7 +101,7 @@ $ make build
 $ make k3d_setup
 ```
 
-or 
+or
 
 ```
 $ make k3s_mac_lima_create
@@ -121,9 +121,9 @@ $ make k3s_mac_image
 ### Deploy
 
 ```
-helm repo add kloeckneri https://kloeckner-i.github.io/charts
+helm repo add db-operator https://db-operator.github.io/charts
 helm repo update
-helm upgrade my-release kloeckneri/db-operator --set image.repository=my-db-operator --set image.tag=1.0.0-dev --set image.pullPolicy=IfNotPresent --install
+helm upgrade my-release db-operator/db-operator --set image.repository=my-db-operator --set image.tag=1.0.0-dev --set image.pullPolicy=IfNotPresent --install
 ```
 
 ### Run unit test locally
