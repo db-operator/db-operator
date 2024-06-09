@@ -29,6 +29,10 @@ func testPostgres() (*Postgres, *DatabaseUser) {
 		Username:   "testuser",
 		Password:   "testpassword",
 		AccessType: ACCESS_TYPE_MAINUSER,
+		// Without this grant "Azure" test won't pass
+		// Since the default user is admin anyway, this grant
+		// doesn't change anything
+		GrantToAdmin: true,
 	}
 
 	return &Postgres{
@@ -199,9 +203,10 @@ func TestPostgresReadOnlyUserLifecycle(t *testing.T) {
 	assert.NoError(t, p.createSchemas(context.TODO(), admin))
 	assert.NoError(t, p.setUserPermission(context.TODO(), admin, dbu))
 	readonlyUser := &DatabaseUser{
-		Username:   "readonly",
-		Password:   "123123",
-		AccessType: ACCESS_TYPE_READONLY,
+		Username:     "readonly",
+		Password:     "123123",
+		AccessType:   ACCESS_TYPE_READONLY,
+		GrantToAdmin: true,
 	}
 
 	createTable := `CREATE TABLE permtest.test_1 (
@@ -276,9 +281,10 @@ func TestPostgresReadWriteUserLifecycle(t *testing.T) {
 	assert.NoError(t, p.createSchemas(context.TODO(), admin))
 	assert.NoError(t, p.setUserPermission(context.TODO(), admin, dbu))
 	readwriteUser := &DatabaseUser{
-		Username:   "readwrite",
-		Password:   "123123",
-		AccessType: ACCESS_TYPE_READWRITE,
+		Username:     "readwrite",
+		Password:     "123123",
+		AccessType:   ACCESS_TYPE_READWRITE,
+		GrantToAdmin: true,
 	}
 
 	createTable := `CREATE TABLE permtest.test_1 (
