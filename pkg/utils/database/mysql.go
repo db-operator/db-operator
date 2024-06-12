@@ -128,6 +128,7 @@ func (m Mysql) execAsUser(ctx context.Context, query string, user *DatabaseUser)
 func (m Mysql) isRowExist(ctx context.Context, query string, admin *DatabaseUser) bool {
 	log := log.FromContext(ctx)
 	db, err := m.getDbConn(ctx, admin.Username, admin.Password)
+
 	if err != nil {
 		log.Error(err, "failed to get db connection")
 		return false
