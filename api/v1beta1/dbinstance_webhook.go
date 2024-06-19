@@ -58,7 +58,6 @@ func TestAllowedPrivileges(priveleges []string) error {
 	for _, privelege := range priveleges {
 		if strings.ToUpper(privelege) == consts.ALL_PRIVILEGES {
 			return errors.New("it's not allowed to grant ALL PRIVILEGES")
-
 		}
 	}
 	return nil

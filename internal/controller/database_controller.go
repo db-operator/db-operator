@@ -267,7 +267,6 @@ func (r *DatabaseReconciler) handleDbCreateOrUpdate(ctx context.Context, dbcr *k
 	// Handle the secret creation
 	var dbSecret *corev1.Secret
 	dbSecret, err = r.getDatabaseSecret(ctx, dbcr)
-
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			if err := r.setEngine(ctx, dbcr); err != nil {
