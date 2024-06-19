@@ -4,3 +4,7 @@ issues:
     - api
   exclude-files:
     - ".*_test.go"
+run:
+  modules-download-mode: readonly
+output:
+  show-stats: true
