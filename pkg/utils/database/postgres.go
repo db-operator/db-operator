@@ -51,7 +51,7 @@ type Postgres struct {
 	// A user that is created with the Database
 	//  it's required to set default priveleges
 	//  for additional users
-	MainUser     *DatabaseUser
+	MainUser *DatabaseUser
 }
 
 const postgresDefaultSSLMode = "disable"
