@@ -4,6 +4,8 @@ go 1.22.0
 
 toolchain go1.22.4
 
+replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.16
+
 require (
 	bou.ke/monkey v1.0.2
 	github.com/GoogleCloudPlatform/cloudsql-proxy v1.35.3
@@ -62,7 +64,7 @@ require (
 	github.com/google/s2a-go v0.1.7 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect
 	github.com/googleapis/gax-go/v2 v2.12.4 // indirect
-	github.com/imdario/mergo v0.3.16 // indirect
+	github.com/imdario/mergo v0.3.6 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
