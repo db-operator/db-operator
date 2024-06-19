@@ -81,7 +81,7 @@ lint: ## lint go code
 	@go mod tidy
 	test -s $(LOCALBIN)/golangci-lint || GOBIN=$(LOCALBIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@${GOLANGCI_LINT_VERSION}
 	$(LOCALBIN)/golangci-lint --version
-	$(LOCALBIN)/golangci-lint run ./...  --timeout 50s
+	$(LOCALBIN)/golangci-lint run ./...  --timeout 240s
 
 fmt: ## Format go code
 	@test -s $(LOCALBIN)/gofumpt || GOBIN=$(LOCALBIN) go install mvdan.cc/gofumpt@latest
