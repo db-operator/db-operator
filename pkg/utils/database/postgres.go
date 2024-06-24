@@ -49,7 +49,7 @@ type Postgres struct {
 	Schemas          []string
 	Template         string
 	// A user that is created with the Database
-	//  it's required to set default priveleges
+	//  it's required to set default privileges
 	//  for additional users
 	MainUser *DatabaseUser
 }
@@ -490,7 +490,7 @@ func (p Postgres) setUserPermission(ctx context.Context, admin *DatabaseUser, us
 		grant := fmt.Sprintf("GRANT ALL PRIVILEGES ON DATABASE \"%s\" TO \"%s\";", p.Database, user.Username)
 		err := p.executeExec(ctx, "postgres", grant, admin)
 		if err != nil {
-			log.Error(err, "failed granting all priveleges to user", "query", grant)
+			log.Error(err, "failed granting all privileges to user", "query", grant)
 			return err
 		}
 		grantCreateToAdmin := fmt.Sprintf("GRANT CREATE ON DATABASE \"%s\" to \"%s\";", p.Database, admin.Username)

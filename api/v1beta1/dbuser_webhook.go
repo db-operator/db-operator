@@ -62,9 +62,9 @@ func (r *DbUser) ValidateCreate() (admission.Warnings, error) {
 	return warnings, nil
 }
 
-func TestExtraPrivileges(priveleges []string) error {
-	for _, privelege := range priveleges {
-		if strings.ToUpper(privelege) == consts.ALL_PRIVILEGES {
+func TestExtraPrivileges(privileges []string) error {
+	for _, privilege := range privileges {
+		if strings.ToUpper(privilege) == consts.ALL_PRIVILEGES {
 			return errors.New("it's not allowed to grant ALL PRIVILEGES")
 		}
 	}
@@ -102,7 +102,7 @@ func (r *DbUser) ValidateUpdate(old runtime.Object) (admission.Warnings, error) 
 		if !slices.Contains(r.Spec.ExtraPrivileges, role) {
 			warnings = append(
 				warnings,
-				fmt.Sprintf("extra priveleges can't be removed by the operator, please manualy revoke %s from the user %s",
+				fmt.Sprintf("extra privileges can't be removed by the operator, please manualy revoke %s from the user %s",
 					role, r.Name),
 			)
 		}

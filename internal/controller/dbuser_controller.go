@@ -126,9 +126,9 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
 		return r.manageError(ctx, dbusercr, err, false)
 	}
-	// Check if chosen ExtraPriveleges are allowed on the instance
+	// Check if chosen ExtraPrivileges are allowed on the instance
 	for _, priv := range dbusercr.Spec.ExtraPrivileges {
-		if !slices.Contains(instance.Spec.AllowedPriveleges, priv) {
+		if !slices.Contains(instance.Spec.AllowedPrivileges, priv) {
 			err := fmt.Errorf("role %s is not allowed on the instance %s", priv, instance.Name)
 			return r.manageError(ctx, dbusercr, err, false)
 		}
