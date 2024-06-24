@@ -57,6 +57,6 @@ const (
 	USED_BY_NAME_LABEL_KEY = "kinda.rocks/used-by-name"
 )
 
-// Priveleges
+// Privileges
 
 const ALL_PRIVILEGES = "ALL PRIVILEGES"

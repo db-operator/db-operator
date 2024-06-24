@@ -236,9 +236,9 @@ spec:
                 - Name
                 - Namespace
                 type: object
-              allowedPriveleges:
-                description: A list of priveleges that are allowed to be set as Dbuser's
-                  extra priveleges
+              allowedPrivileges:
+                description: A list of privileges that are allowed to be set as Dbuser's
+                  extra privileges
                 items:
                   type: string
                 type: array

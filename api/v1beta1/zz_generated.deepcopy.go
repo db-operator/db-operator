@@ -329,8 +329,8 @@ func (in *DbInstanceSpec) DeepCopyInto(out *DbInstanceSpec) {
 	out.Backup = in.Backup
 	out.Monitoring = in.Monitoring
 	out.SSLConnection = in.SSLConnection
-	if in.AllowedPriveleges != nil {
-		in, out := &in.AllowedPriveleges, &out.AllowedPriveleges
+	if in.AllowedPrivileges != nil {
+		in, out := &in.AllowedPrivileges, &out.AllowedPrivileges
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}

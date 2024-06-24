@@ -54,9 +54,9 @@ func (r *DbInstance) Default() {
 
 var _ webhook.Validator = &DbInstance{}
 
-func TestAllowedPrivileges(priveleges []string) error {
-	for _, privelege := range priveleges {
-		if strings.ToUpper(privelege) == consts.ALL_PRIVILEGES {
+func TestAllowedPrivileges(privileges []string) error {
+	for _, privilege := range privileges {
+		if strings.ToUpper(privilege) == consts.ALL_PRIVILEGES {
 			return errors.New("it's not allowed to grant ALL PRIVILEGES")
 		}
 	}
@@ -65,7 +65,7 @@ func TestAllowedPrivileges(priveleges []string) error {
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *DbInstance) ValidateCreate() (admission.Warnings, error) {
-	if err := TestAllowedPrivileges(r.Spec.AllowedPriveleges); err != nil {
+	if err := TestAllowedPrivileges(r.Spec.AllowedPrivileges); err != nil {
 		return nil, err
 	}
 
@@ -84,7 +84,7 @@ func (r *DbInstance) ValidateCreate() (admission.Warnings, error) {
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *DbInstance) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
-	if err := TestAllowedPrivileges(r.Spec.AllowedPriveleges); err != nil {
+	if err := TestAllowedPrivileges(r.Spec.AllowedPrivileges); err != nil {
 		return nil, err
 	}
 
