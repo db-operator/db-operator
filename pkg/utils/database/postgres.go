@@ -429,7 +429,12 @@ func (p Postgres) createOrUpdateUser(ctx context.Context, admin *DatabaseUser, u
 
 func (p Postgres) createUser(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error {
 	log := log.FromContext(ctx)
-	create := fmt.Sprintf("CREATE USER \"%s\" WITH ENCRYPTED PASSWORD '%s' NOSUPERUSER;", user.Username, user.Password)
+	var create string
+	if user.Username != p.MainUser.Username {
+		create = fmt.Sprintf("CREATE USER \"%s\" WITH ENCRYPTED PASSWORD '%s' NOINHERIT NOSUPERUSER;", user.Username, user.Password)
+	} else {
+		create = fmt.Sprintf("CREATE USER \"%s\" WITH ENCRYPTED PASSWORD '%s' NOSUPERUSER;", user.Username, user.Password)
+	}
 
 	if !p.isUserExist(ctx, admin, user) {
 		err := p.executeExec(ctx, "postgres", create, admin)
@@ -451,7 +456,12 @@ func (p Postgres) createUser(ctx context.Context, admin *DatabaseUser, user *Dat
 
 func (p Postgres) updateUser(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error {
 	log := log.FromContext(ctx)
-	update := fmt.Sprintf("ALTER ROLE \"%s\" WITH ENCRYPTED PASSWORD '%s';", user.Username, user.Password)
+	var update string
+	if user.Username != p.MainUser.Username {
+		update = fmt.Sprintf("ALTER ROLE \"%s\" WITH ENCRYPTED PASSWORD '%s' NOINHERIT;", user.Username, user.Password)
+	} else {
+		update = fmt.Sprintf("ALTER ROLE \"%s\" WITH ENCRYPTED PASSWORD '%s';", user.Username, user.Password)
+	}
 
 	if !p.isUserExist(ctx, admin, user) {
 		err := fmt.Errorf("user doesn't exist yet: %s", user.Username)
