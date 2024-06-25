@@ -48,7 +48,7 @@ type DbUserSpec struct {
 	//       in the next API version
 	// +kubebuilder:default=true
 	// +optional
-	GrantToAdmin bool `json:"grantTokAdmin"`
+	GrantToAdmin bool `json:"grantToAdmin"`
 }
 
 // DbUserStatus defines the observed state of DbUser
