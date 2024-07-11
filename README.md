@@ -61,7 +61,6 @@ To see which version is working together check out our [version matrix](https://
 To have kubernetes environment locally, you need to install [k3d](https://github.com/rancher/k3d).
 
 
-#### makefile help
 
 ```
 addexamples           add examples via kubectl create -f examples/

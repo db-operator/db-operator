@@ -24,7 +24,7 @@ import (
 	"html/template"
 	"strings"
 
-	"github.com/db-operator/db-operator/api/v1beta1"
+	"github.com/db-operator/db-operator/api/v1beta2"
 	"github.com/db-operator/db-operator/pkg/consts"
 	"github.com/db-operator/db-operator/pkg/types"
 	"github.com/db-operator/db-operator/pkg/utils/database"
@@ -33,19 +33,16 @@ import (
 	"k8s.io/utils/strings/slices"
 )
 
-func (tds *TemplateDataSources) Render(templates v1beta1.Templates) error {
+func (tds *TemplateDataSources) Render(templates v1beta2.Templates) error {
 	var currentTemplatesSec []string
-	var currentTemplatesCm []string
 	result := map[string][]byte{}
 
 	// Get the last applied data
 	lastAppliedSecret := getPreviouslyApplied(tds.SecretK8sObj.GetAnnotations())
-	lastAppliedConfigMap := getPreviouslyApplied(tds.ConfigMapK8sObj.GetAnnotations())
 
 	// Populate the blocked data
 	// It's requred to get keys that were not added by templates
 	blockedSecretData := getBlockedData(tds.SecretK8sObj.Data, lastAppliedSecret)
-	blockedConfigMapData := getBlockedData(tds.ConfigMapK8sObj.Data, lastAppliedConfigMap)
 
 	for _, tmpl := range templates {
 		t, err := template.New(tmpl.Name).Parse(tmpl.Template)
@@ -60,35 +57,20 @@ func (tds *TemplateDataSources) Render(templates v1beta1.Templates) error {
 		}
 
 		result[tmpl.Name] = tmplRes.Bytes()
-		if tmpl.Secret {
-			if !isBlocked(blockedSecretData, tmpl.Name) {
-				currentTemplatesSec = append(currentTemplatesSec, tmpl.Name)
-				tds.SecretK8sObj.Data[tmpl.Name] = tmplRes.Bytes()
-			} else {
-				return fmt.Errorf("%s already exists in the secret", tmpl.Name)
-			}
+		if !isBlocked(blockedSecretData, tmpl.Name) {
+			currentTemplatesSec = append(currentTemplatesSec, tmpl.Name)
+			tds.SecretK8sObj.Data[tmpl.Name] = tmplRes.Bytes()
 		} else {
-			if !isBlocked(blockedConfigMapData, tmpl.Name) {
-				currentTemplatesCm = append(currentTemplatesCm, tmpl.Name)
-				tds.ConfigMapK8sObj.Data[tmpl.Name] = tmplRes.String()
-			} else {
-				return fmt.Errorf("%s already exists in the configmap", tmpl.Name)
-			}
+			return fmt.Errorf("%s already exists in the secret", tmpl.Name)
 		}
 
 	}
 	cleanUpData(tds.SecretK8sObj.Data, lastAppliedSecret, currentTemplatesSec)
-	cleanUpData(tds.ConfigMapK8sObj.Data, lastAppliedConfigMap, currentTemplatesCm)
 
 	tds.SecretK8sObj.ObjectMeta.Annotations[consts.TEMPLATE_ANNOTATION_KEY] = strings.Join(currentTemplatesSec, ",")
-	tds.ConfigMapK8sObj.ObjectMeta.Annotations[consts.TEMPLATE_ANNOTATION_KEY] = strings.Join(currentTemplatesCm, ",")
 
 	if len(tds.SecretK8sObj.ObjectMeta.Annotations[consts.TEMPLATE_ANNOTATION_KEY]) == 0 {
 		delete(tds.SecretK8sObj.ObjectMeta.Annotations, consts.TEMPLATE_ANNOTATION_KEY)
-	}
-
-	if len(tds.ConfigMapK8sObj.ObjectMeta.Annotations[consts.TEMPLATE_ANNOTATION_KEY]) == 0 {
-		delete(tds.ConfigMapK8sObj.ObjectMeta.Annotations, consts.TEMPLATE_ANNOTATION_KEY)
 	}
 
 	return nil
@@ -127,8 +109,8 @@ func isBlocked(blockedKeys []string, key string) bool {
 
 // TemplateDataSource  should be only the database resource
 type TemplateDataSources struct {
-	DatabaseK8sObj  *v1beta1.Database
-	DbUserK8sObj    *v1beta1.DbUser
+	DatabaseK8sObj  *v1beta2.Database
+	DbUserK8sObj    *v1beta2.DbUser
 	SecretK8sObj    *corev1.Secret
 	ConfigMapK8sObj *corev1.ConfigMap
 	DatabaseObj     database.Database
@@ -139,8 +121,8 @@ type TemplateDataSources struct {
 // that can be later used by applications.
 // If DbUser (second argument) is provided, the templater will be working with a secret that belongs to a dbuser
 func NewTemplateDataSource(
-	databaseK8s *v1beta1.Database,
-	dbuserk8s *v1beta1.DbUser,
+	databaseK8s *v1beta2.Database,
+	dbuserk8s *v1beta2.DbUser,
 	secretK8s *corev1.Secret,
 	configmapK8s *corev1.ConfigMap,
 	db database.Database,
@@ -170,7 +152,7 @@ func NewTemplateDataSource(
 		return nil, fmt.Errorf("secret %s doesn't belong to the %s %s", secretK8s.Name, caller.GetObjectKind().GroupVersionKind().GroupKind().Kind, caller.GetName())
 	}
 
-	if configmapK8s.Name != databaseK8s.Spec.SecretName {
+	if configmapK8s.Name != databaseK8s.Spec.Credentials.SecretName {
 		return nil, fmt.Errorf("configmap %s doesn't belong to the database %s", secretK8s.Name, databaseK8s.Name)
 	}
 
@@ -192,7 +174,7 @@ func NewTemplateDataSource(
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- * Main getters funcions should be used to query the data
+ * Main getters functions should be used to query the data
  *  from main data source objects:
  *  - Secret
  *  - ConfigMap
@@ -216,7 +198,7 @@ func (tds *TemplateDataSources) ConfigMap(entry string) (string, error) {
 
 // Get the data directly from the database
 func (tds *TemplateDataSources) Query(query string) (string, error) {
-	result, err := tds.DatabaseObj.QueryAsUser(context.TODO(), query, tds.DatabaseUser)
+	result, err := tds.DatabaseObj.QueryAsUser(context.Background(), query, tds.DatabaseUser)
 	if err != nil {
 		return "", err
 	}
@@ -270,20 +252,12 @@ func (tds *TemplateDataSources) Database() (string, error) {
 
 // Hostname
 func (tds *TemplateDataSources) Hostname() (string, error) {
-	if !tds.DatabaseK8sObj.Status.ProxyStatus.Status {
-		dbAddress := tds.DatabaseObj.GetDatabaseAddress(context.TODO())
-		return dbAddress.Host, nil
-	} else {
-		return tds.DatabaseK8sObj.Status.ProxyStatus.ServiceName, nil
-	}
+	dbAddress := tds.DatabaseObj.GetDatabaseAddress(context.Background())
+	return dbAddress.Host, nil
 }
 
 // Port
 func (tds *TemplateDataSources) Port() (int32, error) {
-	if !tds.DatabaseK8sObj.Status.ProxyStatus.Status {
-		dbAddress := tds.DatabaseObj.GetDatabaseAddress(context.TODO())
-		return int32(dbAddress.Port), nil
-	} else {
-		return tds.DatabaseK8sObj.Status.ProxyStatus.SQLPort, nil
-	}
+	dbAddress := tds.DatabaseObj.GetDatabaseAddress(context.Background())
+	return int32(dbAddress.Port), nil
 }

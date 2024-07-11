@@ -83,7 +83,7 @@ type DatabaseBackup struct {
 // +kubebuilder:printcolumn:name="DBInstance",type=string,JSONPath=`.spec.instance`,description="instance reference"
 // +kubebuilder:printcolumn:name="OperatorVersion",type=string,JSONPath=`.status.operatorVersion`,description="db-operator version of last full reconcile"
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`,description="time since creation of resource"
-// +kubebuilder:storageversion
+
 // Database is the Schema for the databases API
 type Database struct {
 	metav1.TypeMeta   `json:",inline"`
