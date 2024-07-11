@@ -19,7 +19,9 @@ package v1beta1
 import (
 	"fmt"
 
+	"github.com/db-operator/db-operator/api/v1beta2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
 // DbUserSpec defines the desired state of DbUser
@@ -119,4 +121,54 @@ func (dbu *DbUser) IsDeleted() bool {
 
 func (dbu *DbUser) GetSecretName() string {
 	return dbu.Spec.SecretName
+}
+
+// ConvertTo converts this v1beta1 to v1beta2. (upgrade)
+func (dbuser *DbUser) ConvertTo(dstRaw conversion.Hub) error {
+	dst := dstRaw.(*v1beta2.DbUser)
+	dst.ObjectMeta = dbuser.ObjectMeta
+	var newTemplates v1beta2.Templates
+	for _, oldTemplate := range dbuser.Spec.Credentials.Templates {
+		newTemplates = append(newTemplates, &v1beta2.Template{
+			Name:     oldTemplate.Name,
+			Template: oldTemplate.Template,
+		})
+	}
+	dst.Spec = v1beta2.DbUserSpec{
+		DatabaseRef:     dbuser.Spec.DatabaseRef,
+		AccessType:      dbuser.Spec.AccessType,
+		ExtraPrivileges: dbuser.Spec.ExtraPrivileges,
+		Credentials: v1beta2.Credentials{
+			SecretName:        dbuser.Spec.SecretName,
+			SetOwnerReference: dbuser.Spec.Cleanup,
+			Templates:         newTemplates,
+		},
+		GrantToAdmin: dbuser.Spec.GrantToAdmin,
+	}
+	return nil
+}
+
+// ConvertFrom converts from the Hub version (v1beta2) to (v1beta1). (downgrade)
+func (dst *DbUser) ConvertFrom(srcRaw conversion.Hub) error {
+	dbuser := srcRaw.(*v1beta2.DbUser)
+	dst.ObjectMeta = dbuser.ObjectMeta
+	var newTemplates Templates
+	for _, oldTemplate := range dbuser.Spec.Credentials.Templates {
+		newTemplates = append(newTemplates, &Template{
+			Name:     oldTemplate.Name,
+			Template: oldTemplate.Template,
+		})
+	}
+	dst.Spec = DbUserSpec{
+		DatabaseRef:     dbuser.Spec.DatabaseRef,
+		AccessType:      dbuser.Spec.AccessType,
+		ExtraPrivileges: dbuser.Spec.ExtraPrivileges,
+		SecretName:      dbuser.Spec.Credentials.SecretName,
+		Cleanup:         dbuser.Spec.Credentials.SetOwnerReference,
+		Credentials: Credentials{
+			Templates: newTemplates,
+		},
+		GrantToAdmin: dbuser.Spec.GrantToAdmin,
+	}
+	return nil
 }

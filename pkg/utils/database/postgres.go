@@ -37,7 +37,6 @@ import (
 // represents a database on postgres instance
 // can be used to execute query to postgres database
 type Postgres struct {
-	Backend          string
 	Host             string
 	Port             uint16
 	Database         string
@@ -81,14 +80,7 @@ func (p Postgres) sslMode() string {
 
 func (p Postgres) getDbConn(dbname, user, password string) (*sql.DB, error) {
 	var db *sql.DB
-	var sqldriver string
-
-	switch p.Backend {
-	case "google":
-		sqldriver = "cloudsqlpostgres"
-	default:
-		sqldriver = "postgres"
-	}
+	sqldriver := "postgres"
 
 	dataSourceName := fmt.Sprintf("host=%s port=%d dbname=%s user=%s password=%s sslmode=%s", p.Host, p.Port, dbname, user, password, p.sslMode())
 	db, err := sql.Open(sqldriver, dataSourceName)
@@ -256,8 +248,7 @@ func (p Postgres) checkExtensions(ctx context.Context, user *DatabaseUser) error
 
 // Functions that implement the `Database` interface
 
-// CheckStatus checks status of postgres database
-// if the connection to database works
+// Check whether db-operator is able to connect to a postgres server
 func (p Postgres) CheckStatus(ctx context.Context, user *DatabaseUser) error {
 	db, err := p.getDbConn(p.Database, user.Username, user.Password)
 	if err != nil {
