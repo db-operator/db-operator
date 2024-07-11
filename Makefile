@@ -77,8 +77,7 @@ build: ## Build a container
 # ---------------------------------------------------------------------
 lint: ## lint go code
 	echo "desired golangci-lint version is ${GOLANGCI_LINT_VERSION}"
-	@go get -u all
-	@go mod tidy
+	@go get all
 	test -s $(LOCALBIN)/golangci-lint || GOBIN=$(LOCALBIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@${GOLANGCI_LINT_VERSION}
 	$(LOCALBIN)/golangci-lint --version
 	$(LOCALBIN)/golangci-lint run ./...  --timeout 240s
