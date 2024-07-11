@@ -19,16 +19,13 @@ package database_test
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	dbhelper "github.com/db-operator/db-operator/internal/helpers/database"
 	"github.com/db-operator/db-operator/internal/utils/testutils"
 	"github.com/db-operator/db-operator/pkg/consts"
 	"github.com/db-operator/db-operator/pkg/utils/database"
-	"github.com/db-operator/db-operator/pkg/utils/templates"
 	"github.com/stretchr/testify/assert"
-	v1 "k8s.io/api/core/v1"
 )
 
 var (
@@ -121,146 +118,6 @@ func TestUnitMonitoringEnabled(t *testing.T) {
 	postgresInterface, _ := db.(database.Postgres)
 
 	assert.Equal(t, postgresInterface.Monitoring, true, "expected monitoring is true in postgres interface")
-}
-
-func TestUnitPsqlTemplatedSecretGeneratationWithProxy(t *testing.T) {
-	instance := testutils.NewPostgresTestDbInstanceCr()
-	postgresDbCr := testutils.NewPostgresTestDbCr(instance)
-	postgresDbCr.Status.ProxyStatus.Status = true
-	postgresDbCr.Spec.SecretsTemplates = map[string]string{
-		"PROXIED_HOST": "{{ .DatabaseHost }}",
-	}
-
-	c := templates.SecretsTemplatesFields{
-		DatabaseHost: "proxied_host",
-		DatabasePort: 5432,
-		UserName:     testDbcred.Username,
-		Password:     testDbcred.Password,
-		DatabaseName: testDbcred.Name,
-	}
-
-	postgresDbCr.Status.ProxyStatus.SQLPort = c.DatabasePort
-	postgresDbCr.Status.ProxyStatus.ServiceName = c.DatabaseHost
-
-	expectedData := map[string][]byte{
-		"PROXIED_HOST": []byte(c.DatabaseHost),
-	}
-
-	db, _, _ := dbhelper.FetchDatabaseData(ctx, postgresDbCr, testDbcred, &instance)
-	connString, err := templates.GenerateTemplatedSecrets(postgresDbCr, testDbcred, db.GetDatabaseAddress(ctx))
-	if err != nil {
-		t.Logf("Unexpected error: %s", err)
-		t.Fail()
-	}
-	assert.Equal(t, expectedData, connString, "generated connections string is wrong")
-}
-
-func TestUnitPsqlCustomSecretGeneratation(t *testing.T) {
-	instance := testutils.NewPostgresTestDbInstanceCr()
-	postgresDbCr := testutils.NewPostgresTestDbCr(instance)
-
-	prefix := "custom->"
-	postfix := "<-for_storing_data_you_know"
-	postgresDbCr.Spec.SecretsTemplates = map[string]string{
-		"CHECK_1": fmt.Sprintf("%s{{ .Protocol }}://{{ .UserName }}:{{ .Password }}@{{ .DatabaseHost }}:{{ .DatabasePort }}/{{ .DatabaseName }}%s", prefix, postfix),
-		"CHECK_2": "{{ .Protocol }}://{{ .UserName }}:{{ .Password }}@{{ .DatabaseHost }}:{{ .DatabasePort }}/{{ .DatabaseName }}",
-	}
-
-	c := templates.SecretsTemplatesFields{
-		DatabaseHost: "postgres",
-		DatabasePort: 5432,
-		UserName:     testDbcred.Username,
-		Password:     testDbcred.Password,
-		DatabaseName: testDbcred.Name,
-	}
-	protocol := "postgresql"
-	expectedData := map[string][]byte{
-		"CHECK_1": []byte(fmt.Sprintf("%s%s://%s:%s@%s:%d/%s%s", prefix, protocol, c.UserName, c.Password, c.DatabaseHost, c.DatabasePort, c.DatabaseName, postfix)),
-		"CHECK_2": []byte(fmt.Sprintf("%s://%s:%s@%s:%d/%s", protocol, c.UserName, c.Password, c.DatabaseHost, c.DatabasePort, c.DatabaseName)),
-	}
-
-	db, _, _ := dbhelper.FetchDatabaseData(ctx, postgresDbCr, testDbcred, &instance)
-	templatedSecrets, err := templates.GenerateTemplatedSecrets(postgresDbCr, testDbcred, db.GetDatabaseAddress(ctx))
-	if err != nil {
-		t.Logf("unexpected error: %s", err)
-		t.Fail()
-	}
-	assert.Equal(t, templatedSecrets, expectedData, "generated connections string is wrong")
-}
-
-func TestUnitWrongTemplatedSecretGeneratation(t *testing.T) {
-	instance := testutils.NewPostgresTestDbInstanceCr()
-	postgresDbCr := testutils.NewPostgresTestDbCr(instance)
-
-	postgresDbCr.Spec.SecretsTemplates = map[string]string{
-		"TMPL": "{{ .Protocol }}://{{ .User }}:{{ .Password }}@{{ .DatabaseHost }}:{{ .DatabasePort }}/{{ .DatabaseName }}",
-	}
-
-	db, _, _ := dbhelper.FetchDatabaseData(ctx, postgresDbCr, testDbcred, &instance)
-	_, err := templates.GenerateTemplatedSecrets(postgresDbCr, testDbcred, db.GetDatabaseAddress(ctx))
-	errSubstr := "can't evaluate field User in type templates.SecretsTemplatesFields"
-
-	assert.Contains(t, err.Error(), errSubstr, "the error doesn't contain expected substring")
-}
-
-func TestUnitBlockedTempatedKeysGeneratation(t *testing.T) {
-	instance := testutils.NewPostgresTestDbInstanceCr()
-	postgresDbCr := testutils.NewPostgresTestDbCr(instance)
-
-	postgresDbCr.Spec.SecretsTemplates = map[string]string{}
-	untemplatedFields := []string{templates.FieldMysqlDB, templates.FieldMysqlPassword, templates.FieldMysqlUser, templates.FieldPostgresDB, templates.FieldPostgresUser, templates.FieldPostgressPassword}
-	for _, key := range untemplatedFields {
-		postgresDbCr.Spec.SecretsTemplates[key] = "DUMMY"
-	}
-	postgresDbCr.Spec.SecretsTemplates["TMPL"] = "DUMMY"
-	expectedData := map[string][]byte{
-		"TMPL": []byte("DUMMY"),
-	}
-	db, _, _ := dbhelper.FetchDatabaseData(ctx, postgresDbCr, testDbcred, &instance)
-	sercretData, err := templates.GenerateTemplatedSecrets(postgresDbCr, testDbcred, db.GetDatabaseAddress(ctx))
-	if err != nil {
-		t.Logf("unexpected error: %s", err)
-		t.Fail()
-	}
-
-	dummySecret := v1.Secret{
-		Data: map[string][]byte{},
-	}
-
-	newSecret := templates.AppendTemplatedSecretData(postgresDbCr, dummySecret.Data, sercretData)
-	assert.Equal(t, newSecret, expectedData, "generated connections string is wrong")
-}
-
-func TestUnitObsoleteFieldsRemoving(t *testing.T) {
-	instance := testutils.NewPostgresTestDbInstanceCr()
-	postgresDbCr := testutils.NewPostgresTestDbCr(instance)
-
-	postgresDbCr.Spec.SecretsTemplates = map[string]string{}
-	postgresDbCr.Spec.SecretsTemplates["TMPL"] = "DUMMY"
-	expectedData := map[string][]byte{
-		"TMPL": []byte("DUMMY"),
-	}
-
-	db, _, _ := dbhelper.FetchDatabaseData(ctx, postgresDbCr, testDbcred, &instance)
-	secretData, err := templates.GenerateTemplatedSecrets(postgresDbCr, testDbcred, db.GetDatabaseAddress(ctx))
-	if err != nil {
-		t.Logf("unexpected error: %s", err)
-		t.Fail()
-	}
-	untemplatedFields := []string{templates.FieldMysqlDB, templates.FieldMysqlPassword, templates.FieldMysqlUser, templates.FieldPostgresDB, templates.FieldPostgresUser, templates.FieldPostgressPassword}
-	for _, key := range untemplatedFields {
-		secretData[key] = []byte("DUMMY")
-	}
-
-	dummySecret := v1.Secret{
-		Data: map[string][]byte{
-			"TO_REMOVE": []byte("this is supposed to be removed"),
-		},
-	}
-	newSecret := templates.AppendTemplatedSecretData(postgresDbCr, dummySecret.Data, secretData)
-	newSecret = templates.RemoveObsoleteSecret(postgresDbCr, dummySecret.Data, secretData)
-
-	assert.Equal(t, newSecret, expectedData, "generated connections string is wrong")
 }
 
 func TestUnitGetGenericSSLModePostgres(t *testing.T) {

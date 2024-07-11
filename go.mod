@@ -7,12 +7,12 @@ toolchain go1.22.4
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.16
 
 require (
-	bou.ke/monkey v1.0.2
+	bou.ke/monkey v1.0.2 // indirect
 	github.com/GoogleCloudPlatform/cloudsql-proxy v1.35.4
 	github.com/db-operator/can-haz-password v0.1.1
 	github.com/go-logr/logr v1.4.2
 	github.com/go-sql-driver/mysql v1.8.1
-	github.com/google/uuid v1.6.0
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/lib/pq v1.10.9
 	github.com/mitchellh/hashstructure v1.1.0
 	github.com/onsi/ginkgo/v2 v2.19.0
@@ -22,8 +22,8 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/exp v0.0.0-20240707233637-46b078467d37
-	golang.org/x/oauth2 v0.21.0
-	google.golang.org/api v0.188.0
+	golang.org/x/oauth2 v0.21.0 // indirect
+	google.golang.org/api v0.188.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.30.2
 	k8s.io/apiextensions-apiserver v0.30.2
