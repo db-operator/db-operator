@@ -128,6 +128,10 @@ envtest: ## Download envtest-setup locally if necessary.
 # ---------------------------------------------------------------------
 # -- Additional helpers
 # ---------------------------------------------------------------------
+
+desired_go_version: ## get a desired go version from the Containerfile
+	@grep -o -P '(?<=golang:).*(?=-alpine)' Containerfile
+
 k3s_mac_lima_create: ## create local k8s using lima
 	limactl start --tty=false ./resources/lima/k3s.yaml
 
