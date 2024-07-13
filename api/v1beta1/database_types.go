@@ -20,9 +20,11 @@ package v1beta1
 import (
 	"fmt"
 
+	"github.com/db-operator/db-operator/api/v1beta2"
 	"github.com/db-operator/db-operator/pkg/consts"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
 // DatabaseSpec defines the desired state of Database
@@ -141,3 +143,65 @@ func (db *Database) InstanceAccessSecretName() string {
 
 // Function to mark the Database as a hub
 func (db *Database) Hub() {}
+
+// ConvertTo converts this v1beta1 to v1beta2. (upgrade)
+func (db *Database) ConvertTo(dstRaw conversion.Hub) error {
+	dst := dstRaw.(*v1beta2.Database)
+	var newTemplates v1beta2.Templates
+	for _, oldTemplate := range db.Spec.Credentials.Templates {
+		newTemplates = append(newTemplates, &v1beta2.Template{
+			Name:     oldTemplate.Name,
+			Template: oldTemplate.Template,
+		})
+	}
+
+	dst.ObjectMeta = db.ObjectMeta
+	dst.Spec = v1beta2.DatabaseSpec{
+		Instance:          db.Spec.Instance,
+		DeletionProtected: db.Spec.DeletionProtected,
+		Postgres: v1beta2.Postgres{
+			Extensions:       db.Spec.Postgres.Extensions,
+			DropPublicSchema: db.Spec.Postgres.DropPublicSchema,
+			Schemas:          db.Spec.Postgres.Schemas,
+			Params: v1beta2.PostgresDatabaseParams{
+				Template: db.Spec.Postgres.Template,
+			},
+		},
+		Credentials: v1beta2.Credentials{
+			SecretName:        db.Spec.SecretName,
+			SetOwnerReference: db.Spec.Cleanup,
+			Templates:         newTemplates,
+		},
+	}
+	return nil
+}
+
+// ConvertFrom converts from the Hub version (v1beta2) to (v1beta1). (downgrade)
+func (dst *Database) ConvertFrom(srcRaw conversion.Hub) error {
+	db := srcRaw.(*v1beta2.Database)
+	var newTemplates Templates
+	for _, oldTemplate := range db.Spec.Credentials.Templates {
+		newTemplates = append(newTemplates, &Template{
+			Name:     oldTemplate.Name,
+			Template: oldTemplate.Template,
+		})
+	}
+
+	dst.ObjectMeta = db.ObjectMeta
+	dst.Spec = DatabaseSpec{
+		SecretName:        db.Spec.Credentials.SecretName,
+		Instance:          db.Spec.Instance,
+		DeletionProtected: db.Spec.DeletionProtected,
+		Postgres: Postgres{
+			Extensions:       db.Spec.Postgres.Extensions,
+			DropPublicSchema: db.Spec.Postgres.DropPublicSchema,
+			Schemas:          db.Spec.Postgres.Schemas,
+			Template:         db.Spec.Postgres.Params.Template,
+		},
+		Cleanup: db.Spec.Credentials.SetOwnerReference,
+		Credentials: Credentials{
+			Templates: newTemplates,
+		},
+	}
+	return nil
+}
