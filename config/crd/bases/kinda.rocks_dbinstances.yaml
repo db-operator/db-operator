@@ -509,7 +509,9 @@ spec:
                 - mysql
                 type: string
               instanceData:
-                description: A connection data for the db-operator to find the server
+                description: |-
+                  A connection data for the db-operator to find the server
+                  It's immutable, if a dbinstance has Status.Connected = true
                 properties:
                   host:
                     type: string
@@ -551,6 +553,14 @@ spec:
                     - name
                     - namespace
                     type: object
+                type: object
+              monitoring:
+                description: DbInstanceMonitoring defines if exporter
+                properties:
+                  enabled:
+                    type: boolean
+                required:
+                - enabled
                 type: object
               sslConnection:
                 description: DbInstanceSSLConnection defines weather connection from

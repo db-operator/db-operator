@@ -147,7 +147,24 @@ spec:
     storage: false
     subresources:
       status: {}
-  - name: v1beta2
+  - additionalPrinterColumns:
+    - description: current dbuser status
+      jsonPath: .status.status
+      name: Status
+      type: boolean
+    - description: To which database user should have access
+      jsonPath: .spec.databaseRef
+      name: DatabaseName
+      type: string
+    - description: A type of access the user has
+      jsonPath: .spec.accessType
+      name: AccessType
+      type: string
+    - description: time since creation of resos¡urce
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1beta2
     schema:
       openAPIV3Schema:
         description: DbUser is the Schema for the dbusers API
@@ -172,13 +189,87 @@ spec:
           spec:
             description: DbUserSpec defines the desired state of DbUser
             properties:
-              foo:
-                description: Foo is an example field of DbUser. Edit dbuser_types.go
-                  to remove/update
+              accessType:
+                description: |-
+                  AccessType that should be given to a user
+                  Currently only readOnly and readWrite are supported by the operator
                 type: string
+              credentials:
+                description: Credentials should be used to setup everything relates
+                  to k8s secrets and configmaps
+                properties:
+                  secretName:
+                    description: A secret with database credentials
+                    type: string
+                  setOwnerReference:
+                    description: |-
+                      When set to true, a secret with credentials will have
+                      an owner reference of a Database CR. That means that once
+                      a Database is removed, the secret will follow
+                    type: boolean
+                  templates:
+                    description: Templates to add custom entries to ConfigMaps and
+                      Secrets
+                    items:
+                      description: Tempaltes to add custom entries to ConfigMaps and
+                        Secrets
+                      properties:
+                        name:
+                          type: string
+                        template:
+                          type: string
+                      required:
+                      - name
+                      - template
+                      type: object
+                    type: array
+                required:
+                - secretName
+                - setOwnerReference
+                type: object
+              databaseRef:
+                description: |-
+                  DatabaseRef should contain a name of a Database to create a user there
+                  Database should be in the same namespace with the user
+                type: string
+              extraPrivileges:
+                description: A list of additional roles that should be added to the
+                  user
+                items:
+                  type: string
+                type: array
+              grantToAdmin:
+                default: false
+                description: |-
+                  Should the user be granted to the admin user
+                  For example, it should be set to true on Azure instance,
+                  because the admin given by them is not a super user,
+                  but should be set to false on AWS, when rds_iam extra
+                  privilege is added
+                  By default is set to true
+                  Only applies to Postgres, doesn't have any effect on Mysql
+                  TODO: Default should be false, but not to introduce breaking
+                        changes it's now set to true. It should be changed in
+                        in the next API version
+                type: boolean
+            required:
+            - accessType
+            - databaseRef
             type: object
           status:
             description: DbUserStatus defines the observed state of DbUser
+            properties:
+              created:
+                description: It's required to let the operator update users
+                type: boolean
+              database:
+                type: string
+              status:
+                type: boolean
+            required:
+            - created
+            - database
+            - status
             type: object
         type: object
     served: true

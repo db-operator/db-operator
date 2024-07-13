@@ -137,7 +137,6 @@ func (in *DatabaseList) DeepCopyObject() runtime.Object {
 func (in *DatabaseSpec) DeepCopyInto(out *DatabaseSpec) {
 	*out = *in
 	in.Postgres.DeepCopyInto(&out.Postgres)
-	out.Mysql = in.Mysql
 	in.Credentials.DeepCopyInto(&out.Credentials)
 }
 
