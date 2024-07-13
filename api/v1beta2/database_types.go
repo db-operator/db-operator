@@ -30,10 +30,10 @@ type DatabaseSpec struct {
 	Instance string `json:"instance"`
 	// If set to true, db-operator won't remove the database on the server
 	// when the Database resource is removed from Kubernetes
-	DeletionProtected bool        `json:"deletionProtected"`
-	Postgres          Postgres    `json:"postgres,omitempty"`
-	Mysql             Mysql       `json:"mysql,omitempty"`
-	Credentials       Credentials `json:"credentials,omitempty"`
+	DeletionProtected bool     `json:"deletionProtected"`
+	Postgres          Postgres `json:"postgres,omitempty"`
+	// Mysql             Mysql       `json:"mysql,omitempty"`
+	Credentials Credentials `json:"credentials,omitempty"`
 }
 
 // Postgres struct should be used to provide resource that only applicable to postgres
@@ -69,7 +69,7 @@ type PostgresDatabaseParams struct {
 	// or an integer encoding number, or DEFAULT to use the default encoding (namely, the encoding of the template database).
 	// The character sets supported by the PostgreSQL server are described in Section 24.3.1. See below for additional restrictions.
 	// (Only create)
-	Encoding string `json:"encoding,omitempty"`
+	// Encoding string `json:"encoding,omitempty"`
 }
 
 /*
@@ -91,7 +91,7 @@ type MysqlDatabaseParams struct {
 	Encryption MysqlEncryption `json:"encyption,omitempty"`
 }
 
-// +kubebuilder:validation:Enum:=Y,N
+// +kubebuilder:validation:Enum:=Y;N
 type MysqlEncryption string
 
 // DatabaseStatus defines the observed state of Database
