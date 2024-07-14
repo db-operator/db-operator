@@ -146,6 +146,7 @@ func TestPostgresMainUserLifecycle(t *testing.T) {
 	p, dbu := testPostgres()
 	p.Database = "maintest"
 	p.Schemas = []string{"permtest"}
+
 	assert.NoError(t, p.createDatabase(context.TODO(), admin))
 	assert.NoError(t, p.createSchemas(context.TODO(), admin))
 	assert.NoError(t, p.setUserPermission(context.TODO(), admin, dbu))
@@ -193,10 +194,11 @@ func TestPostgresMainUserLifecycle(t *testing.T) {
 	assert.NoError(t, p.execAsUser(context.TODO(), drop, dbu))
 }
 
-func TestPostgresReadOnlyUserLifecycle(t *testing.T) {
+func TestPostgresReadOnlyUserLifecycleNoAdminGrant(t *testing.T) {
 	// Test if it's created
 	admin := getPostgresAdmin()
 	p, dbu := testPostgres()
+	dbu.GrantToAdmin = false
 	p.Database = "readonlytest"
 	p.Schemas = []string{"permtest"}
 	assert.NoError(t, p.createDatabase(context.TODO(), admin))
@@ -271,10 +273,11 @@ func TestPostgresReadOnlyUserLifecycle(t *testing.T) {
 	assert.NoErrorf(t, err, "Unexpected error %v", err)
 }
 
-func TestPostgresReadWriteUserLifecycle(t *testing.T) {
+func TestPostgresReadWriteUserLifecycleNoAdminGrant(t *testing.T) {
 	// Test if it's created
 	admin := getPostgresAdmin()
 	p, dbu := testPostgres()
+	dbu.GrantToAdmin = false
 	p.Database = "readwritetest"
 	p.Schemas = []string{"permtest"}
 	assert.NoError(t, p.createDatabase(context.TODO(), admin))
@@ -352,6 +355,169 @@ func TestPostgresReadWriteUserLifecycle(t *testing.T) {
 	err = p.deleteUser(context.TODO(), admin, readwriteUser)
 	assert.NoErrorf(t, err, "Unexpected error %v", err)
 }
+
+func TestPostgresReadOnlyUserLifecycleAdminGrant(t *testing.T) {
+	// Test if it's created
+	admin := getPostgresAdmin()
+	p, dbu := testPostgres()
+	dbu.GrantToAdmin = true
+	p.Database = "readonlytest"
+	p.Schemas = []string{"permtest"}
+	assert.NoError(t, p.createDatabase(context.TODO(), admin))
+	assert.NoError(t, p.createSchemas(context.TODO(), admin))
+	assert.NoError(t, p.setUserPermission(context.TODO(), admin, dbu))
+	readonlyUser := &DatabaseUser{
+		Username:     "readonly",
+		Password:     "123123",
+		AccessType:   ACCESS_TYPE_READONLY,
+		GrantToAdmin: true,
+	}
+
+	createTable := `CREATE TABLE permtest.test_1 (
+		role_id serial PRIMARY KEY,
+		role_name VARCHAR (255) UNIQUE NOT NULL
+	  );`
+	assert.NoError(t, p.execAsUser(context.TODO(), createTable, dbu))
+
+	err := p.createUser(context.TODO(), admin, readonlyUser)
+	assert.NoErrorf(t, err, "Unexpected error %v", err)
+
+	// Test that it can't be created again
+	err = p.createUser(context.TODO(), admin, readonlyUser)
+	assert.Error(t, err, "Was expecting an error")
+
+	// Test that it can be updated
+	err = p.updateUser(context.TODO(), admin, readonlyUser)
+	assert.NoErrorf(t, err, "Unexpected error %v", err)
+
+	// Test that it has only readonly access to current objects
+	createTable = `CREATE TABLE permtest.test_2 (
+		role_id serial PRIMARY KEY,
+		role_name VARCHAR (255) UNIQUE NOT NULL
+	  );`
+	assert.Error(t, p.execAsUser(context.TODO(), createTable, readonlyUser))
+	assert.NoError(t, p.execAsUser(context.TODO(), createTable, dbu))
+
+	insert := "INSERT INTO permtest.test_1 VALUES (1, 'test-1')"
+	assert.NoError(t, p.execAsUser(context.TODO(), insert, dbu))
+	insert = "INSERT INTO permtest.test_2 VALUES (1, 'test-1')"
+	assert.NoError(t, p.execAsUser(context.TODO(), insert, dbu))
+
+	selectQuery := "SELECT * FROM permtest.test_1"
+	assert.NoError(t, p.execAsUser(context.TODO(), selectQuery, readonlyUser))
+	selectQuery = "SELECT * FROM permtest.test_2"
+	assert.NoError(t, p.execAsUser(context.TODO(), selectQuery, readonlyUser))
+
+	insert = "INSERT INTO permtest.test_1 VALUES (2, 'test-2')"
+	assert.Error(t, p.execAsUser(context.TODO(), insert, readonlyUser))
+	insert = "INSERT INTO permtest.test_2 VALUES (2, 'test-2')"
+	assert.Error(t, p.execAsUser(context.TODO(), insert, readonlyUser))
+
+	update := "UPDATE permtest.test_1 SET role_name = 'test-1-new' WHERE role_id = 1"
+	assert.Error(t, p.execAsUser(context.TODO(), update, readonlyUser))
+	update = "UPDATE permtest.test_2 SET role_name = 'test-1-new' WHERE role_id = 1"
+	assert.Error(t, p.execAsUser(context.TODO(), update, readonlyUser))
+
+	delete := "DELETE FROM permtest.test_1 WHERE role_id = 1"
+	assert.Error(t, p.execAsUser(context.TODO(), delete, readonlyUser))
+	delete = "DELETE FROM permtest.test_2 WHERE role_id = 1"
+	assert.Error(t, p.execAsUser(context.TODO(), delete, readonlyUser))
+
+	drop := "DROP TABLE permtest.test_1"
+	assert.Error(t, p.execAsUser(context.TODO(), drop, readonlyUser))
+	assert.NoError(t, p.execAsUser(context.TODO(), drop, dbu))
+	drop = "DROP TABLE permtest.test_2"
+	assert.Error(t, p.execAsUser(context.TODO(), drop, readonlyUser))
+	assert.NoError(t, p.execAsUser(context.TODO(), drop, dbu))
+
+	// Test that it can be removed
+	err = p.deleteUser(context.TODO(), admin, readonlyUser)
+	assert.NoErrorf(t, err, "Unexpected error %v", err)
+}
+
+func TestPostgresReadWriteUserLifecycleAdminGrant(t *testing.T) {
+	// Test if it's created
+	admin := getPostgresAdmin()
+	p, dbu := testPostgres()
+	dbu.GrantToAdmin = true
+	p.Database = "readwritetest"
+	p.Schemas = []string{"permtest"}
+	assert.NoError(t, p.createDatabase(context.TODO(), admin))
+	assert.NoError(t, p.createSchemas(context.TODO(), admin))
+	assert.NoError(t, p.setUserPermission(context.TODO(), admin, dbu))
+	readwriteUser := &DatabaseUser{
+		Username:     "readwrite",
+		Password:     "123123",
+		AccessType:   ACCESS_TYPE_READWRITE,
+		GrantToAdmin: true,
+	}
+
+	createTable := `CREATE TABLE permtest.test_1 (
+		role_id serial PRIMARY KEY,
+		role_name VARCHAR (255) UNIQUE NOT NULL
+	  );`
+	assert.NoError(t, p.execAsUser(context.TODO(), createTable, dbu))
+
+	err := p.createUser(context.TODO(), admin, readwriteUser)
+	assert.NoErrorf(t, err, "Unexpected error %v", err)
+
+	// Test that it can't be created again
+	err = p.createUser(context.TODO(), admin, readwriteUser)
+	assert.Error(t, err, "Was expecting an error")
+
+	// Test that it can be updated
+	err = p.updateUser(context.TODO(), admin, readwriteUser)
+	assert.NoErrorf(t, err, "Unexpected error %v", err)
+
+	// Test that it has only readonly access to current objects
+	createTable = `CREATE TABLE permtest.test_2 (
+		role_id serial PRIMARY KEY,
+		role_name VARCHAR (255) UNIQUE NOT NULL
+	  );`
+	assert.Error(t, p.execAsUser(context.TODO(), createTable, readwriteUser))
+	assert.NoError(t, p.execAsUser(context.TODO(), createTable, dbu))
+
+	insert := "INSERT INTO permtest.test_1 VALUES (1, 'test-1')"
+	assert.NoError(t, p.execAsUser(context.TODO(), insert, dbu))
+	insert = "INSERT INTO permtest.test_2 VALUES (1, 'test-1')"
+	assert.NoError(t, p.execAsUser(context.TODO(), insert, dbu))
+	insert = "INSERT INTO permtest.test_1 VALUES (2, 'test-2')"
+	assert.NoError(t, p.execAsUser(context.TODO(), insert, dbu))
+	insert = "INSERT INTO permtest.test_2 VALUES (2, 'test-2')"
+	assert.NoError(t, p.execAsUser(context.TODO(), insert, dbu))
+
+	selectQuery := "SELECT * FROM permtest.test_1"
+	assert.NoError(t, p.execAsUser(context.TODO(), selectQuery, readwriteUser))
+	selectQuery = "SELECT * FROM permtest.test_2"
+	assert.NoError(t, p.execAsUser(context.TODO(), selectQuery, readwriteUser))
+
+	insert = "INSERT INTO permtest.test_1 VALUES (3, 'test-3')"
+	assert.NoError(t, p.execAsUser(context.TODO(), insert, readwriteUser))
+	insert = "INSERT INTO permtest.test_2 VALUES (3, 'test-3')"
+	assert.NoError(t, p.execAsUser(context.TODO(), insert, readwriteUser))
+
+	update := "UPDATE permtest.test_1 SET role_name = 'test-1-new' WHERE role_id = 1"
+	assert.NoError(t, p.execAsUser(context.TODO(), update, readwriteUser))
+	update = "UPDATE permtest.test_2 SET role_name = 'test-1-new' WHERE role_id = 1"
+	assert.NoError(t, p.execAsUser(context.TODO(), update, readwriteUser))
+
+	delete := "DELETE FROM permtest.test_1 WHERE role_id = 2"
+	assert.NoError(t, p.execAsUser(context.TODO(), delete, readwriteUser))
+	delete = "DELETE FROM permtest.test_2 WHERE role_id = 2"
+	assert.NoError(t, p.execAsUser(context.TODO(), delete, readwriteUser))
+
+	drop := "DROP TABLE permtest.test_1"
+	assert.Error(t, p.execAsUser(context.TODO(), drop, readwriteUser))
+	assert.NoError(t, p.execAsUser(context.TODO(), drop, dbu))
+	drop = "DROP TABLE permtest.test_2"
+	assert.Error(t, p.execAsUser(context.TODO(), drop, readwriteUser))
+	assert.NoError(t, p.execAsUser(context.TODO(), drop, dbu))
+
+	// Test that it can be removed
+	err = p.deleteUser(context.TODO(), admin, readwriteUser)
+	assert.NoErrorf(t, err, "Unexpected error %v", err)
+}
+
 
 func TestPublicSchema(t *testing.T) {
 	p, dbu := testPostgres()

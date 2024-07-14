@@ -477,12 +477,17 @@ func (p Postgres) setUserPermission(ctx context.Context, admin *DatabaseUser, us
 		schemas = append(schemas, "public")
 	}
 
+	var actingUser *DatabaseUser
+
 	// Grant user role to the admin user. It's required to make generic instances work with Azure.
 	if user.GrantToAdmin {
+		actingUser = admin
 		assignRoleToAdmin := fmt.Sprintf("GRANT \"%s\" TO \"%s\";", user.Username, admin.Username)
 		if err := p.executeExec(ctx, p.Database, assignRoleToAdmin, admin); err != nil {
 			log.Error(err, "failed granting user to admin", "username", user.Username, "admin", admin.Username)
 		}
+	} else {
+		actingUser = user
 	}
 
 	switch user.AccessType {
@@ -525,7 +530,7 @@ func (p Postgres) setUserPermission(ctx context.Context, admin *DatabaseUser, us
 				log.Error(err, "failed updating postgres user", "query", grantTables)
 				return err
 			}
-			err = p.executeExec(ctx, p.Database, defaultPrivileges, admin)
+			err = p.executeExec(ctx, p.Database, defaultPrivileges, actingUser)
 			if err != nil {
 				log.Error(err, "failed updating postgres user", "query", defaultPrivileges)
 				return err
@@ -550,7 +555,7 @@ func (p Postgres) setUserPermission(ctx context.Context, admin *DatabaseUser, us
 				log.Error(err, "failed updating postgres user", "query", grantTables)
 				return err
 			}
-			err = p.executeExec(ctx, p.Database, defaultPrivileges, admin)
+			err = p.executeExec(ctx, p.Database, defaultPrivileges, actingUser)
 			if err != nil {
 				log.Error(err, "failed updating postgres user", "query", defaultPrivileges)
 				return err
