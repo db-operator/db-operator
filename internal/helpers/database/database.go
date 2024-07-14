@@ -55,6 +55,25 @@ func FetchDatabaseData(ctx context.Context, dbcr *kindav1beta1.Database, dbCred 
 		GrantToAdmin: true,
 	}
 
+	enableRdsIamImpersonate := false
+	val, ok := instance.Annotations[consts.RDS_IAM_IMPERSONATE_WORKAROUND]
+	if ok {
+	  boolVal, err := strconv.ParseBool(val)
+    if err != nil {
+      log.Info(
+			"can't parse a value of an annotation into a bool, ignoring",
+			"annotation",
+			consts.RDS_IAM_IMPERSONATE_WORKAROUND,
+			"value",
+			val,
+			"error",
+			err, 
+		) 
+		} else {
+			enableRdsIamImpersonate = boolVal
+		}
+	}
+
 	switch dbcr.Status.Engine {
 	case "postgres":
 		extList := dbcr.Spec.Postgres.Extensions
@@ -71,6 +90,7 @@ func FetchDatabaseData(ctx context.Context, dbcr *kindav1beta1.Database, dbCred 
 			Schemas:          dbcr.Spec.Postgres.Schemas,
 			Template:         dbcr.Spec.Postgres.Template,
 			MainUser:         dbuser,
+			RDSIAMImpersonateWorkaround: enableRdsIamImpersonate,
 		}
 		return db, dbuser, nil
 

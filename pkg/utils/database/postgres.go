@@ -52,6 +52,11 @@ type Postgres struct {
 	//  it's required to set default privileges
 	//  for additional users
 	MainUser *DatabaseUser
+	// A workaround for AWS RDS that should make it possible
+	// to create users with RDS_IAM role without breaking 
+	// admin/main users by connection as an admin and then
+	// setting role to the user that is being created
+	RDSIAMImpersonateWorkaround bool
 }
 
 const postgresDefaultSSLMode = "disable"
@@ -113,6 +118,26 @@ func (p Postgres) execAsUser(ctx context.Context, query string, user *DatabaseUs
 	db, err := p.getDbConn(p.Database, user.Username, user.Password)
 	if err != nil {
 		log.Error(err, "failed to open a db connection")
+		return err
+	}
+
+	defer db.Close()
+	_, err = db.Exec(query)
+
+	return err
+}
+
+func (p Postgres) execSettingRole(ctx context.Context, database, query string, user *DatabaseUser, admin *DatabaseUser) error {
+	log := log.FromContext(ctx)
+	setUserRole := fmt.Sprintf("SET ROLE \"%s\"", user.Username)
+	db, err := p.getDbConn(database, admin.Username, admin.Password)
+	if err != nil {
+		log.Error(err, "failed to open a db connection")
+		return err
+	}
+	_, err = db.Exec(setUserRole)
+	if err != nil {
+		log.Error(err, "failed to set role", "query", setUserRole)
 		return err
 	}
 
@@ -477,12 +502,21 @@ func (p Postgres) setUserPermission(ctx context.Context, admin *DatabaseUser, us
 		schemas = append(schemas, "public")
 	}
 
+	if p.RDSIAMImpersonateWorkaround {
+		log.Info("An experimental feature is enabled: RDS IAM workaround")
+	}
+
+	var actingUser *DatabaseUser
+
 	// Grant user role to the admin user. It's required to make generic instances work with Azure.
 	if user.GrantToAdmin {
+		actingUser = admin
 		assignRoleToAdmin := fmt.Sprintf("GRANT \"%s\" TO \"%s\";", user.Username, admin.Username)
 		if err := p.executeExec(ctx, p.Database, assignRoleToAdmin, admin); err != nil {
 			log.Error(err, "failed granting user to admin", "username", user.Username, "admin", admin.Username)
 		}
+	} else {
+		actingUser = user
 	}
 
 	switch user.AccessType {
@@ -525,10 +559,20 @@ func (p Postgres) setUserPermission(ctx context.Context, admin *DatabaseUser, us
 				log.Error(err, "failed updating postgres user", "query", grantTables)
 				return err
 			}
-			err = p.executeExec(ctx, p.Database, defaultPrivileges, admin)
-			if err != nil {
-				log.Error(err, "failed updating postgres user", "query", defaultPrivileges)
-				return err
+			// If user is granted to the admin, admin can alter default privileges
+			// on installations that are not providing superusers
+			if p.RDSIAMImpersonateWorkaround {
+				err = p.execSettingRole(ctx, p.Database, defaultPrivileges, actingUser, admin)
+				if err != nil {
+					log.Error(err, "failed updating postgres user", "query", defaultPrivileges)
+					return err
+				}
+			} else {
+				err = p.executeExec(ctx, p.Database, defaultPrivileges, admin)
+				if err != nil {
+					log.Error(err, "failed updating postgres user", "query", defaultPrivileges)
+					return err
+				}
 			}
 		}
 	case ACCESS_TYPE_READONLY:
@@ -550,10 +594,18 @@ func (p Postgres) setUserPermission(ctx context.Context, admin *DatabaseUser, us
 				log.Error(err, "failed updating postgres user", "query", grantTables)
 				return err
 			}
-			err = p.executeExec(ctx, p.Database, defaultPrivileges, admin)
-			if err != nil {
-				log.Error(err, "failed updating postgres user", "query", defaultPrivileges)
-				return err
+			if p.RDSIAMImpersonateWorkaround {
+				err = p.execSettingRole(ctx, p.Database, defaultPrivileges, actingUser, admin)
+				if err != nil {
+					log.Error(err, "failed updating postgres user", "query", defaultPrivileges)
+					return err
+				}
+			} else {
+				err = p.executeExec(ctx, p.Database, defaultPrivileges, admin)
+				if err != nil {
+					log.Error(err, "failed updating postgres user", "query", defaultPrivileges)
+					return err
+				}
 			}
 		}
 	default:
