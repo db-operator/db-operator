@@ -542,7 +542,7 @@ func (p Postgres) setUserPermission(ctx context.Context, admin *DatabaseUser, us
 			)
 			err := p.executeExec(ctx, p.Database, grantUsage, admin)
 			if err != nil {
-				log.Error(err, "failed updating postgres user", "query", grantTables)
+				log.Error(err, "failed updating postgres user", "query", grantUsage)
 				return err
 			}
 			err = p.executeExec(ctx, p.Database, grantTables, admin)
