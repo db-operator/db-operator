@@ -122,6 +122,26 @@ func (p Postgres) execAsUser(ctx context.Context, query string, user *DatabaseUs
 	return err
 }
 
+func (p Postgres) execSettingRole(ctx context.Context, database, query string, user *DatabaseUser, admin *DatabaseUser) error {
+	log := log.FromContext(ctx)
+	setUserRole := fmt.Sprintf("SET ROLE \"%s\"", user.Username)
+	db, err := p.getDbConn(database, admin.Username, admin.Password)
+	if err != nil {
+		log.Error(err, "failed to open a db connection")
+		return err
+	}
+	_, err = db.Exec(setUserRole)
+	if err != nil {
+		log.Error(err, "failed to set role", "query", setUserRole)
+		return err
+	}
+
+	defer db.Close()
+	_, err = db.Exec(query)
+
+	return err
+}
+
 func (p Postgres) isDbExist(ctx context.Context, admin *DatabaseUser) bool {
 	check := fmt.Sprintf("SELECT 1 FROM pg_database WHERE datname = '%s';", p.Database)
 
@@ -530,10 +550,18 @@ func (p Postgres) setUserPermission(ctx context.Context, admin *DatabaseUser, us
 				log.Error(err, "failed updating postgres user", "query", grantTables)
 				return err
 			}
-			err = p.executeExec(ctx, p.Database, defaultPrivileges, actingUser)
-			if err != nil {
-				log.Error(err, "failed updating postgres user", "query", defaultPrivileges)
-				return err
+			if actingUser == admin {
+				err = p.executeExec(ctx, p.Database, defaultPrivileges, actingUser)
+				if err != nil {
+					log.Error(err, "failed updating postgres user", "query", defaultPrivileges)
+					return err
+				}
+			} else {
+				err = p.execSettingRole(ctx, p.Database, defaultPrivileges, actingUser, admin)
+				if err != nil {
+					log.Error(err, "failed updating postgres user", "query", defaultPrivileges)
+					return err
+				}
 			}
 		}
 	case ACCESS_TYPE_READONLY:
@@ -554,6 +582,9 @@ func (p Postgres) setUserPermission(ctx context.Context, admin *DatabaseUser, us
 			if err != nil {
 				log.Error(err, "failed updating postgres user", "query", grantTables)
 				return err
+			}
+			if actingUser == user {
+				err = p.executeExec(ctx, p.Database, defaultPrivileges, actingUser)
 			}
 			err = p.executeExec(ctx, p.Database, defaultPrivileges, actingUser)
 			if err != nil {
