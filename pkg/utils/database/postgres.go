@@ -583,13 +583,18 @@ func (p Postgres) setUserPermission(ctx context.Context, admin *DatabaseUser, us
 				log.Error(err, "failed updating postgres user", "query", grantTables)
 				return err
 			}
-			if actingUser == user {
+			if actingUser == admin {
 				err = p.executeExec(ctx, p.Database, defaultPrivileges, actingUser)
-			}
-			err = p.executeExec(ctx, p.Database, defaultPrivileges, actingUser)
-			if err != nil {
-				log.Error(err, "failed updating postgres user", "query", defaultPrivileges)
-				return err
+				if err != nil {
+					log.Error(err, "failed updating postgres user", "query", defaultPrivileges)
+					return err
+				}
+			} else {
+				err = p.execSettingRole(ctx, p.Database, defaultPrivileges, actingUser, admin)
+				if err != nil {
+					log.Error(err, "failed updating postgres user", "query", defaultPrivileges)
+					return err
+				}
 			}
 		}
 	default:
