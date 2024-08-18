@@ -30,9 +30,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-func FetchDbInstanceData(ctx context.Context) {
-}
-
 func FetchDatabaseData(ctx context.Context, dbcr *kindav1beta2.Database, dbCred database.Credentials, instance *kindav1beta2.DbInstance) (database.Database, *database.DatabaseUser, error) {
 	log := log.FromContext(ctx)
 	host := instance.Status.URL

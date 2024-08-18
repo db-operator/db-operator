@@ -84,7 +84,7 @@ type NamespacedName struct {
 type DbInstanceStatus struct {
 	// Is db-operator able to connect to the database server
 	Connected bool `json:"connected"`
-	// A database server url that will be used for creating databases
+	// A database instance URL
 	URL string `json:"url,omitempty"`
 	// A database server port that will be used for creating databases
 	Port int64 `json:"info,omitempty"`
