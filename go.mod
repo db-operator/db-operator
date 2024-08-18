@@ -7,7 +7,6 @@ toolchain go1.22.4
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.16
 
 require (
-	bou.ke/monkey v1.0.2 // indirect
 	github.com/GoogleCloudPlatform/cloudsql-proxy v1.35.4
 	github.com/db-operator/can-haz-password v0.1.1
 	github.com/go-logr/logr v1.4.2
