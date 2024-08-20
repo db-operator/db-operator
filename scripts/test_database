@@ -52,11 +52,11 @@ TARGET_COMPOSE="gen-docker-compose-$DATABASE.yml"
 export IMAGE
 envsubst < "$TMPL_PATH" > "$TARGET_COMPOSE"
 
-docker-compose -f "$TARGET_COMPOSE" down
-docker-compose -f "$TARGET_COMPOSE" up -d
+docker compose -f "$TARGET_COMPOSE" down
+docker compose -f "$TARGET_COMPOSE" up -d
 sleep 10
 
 go test -count=1 -tags tests -run "Test${DATABASE^}" ./... -v -cover
-docker-compose -f "$TARGET_COMPOSE" down
+docker compose -f "$TARGET_COMPOSE" down
 rm -f "$TARGET_COMPOSE"
 

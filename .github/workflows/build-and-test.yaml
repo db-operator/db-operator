@@ -89,7 +89,7 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: Start dependencies using docker-compose
-        run: docker-compose -f ./resources/test/docker-compose-gsql.yml up -d
+        run: docker compose -f ./resources/test/docker-compose-gsql.yml up -d
       - name: Run gsql tests
         run: go test -tags tests -run "TestGsql" ./... -v -cover
   mysql-test:
