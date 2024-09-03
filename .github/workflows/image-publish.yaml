@@ -20,6 +20,16 @@ jobs:
       - name: Set the image metadata
         run: ./build/set_image_metadata
 
+      - name: Set the operator version from the tag 
+        if: (github.event_name == 'release' && (github.event.action == 'published' || github.event.action == 'edited'))
+        run: |-
+          echo OPERATOR_VERSION=${{ github.event.release.tag_name }} >> "$GITHUB_ENV"
+      
+      - name: Set the operator version from the tag 
+        if: github.event_name == 'push'
+        run: |-
+          echo OPERATOR_VERSION=${{ github.sha }} >> "$GITHUB_ENV"
+
       - name: Build an image
         id: build-image
         uses: redhat-actions/buildah-build@v2
@@ -27,6 +37,8 @@ jobs:
           image: db-operator-dev
           tags: ${{ env.TAGS }}
           platforms: linux/amd64, linux/arm64/v8
+          build-args: |
+            OPERATOR_VERSION=${{ env.OPERATOR_VERSION }}
           containerfiles: |
             ./Containerfile
           labels: ${{ env.ANNOTATIONS }}
