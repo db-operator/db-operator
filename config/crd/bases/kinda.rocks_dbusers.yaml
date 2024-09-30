@@ -27,7 +27,7 @@ spec:
       jsonPath: .spec.accessType
       name: AccessType
       type: string
-    - description: time since creation of resos¡urce
+    - description: time since creation of resource
       jsonPath: .metadata.creationTimestamp
       name: Age
       type: date

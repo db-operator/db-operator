@@ -53,7 +53,7 @@ type Postgres struct {
 	//  for additional users
 	MainUser *DatabaseUser
 	// A workaround for AWS RDS that should make it possible
-	// to create users with RDS_IAM role without breaking 
+	// to create users with RDS_IAM role without breaking
 	// admin/main users by connection as an admin and then
 	// setting role to the user that is being created
 	RDSIAMImpersonateWorkaround bool

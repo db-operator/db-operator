@@ -33,11 +33,17 @@ import (
 func FetchDatabaseData(ctx context.Context, dbcr *kindav1beta1.Database, dbCred database.Credentials, instance *kindav1beta1.DbInstance) (database.Database, *database.DatabaseUser, error) {
 	log := log.FromContext(ctx)
 	host := instance.Status.Info["DB_CONN"]
-	port, err := strconv.Atoi(instance.Status.Info["DB_PORT"])
+	port64, err := strconv.ParseUint(instance.Status.Info["DB_PORT"], 10, 16)
 	if err != nil {
 		log.Error(err, "can't get port information from the instanceRef")
 		return nil, nil, err
 	}
+	if port64 < 0 || port64 > 65535 {
+		err := fmt.Errorf("port value out of range: %d", port64)
+		log.Error(err, "port value is out of the valid range (0-65535)")
+		return nil, nil, err
+	}
+	port := uint16(port64)
 
 	backend, err := instance.GetBackendType()
 	if err != nil {
@@ -58,17 +64,17 @@ func FetchDatabaseData(ctx context.Context, dbcr *kindav1beta1.Database, dbCred 
 	enableRdsIamImpersonate := false
 	val, ok := instance.Annotations[consts.RDS_IAM_IMPERSONATE_WORKAROUND]
 	if ok {
-	  boolVal, err := strconv.ParseBool(val)
-    if err != nil {
-      log.Info(
-			"can't parse a value of an annotation into a bool, ignoring",
-			"annotation",
-			consts.RDS_IAM_IMPERSONATE_WORKAROUND,
-			"value",
-			val,
-			"error",
-			err, 
-		) 
+		boolVal, err := strconv.ParseBool(val)
+		if err != nil {
+			log.Info(
+				"can't parse a value of an annotation into a bool, ignoring",
+				"annotation",
+				consts.RDS_IAM_IMPERSONATE_WORKAROUND,
+				"value",
+				val,
+				"error",
+				err,
+			)
 		} else {
 			enableRdsIamImpersonate = boolVal
 		}
@@ -78,18 +84,18 @@ func FetchDatabaseData(ctx context.Context, dbcr *kindav1beta1.Database, dbCred 
 	case "postgres":
 		extList := dbcr.Spec.Postgres.Extensions
 		db := database.Postgres{
-			Backend:          backend,
-			Host:             host,
-			Port:             uint16(port),
-			Database:         dbCred.Name,
-			Monitoring:       monitoringEnabled,
-			Extensions:       extList,
-			SSLEnabled:       instance.Spec.SSLConnection.Enabled,
-			SkipCAVerify:     instance.Spec.SSLConnection.SkipVerify,
-			DropPublicSchema: dbcr.Spec.Postgres.DropPublicSchema,
-			Schemas:          dbcr.Spec.Postgres.Schemas,
-			Template:         dbcr.Spec.Postgres.Template,
-			MainUser:         dbuser,
+			Backend:                     backend,
+			Host:                        host,
+			Port:                        uint16(port),
+			Database:                    dbCred.Name,
+			Monitoring:                  monitoringEnabled,
+			Extensions:                  extList,
+			SSLEnabled:                  instance.Spec.SSLConnection.Enabled,
+			SkipCAVerify:                instance.Spec.SSLConnection.SkipVerify,
+			DropPublicSchema:            dbcr.Spec.Postgres.DropPublicSchema,
+			Schemas:                     dbcr.Spec.Postgres.Schemas,
+			Template:                    dbcr.Spec.Postgres.Template,
+			MainUser:                    dbuser,
 			RDSIAMImpersonateWorkaround: enableRdsIamImpersonate,
 		}
 		return db, dbuser, nil
