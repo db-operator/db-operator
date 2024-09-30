@@ -38,7 +38,7 @@ type secretEventHandler struct {
 	client.Client
 }
 
-func (e *secretEventHandler) Update(ctx context.Context, evt event.UpdateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (e *secretEventHandler) Update(ctx context.Context, evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
 	logrus.Info("Start processing Database Secret Update Event")
 
 	switch v := evt.ObjectNew.(type) {
@@ -132,15 +132,15 @@ func (e *secretEventHandler) Update(ctx context.Context, evt event.UpdateEvent, 
 	}
 }
 
-func (e *secretEventHandler) Delete(context.Context, event.DeleteEvent, workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (e *secretEventHandler) Delete(context.Context, event.DeleteEvent, workqueue.RateLimitingInterface) {
 	logrus.Error("secretEventHandler.Delete(...) event has been FIRED but NOT implemented!")
 }
 
-func (e *secretEventHandler) Generic(context.Context, event.GenericEvent, workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (e *secretEventHandler) Generic(context.Context, event.GenericEvent, workqueue.RateLimitingInterface) {
 	logrus.Error("secretEventHandler.Generic(...) event has been FIRED but NOT implemented!")
 }
 
-func (e *secretEventHandler) Create(context.Context, event.CreateEvent, workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (e *secretEventHandler) Create(context.Context, event.CreateEvent, workqueue.RateLimitingInterface) {
 	logrus.Error("secretEventHandler.Create(...) event has been FIRED but NOT implemented!")
 }
 
