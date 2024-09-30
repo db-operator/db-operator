@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM registry.hub.docker.com/library/golang:1.22.2-alpine3.18 as builder
+FROM --platform=$BUILDPLATFORM registry.hub.docker.com/library/golang:1.23.1-alpine3.18 as builder
 
 RUN apk update && apk upgrade && \
     apk add --no-cache bash build-base
