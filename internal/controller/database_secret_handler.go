@@ -132,15 +132,15 @@ func (e *secretEventHandler) Update(ctx context.Context, evt event.UpdateEvent, 
 	}
 }
 
-func (e *secretEventHandler) Delete(ctx context.Context, evt event.DeleteEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (e *secretEventHandler) Delete(context.Context, event.GenericEvent, workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	logrus.Error("secretEventHandler.Delete(...) event has been FIRED but NOT implemented!")
 }
 
-func (e *secretEventHandler) Generic(ctx context.Context, evt event.GenericEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (e *secretEventHandler) Generic(context.Context, event.GenericEvent, workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	logrus.Error("secretEventHandler.Generic(...) event has been FIRED but NOT implemented!")
 }
 
-func (e *secretEventHandler) Create(ctx context.Context, evt event.CreateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (e *secretEventHandler) Create(context.Context, event.GenericEvent, workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	logrus.Error("secretEventHandler.Create(...) event has been FIRED but NOT implemented!")
 }
 

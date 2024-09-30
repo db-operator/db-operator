@@ -139,6 +139,5 @@ func (db *Database) InstanceAccessSecretName() string {
 	return "dbin-" + db.Spec.Instance + "-access-secret"
 }
 
-func (db *Database) Hub() {
-	// Function to mark the Database as a hub
-}
+// Function to mark the Database as a hub
+func (db *Database) Hub() {}

@@ -38,7 +38,7 @@ func FetchDatabaseData(ctx context.Context, dbcr *kindav1beta1.Database, dbCred 
 		log.Error(err, "can't get port information from the instanceRef")
 		return nil, nil, err
 	}
-	if port64 < 0 || port64 > 65535 {
+	if port64 > 65535 {
 		err := fmt.Errorf("port value out of range: %d", port64)
 		log.Error(err, "port value is out of the valid range (0-65535)")
 		return nil, nil, err
