@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM registry.hub.docker.com/library/golang:1.23.1-alpine3.18 as builder
+FROM --platform=$BUILDPLATFORM registry.hub.docker.com/library/golang:1.23.1-alpine3.20 as builder
 
 RUN apk update && apk upgrade && \
     apk add --no-cache bash build-base
@@ -16,7 +16,7 @@ ARG TARGETARCH
 RUN GOOS=linux GOARCH=$TARGETARCH CGO_ENABLED=0 go build -tags build -o /usr/local/bin/db-operator cmd/main.go
 
 
-FROM registry.hub.docker.com/library/alpine:3.18
+FROM registry.hub.docker.com/library/alpine:3.20
 LABEL org.opencontainers.image.authors="Nikolai Rodionov<allanger@badhouseplants.net>"
 
 ENV USER_UID=1001
