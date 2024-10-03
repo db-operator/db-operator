@@ -48,16 +48,11 @@ func DetermineProxyTypeForDB(conf *config.Config, dbcr *kindav1beta1.Database, i
 	}
 
 	portString := instance.Status.Info["DB_PORT"]
-	port64, err := strconv.ParseUint(portString, 10, 32)
+	port, err := strconv.ParseUint(portString, 10, 32)
 	if err != nil {
 		logrus.Errorf("can not convert DB_PORT to int - %s", err)
 		return nil, err
 	}
-	if port64 > 65535 {
-		logrus.Errorf("DB_PORT  port value out of range:  %d", port64)
-		return nil, errors.New("DB_PORT value is out of the valid range (0-65535)")
-	}
-	port := int32(port64)
 
 	switch backend {
 	case "google":
@@ -103,16 +98,11 @@ func DetermineProxyTypeForInstance(conf *config.Config, dbin *kindav1beta1.DbIns
 	switch backend {
 	case "google":
 		portString := dbin.Status.Info["DB_PORT"]
-		port64, err := strconv.ParseInt(portString, 10, 32)
+		port, err := strconv.ParseInt(portString, 10, 32)
 		if err != nil {
 			logrus.Errorf("can not convert DB_PORT to int - %s", err)
 			return nil, err
 		}
-		if port64 > 65535 {
-			logrus.Errorf("DB_PORT port value out of range:  %d", port64)
-			return nil, errors.New("DB_PORT value is out of the valid range (0-65535)")
-		}
-		port := int32(port64)
 
 		labels := map[string]string{
 			"app":           "cloudproxy",
