@@ -212,11 +212,14 @@ func (r *DbInstanceReconciler) create(ctx context.Context, dbin *kindav1beta1.Db
 			if err != nil {
 				return err
 			}
-			port64, err := strconv.ParseUint(portStr, 10, 64)
+			port64, err := strconv.ParseUint(portStr, 10, 16)
 			if err != nil {
 				return err
 			}
 			port = uint16(port64)
+			if err != nil {
+				return err
+			}
 		} else {
 			port = dbin.Spec.Generic.Port
 		}
