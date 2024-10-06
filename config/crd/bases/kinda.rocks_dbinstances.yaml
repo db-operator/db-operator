@@ -258,7 +258,7 @@ spec:
               generic:
                 description: |-
                   GenericInstance is used when instance type is generic
-                  and describes necessary informations to use instance
+                  and describes necessary information to use instance
                   generic instance can be any backend, it must be reachable by described address and port
                 properties:
                   backupHost:
@@ -370,13 +370,13 @@ spec:
                 - enabled
                 type: object
               sslConnection:
-                description: DbInstanceSSLConnection defines weather connection from
+                description: DbInstanceSSLConnection defines whether connection from
                   db-operator to instance has to be ssl or not
                 properties:
                   enabled:
                     type: boolean
                   skip-verify:
-                    description: SkipVerity use SSL connection, but don't check against
+                    description: SkipVerify use SSL connection, but don't check against
                       a CA
                     type: boolean
                 required:

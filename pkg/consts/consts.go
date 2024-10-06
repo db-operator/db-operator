@@ -16,7 +16,7 @@
 
 package consts
 
-// This package exists to avoid cycle import. Put here consts that are used accrossed packages
+// This package exists to avoid cycle import. Put here consts that are used across packages
 
 // Database Related Consts
 const (
@@ -28,7 +28,7 @@ const (
 	MYSQL_PASSWORD    = "PASSWORD"
 )
 
-// Database enginges
+// Database engines
 const (
 	ENGINE_POSTGRES = "postgres"
 	ENGINE_MYSQL    = "mysql"
@@ -43,10 +43,10 @@ const (
 
 // Kubernetes Annotations
 const (
-	TEMPLATE_ANNOTATION_KEY       = "kinda.rocks/db-operator-templated-keys"
-	SECRET_FORCE_RECONCILE        = "kinda.rocks/secret-force-reconcile"
-	DATABASE_FORCE_FULL_RECONCILE = "kinda.rocks/db-force-full-reconcile"
-	USED_OBJECTS                  = "kinda.rocks/used-objects"
+	TEMPLATE_ANNOTATION_KEY        = "kinda.rocks/db-operator-templated-keys"
+	SECRET_FORCE_RECONCILE         = "kinda.rocks/secret-force-reconcile"
+	DATABASE_FORCE_FULL_RECONCILE  = "kinda.rocks/db-force-full-reconcile"
+	USED_OBJECTS                   = "kinda.rocks/used-objects"
 	RDS_IAM_IMPERSONATE_WORKAROUND = "kinda.rocks/rds-iam-impersonate"
 )
 

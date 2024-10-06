@@ -37,7 +37,7 @@ type DbInstanceSpec struct {
 	DbInstanceSource  `json:",inline"`
 }
 
-// DbInstanceSource represents the source of a instance.
+// DbInstanceSource represents the source of an instance.
 // Only one of its members may be specified.
 type DbInstanceSource struct {
 	Google  *GoogleInstance  `json:"google,omitempty" protobuf:"bytes,1,opt,name=google"`
@@ -71,7 +71,7 @@ type BackendServer struct {
 }
 
 // GenericInstance is used when instance type is generic
-// and describes necessary informations to use instance
+// and describes necessary information to use instance
 // generic instance can be any backend, it must be reachable by described address and port
 type GenericInstance struct {
 	Host         string   `json:"host,omitempty"`
@@ -103,10 +103,10 @@ type DbInstanceMonitoring struct {
 	Enabled bool `json:"enabled"`
 }
 
-// DbInstanceSSLConnection defines weather connection from db-operator to instance has to be ssl or not
+// DbInstanceSSLConnection defines whether connection from db-operator to instance has to be ssl or not
 type DbInstanceSSLConnection struct {
 	Enabled bool `json:"enabled"`
-	// SkipVerity use SSL connection, but don't check against a CA
+	// SkipVerify use SSL connection, but don't check against a CA
 	SkipVerify bool `json:"skip-verify"`
 }
 
@@ -210,9 +210,11 @@ func (dbin *DbInstance) IsDeleted() bool {
 	return dbin.GetDeletionTimestamp() != nil
 }
 
-// This method isn's supported by dbin
+// This method isn't supported by dbin
 func (dbin *DbInstance) GetSecretName() string {
 	return ""
 }
 
-func (db *DbInstance) Hub() {}
+func (db *DbInstance) Hub() {
+	// Function to mark the DbInstance as a hub
+}

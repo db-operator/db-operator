@@ -518,7 +518,6 @@ func TestPostgresReadWriteUserLifecycleAdminGrant(t *testing.T) {
 	assert.NoErrorf(t, err, "Unexpected error %v", err)
 }
 
-
 func TestPublicSchema(t *testing.T) {
 	p, dbu := testPostgres()
 	p.DropPublicSchema = false

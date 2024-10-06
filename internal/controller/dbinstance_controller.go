@@ -139,8 +139,8 @@ func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			return reconcileResult, err
 		}
 		dbin.Status.Phase = dbInstancePhaseRunning
-
 	}
+
 	return reconcileResult, nil
 }
 
@@ -212,11 +212,14 @@ func (r *DbInstanceReconciler) create(ctx context.Context, dbin *kindav1beta1.Db
 			if err != nil {
 				return err
 			}
-			port64, err := strconv.ParseUint(portStr, 10, 64)
+			port64, err := strconv.ParseUint(portStr, 10, 16)
 			if err != nil {
 				return err
 			}
 			port = uint16(port64)
+			if err != nil {
+				return err
+			}
 		} else {
 			port = dbin.Spec.Generic.Port
 		}
@@ -296,9 +299,10 @@ func (r *DbInstanceReconciler) createProxy(ctx context.Context, dbin *kindav1bet
 		return err
 	}
 
-	// create proxy deployment
+	// Create proxy deployment
 	deploy, err := proxy.BuildDeployment(proxyInterface)
 	if err != nil {
+		log.Error(err, "failed to build proxy deployment")
 		return err
 	}
 	err = r.Create(ctx, deploy)
@@ -307,19 +311,20 @@ func (r *DbInstanceReconciler) createProxy(ctx context.Context, dbin *kindav1bet
 			// if resource already exists, update
 			err = r.Update(ctx, deploy)
 			if err != nil {
-				log.Error(err, "failed updating proxy deployment")
+				log.Error(err, "failed to update proxy deployment")
 				return err
 			}
 		} else {
 			// failed to create deployment
-			log.Error(err, "failed creating proxy deployment")
+			log.Error(err, "failed to create proxy deployment")
 			return err
 		}
 	}
 
-	// create proxy service
+	// Create proxy service
 	svc, err := proxy.BuildService(proxyInterface)
 	if err != nil {
+		log.Error(err, "failed to build proxy service")
 		return err
 	}
 	err = r.Create(ctx, svc)
@@ -329,12 +334,12 @@ func (r *DbInstanceReconciler) createProxy(ctx context.Context, dbin *kindav1bet
 			patch := client.MergeFrom(svc)
 			err = r.Patch(ctx, svc, patch)
 			if err != nil {
-				log.Error(err, "failed patching proxy service")
+				log.Error(err, "failed to patch proxy service")
 				return err
 			}
 		} else {
 			// failed to create service
-			log.Error(err, "failed creating proxy service")
+			log.Error(err, "failed to create proxy service")
 			return err
 		}
 	}

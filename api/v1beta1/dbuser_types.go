@@ -64,7 +64,7 @@ type DbUserStatus struct {
 //+kubebuilder:printcolumn:name="Status",type=boolean,JSONPath=`.status.status`,description="current dbuser status"
 //+kubebuilder:printcolumn:name="DatabaseName",type=string,JSONPath=`.spec.databaseRef`,description="To which database user should have access"
 //+kubebuilder:printcolumn:name="AccessType",type=string,JSONPath=`.spec.accessType`,description="A type of access the user has"
-//+kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`,description="time since creation of resos¡urce"
+//+kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`,description="time since creation of resource"
 
 // DbUser is the Schema for the dbusers API
 type DbUser struct {
@@ -102,7 +102,7 @@ func IsAccessTypeSupported(wantedAccessType string) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("the provided access type is not supported by the operator: %s - please chose one of these: %v",
+	return fmt.Errorf("the provided access type is not supported by the operator: %s - please choose one of these: %v",
 		wantedAccessType,
 		supportedAccessTypes,
 	)
