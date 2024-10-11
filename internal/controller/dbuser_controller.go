@@ -23,8 +23,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/db-operator/db-operator/api/v1beta1"
-	kindav1beta1 "github.com/db-operator/db-operator/api/v1beta1"
+	kindav1beta2 "github.com/db-operator/db-operator/api/v1beta2"
 	commonhelper "github.com/db-operator/db-operator/internal/helpers/common"
 	dbhelper "github.com/db-operator/db-operator/internal/helpers/database"
 	kubehelper "github.com/db-operator/db-operator/internal/helpers/kube"
@@ -63,7 +62,7 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	reconcilePeriod := r.Interval * time.Second
 	reconcileResult := reconcile.Result{RequeueAfter: reconcilePeriod}
 
-	dbusercr := &kindav1beta1.DbUser{}
+	dbusercr := &kindav1beta2.DbUser{}
 	err := r.Get(ctx, req.NamespacedName, dbusercr)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -87,7 +86,7 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	r.kubeHelper = kubehelper.NewKubeHelper(r.Client, r.Recorder, dbusercr)
 
 	// Get the DB by the reference provided in the manifest
-	dbcr := &kindav1beta1.Database{}
+	dbcr := &kindav1beta2.Database{}
 	if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: dbusercr.Spec.DatabaseRef}, dbcr); err != nil {
 		return r.manageError(ctx, dbusercr, err, false)
 	}
@@ -96,12 +95,12 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			dbName := fmt.Sprintf("%s-%s", dbusercr.Namespace, dbusercr.Spec.DatabaseRef)
-			secretData, err := dbhelper.GenerateDatabaseSecretData(dbusercr.ObjectMeta, dbcr.Status.Engine, dbName)
+			secretData, err := dbhelper.GenerateDatabaseSecretData(dbusercr.ObjectMeta, string(dbcr.Status.Engine), dbName)
 			if err != nil {
 				log.Error(err, "can not generate credentials for database")
 				return r.manageError(ctx, dbusercr, err, false)
 			}
-			userSecret = kci.SecretBuilder(dbusercr.Spec.SecretName, dbusercr.Namespace, secretData)
+			userSecret = kci.SecretBuilder(dbusercr.Spec.Credentials.SecretName, dbusercr.Namespace, secretData)
 		} else {
 			log.Error(err, "could not get database secret")
 			return r.manageError(ctx, dbusercr, err, true)
@@ -113,7 +112,7 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		// failed to create secret
 		return r.manageError(ctx, dbusercr, err, false)
 	}
-	creds, err := parseDbUserSecretData(dbcr.Status.Engine, userSecret.Data)
+	creds, err := parseDbUserSecretData(string(dbcr.Status.Engine), userSecret.Data)
 	if err != nil {
 		return r.manageError(ctx, dbusercr, err, false)
 	}
@@ -122,7 +121,7 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if !r.CheckChanges || isDbUserChanged(dbusercr, userSecret) {
 		dbusercr.Status.Status = false
 	}
-	instance := &kindav1beta1.DbInstance{}
+	instance := &kindav1beta2.DbInstance{}
 	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
 		return r.manageError(ctx, dbusercr, err, false)
 	}
@@ -142,15 +141,9 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	// Add extra privileges
 	dbuser.ExtraPrivileges = dbusercr.Spec.ExtraPrivileges
 	dbuser.GrantToAdmin = dbusercr.Spec.GrantToAdmin
-	adminSecretResource, err := r.getAdminSecret(ctx, dbcr)
+	adminCred, err := r.getAdminUser(ctx, dbcr)
 	if err != nil {
 		// failed to get admin secret
-		return r.manageError(ctx, dbusercr, err, false)
-	}
-
-	adminCred, err := db.ParseAdminCredentials(ctx, adminSecretResource.Data)
-	if err != nil {
-		// failed to parse database admin secret
 		return r.manageError(ctx, dbusercr, err, false)
 	}
 
@@ -227,22 +220,22 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 // SetupWithManager sets up the controller with the Manager.
 func (r *DbUserReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&kindav1beta1.DbUser{}).
+		For(&kindav1beta2.DbUser{}).
 		Complete(r)
 }
 
-func isDbUserChanged(dbucr *kindav1beta1.DbUser, userSecret *corev1.Secret) bool {
+func isDbUserChanged(dbucr *kindav1beta2.DbUser, userSecret *corev1.Secret) bool {
 	annotations := dbucr.ObjectMeta.GetAnnotations()
 
 	return annotations["checksum/spec"] != kci.GenerateChecksum(dbucr.Spec) ||
 		annotations["checksum/secret"] != commonhelper.GenerateChecksumSecretValue(userSecret)
 }
 
-func (r *DbUserReconciler) getDbUserSecret(ctx context.Context, dbucr *kindav1beta1.DbUser) (*corev1.Secret, error) {
+func (r *DbUserReconciler) getDbUserSecret(ctx context.Context, dbucr *kindav1beta2.DbUser) (*corev1.Secret, error) {
 	secret := &corev1.Secret{}
 	key := types.NamespacedName{
 		Namespace: dbucr.Namespace,
-		Name:      dbucr.Spec.SecretName,
+		Name:      dbucr.Spec.Credentials.SecretName,
 	}
 	err := r.Get(ctx, key, secret)
 	if err != nil {
@@ -252,7 +245,7 @@ func (r *DbUserReconciler) getDbUserSecret(ctx context.Context, dbucr *kindav1be
 	return secret, nil
 }
 
-func (r *DbUserReconciler) manageError(ctx context.Context, dbucr *kindav1beta1.DbUser, issue error, requeue bool) (reconcile.Result, error) {
+func (r *DbUserReconciler) manageError(ctx context.Context, dbucr *kindav1beta2.DbUser, issue error, requeue bool) (reconcile.Result, error) {
 	log := log.FromContext(ctx)
 	dbucr.Status.Status = false
 	log.Error(issue, "an error occurred during the reconciliation")
@@ -325,27 +318,38 @@ func parseDbUserSecretData(engine string, data map[string][]byte) (database.Cred
 	}
 }
 
-func (r *DbUserReconciler) getAdminSecret(ctx context.Context, dbcr *kindav1beta1.Database) (*corev1.Secret, error) {
-	instance := kindav1beta1.DbInstance{}
-	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, &instance); err != nil {
+func (r *DbUserReconciler) getAdminUser(ctx context.Context, dbcr *kindav1beta2.Database) (*database.DatabaseUser, error) {
+	instance := &kindav1beta2.DbInstance{}
+	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
 		return nil, err
 	}
 
 	// get database admin credentials
-	secret := &corev1.Secret{}
-
-	if err := r.Get(ctx, instance.Spec.AdminUserSecret.ToKubernetesType(), secret); err != nil {
+	from := instance.Spec.AdminCredentials.UsernameFrom
+	username, err := r.kubeHelper.GetValueFrom(ctx, from.Kind, from.Namespace, from.Name, from.Key)
+	if err != nil {
 		return nil, err
 	}
 
-	return secret, nil
+	from = instance.Spec.AdminCredentials.PasswordFrom
+	password, err := r.kubeHelper.GetValueFrom(ctx, from.Kind, from.Namespace, from.Name, from.Key)
+	if err != nil {
+		return nil, err
+	}
+
+	dbuser := &database.DatabaseUser{
+		Username: username,
+		Password: password,
+	}
+
+	return dbuser, nil
 }
 
 // If dbuser has a deletion timestamp, this function will remove all the templated fields from
 // secrets and configmaps, so it's a generic function that can be used for both:
 // creating and removing
 // It's mostly a copy-paste from the database controller, maybe it might be refactored
-func (r *DbUserReconciler) handleTemplatedCredentials(ctx context.Context, dbcr *kindav1beta1.Database, dbusercr *v1beta1.DbUser, dbuser *database.DatabaseUser) error {
+func (r *DbUserReconciler) handleTemplatedCredentials(ctx context.Context, dbcr *kindav1beta2.Database, dbusercr *kindav1beta2.DbUser, dbuser *database.DatabaseUser) error {
 	databaseSecret, err := r.getDbUserSecret(ctx, dbusercr)
 	if err != nil {
 		return err
@@ -362,7 +366,7 @@ func (r *DbUserReconciler) handleTemplatedCredentials(ctx context.Context, dbcr 
 	}
 
 	// We don't need dbuser here, because if it's not nil, templates will be built for the dbuser, not the database
-	instance := &kindav1beta1.DbInstance{}
+	instance := &kindav1beta2.DbInstance{}
 	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
 		return err
 	}
@@ -383,7 +387,7 @@ func (r *DbUserReconciler) handleTemplatedCredentials(ctx context.Context, dbcr 
 		}
 	} else {
 		// Render with an empty slice, so tempalted entries are removed from Data and Annotations
-		if err := templateds.Render(kindav1beta1.Templates{}); err != nil {
+		if err := templateds.Render(kindav1beta2.Templates{}); err != nil {
 			return err
 		}
 	}
@@ -398,11 +402,11 @@ func (r *DbUserReconciler) handleTemplatedCredentials(ctx context.Context, dbcr 
 	return nil
 }
 
-func (r *DbUserReconciler) getDatabaseConfigMap(ctx context.Context, dbcr *kindav1beta1.Database) (*corev1.ConfigMap, error) {
+func (r *DbUserReconciler) getDatabaseConfigMap(ctx context.Context, dbcr *kindav1beta2.Database) (*corev1.ConfigMap, error) {
 	configMap := &corev1.ConfigMap{}
 	key := types.NamespacedName{
 		Namespace: dbcr.Namespace,
-		Name:      dbcr.Spec.SecretName,
+		Name:      dbcr.Spec.Credentials.SecretName,
 	}
 	err := r.Get(ctx, key, configMap)
 	if err != nil {

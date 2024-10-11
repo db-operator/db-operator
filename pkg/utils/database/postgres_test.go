@@ -36,7 +36,6 @@ func testPostgres() (*Postgres, *DatabaseUser) {
 	}
 
 	return &Postgres{
-			Backend:          "local",
 			Host:             test.GetPostgresHost(),
 			Port:             test.GetPostgresPort(),
 			Database:         "testdb",
@@ -517,7 +516,6 @@ func TestPostgresReadWriteUserLifecycleAdminGrant(t *testing.T) {
 	err = p.deleteUser(context.TODO(), admin, readwriteUser)
 	assert.NoErrorf(t, err, "Unexpected error %v", err)
 }
-
 
 func TestPublicSchema(t *testing.T) {
 	p, dbu := testPostgres()

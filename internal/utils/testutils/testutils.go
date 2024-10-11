@@ -17,7 +17,7 @@
 package testutils
 
 import (
-	kindav1beta1 "github.com/db-operator/db-operator/api/v1beta1"
+	kindav1beta2 "github.com/db-operator/db-operator/api/v1beta2"
 	"github.com/db-operator/db-operator/pkg/consts"
 	"github.com/db-operator/db-operator/pkg/test"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,50 +28,53 @@ const (
 	TestNamespace  = "TestNS"
 )
 
-func NewPostgresTestDbInstanceCr() kindav1beta1.DbInstance {
-	info := make(map[string]string)
-	info["DB_PORT"] = "5432"
-	info["DB_CONN"] = "postgres"
-	return kindav1beta1.DbInstance{
-		Spec: kindav1beta1.DbInstanceSpec{
+func NewPostgresTestDbInstanceCr() kindav1beta2.DbInstance {
+	return kindav1beta2.DbInstance{
+		Spec: kindav1beta2.DbInstanceSpec{
 			Engine: "postgres",
-			DbInstanceSource: kindav1beta1.DbInstanceSource{
-				Generic: &kindav1beta1.GenericInstance{
-					Host: test.GetPostgresHost(),
-					Port: test.GetPostgresPort(),
-				},
+			InstanceData: &kindav1beta2.InstanceData{
+				Host: test.GetPostgresHost(),
+				Port: test.GetPostgresPort(),
 			},
 		},
-		Status: kindav1beta1.DbInstanceStatus{Info: info},
+		Status: kindav1beta2.DbInstanceStatus{
+			URL:  "postgres",
+			Port: 5432,
+		},
 	}
 }
 
-func NewMysqlTestDbInstanceCr() kindav1beta1.DbInstance {
+func NewMysqlTestDbInstanceCr() kindav1beta2.DbInstance {
 	info := make(map[string]string)
 	info["DB_PORT"] = "3306"
 	info["DB_CONN"] = "mysql"
-	return kindav1beta1.DbInstance{
-		Spec: kindav1beta1.DbInstanceSpec{
+	return kindav1beta2.DbInstance{
+		Spec: kindav1beta2.DbInstanceSpec{
 			Engine: "mysql",
-			DbInstanceSource: kindav1beta1.DbInstanceSource{
-				Generic: &kindav1beta1.GenericInstance{
-					Host: test.GetMysqlHost(),
-					Port: test.GetMysqlPort(),
-				},
+			InstanceData: &kindav1beta2.InstanceData{
+				Host: "mysql",
+				Port: 3306,
 			},
 		},
-		Status: kindav1beta1.DbInstanceStatus{Info: info},
+		Status: kindav1beta2.DbInstanceStatus{
+			URL:  "mysql",
+			Port: 3306,
+		},
 	}
 }
 
-func NewPostgresTestDbCr(instanceRef kindav1beta1.DbInstance) *kindav1beta1.Database {
+func NewPostgresTestDbCr(instanceRef kindav1beta2.DbInstance) *kindav1beta2.Database {
 	o := metav1.ObjectMeta{Namespace: TestNamespace}
-	s := kindav1beta1.DatabaseSpec{SecretName: TestSecretName}
+	s := kindav1beta2.DatabaseSpec{
+		Credentials: kindav1beta2.Credentials{
+			SecretName: TestSecretName,
+		},
+	}
 
-	db := kindav1beta1.Database{
+	db := kindav1beta2.Database{
 		ObjectMeta: o,
 		Spec:       s,
-		Status: kindav1beta1.DatabaseStatus{
+		Status: kindav1beta2.DatabaseStatus{
 			Engine: consts.ENGINE_POSTGRES,
 		},
 	}
@@ -79,18 +82,22 @@ func NewPostgresTestDbCr(instanceRef kindav1beta1.DbInstance) *kindav1beta1.Data
 	return &db
 }
 
-func NewMysqlTestDbCr() *kindav1beta1.Database {
+func NewMysqlTestDbCr() *kindav1beta2.Database {
 	o := metav1.ObjectMeta{Namespace: "TestNS"}
-	s := kindav1beta1.DatabaseSpec{SecretName: "TestSec"}
+	s := kindav1beta2.DatabaseSpec{
+		Credentials: kindav1beta2.Credentials{
+			SecretName: "TestSec",
+		},
+	}
 
 	info := make(map[string]string)
 	info["DB_PORT"] = "3306"
 	info["DB_CONN"] = "mysql"
 
-	db := kindav1beta1.Database{
+	db := kindav1beta2.Database{
 		ObjectMeta: o,
 		Spec:       s,
-		Status: kindav1beta1.DatabaseStatus{
+		Status: kindav1beta2.DatabaseStatus{
 			Engine: consts.ENGINE_MYSQL,
 		},
 	}
