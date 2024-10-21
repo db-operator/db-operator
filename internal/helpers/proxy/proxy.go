@@ -48,7 +48,7 @@ func DetermineProxyTypeForDB(conf *config.Config, dbcr *kindav1beta1.Database, i
 	}
 
 	portString := instance.Status.Info["DB_PORT"]
-	port, err := strconv.Atoi(portString)
+	port, err := strconv.ParseUint(portString, 10, 16)
 	if err != nil {
 		logrus.Errorf("can not convert DB_PORT to int - %s", err)
 		return nil, err
@@ -98,7 +98,7 @@ func DetermineProxyTypeForInstance(conf *config.Config, dbin *kindav1beta1.DbIns
 	switch backend {
 	case "google":
 		portString := dbin.Status.Info["DB_PORT"]
-		port, err := strconv.Atoi(portString)
+		port, err := strconv.ParseInt(portString, 10, 32)
 		if err != nil {
 			logrus.Errorf("can not convert DB_PORT to int - %s", err)
 			return nil, err

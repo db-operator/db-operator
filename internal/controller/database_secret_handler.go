@@ -140,7 +140,7 @@ func (e *secretEventHandler) Generic(context.Context, event.GenericEvent, workqu
 	logrus.Error("secretEventHandler.Generic(...) event has been FIRED but NOT implemented!")
 }
 
-func (e *secretEventHandler) Create(ctx context.Context, evt event.CreateEvent, q workqueue.RateLimitingInterface) {
+func (e *secretEventHandler) Create(context.Context, event.CreateEvent, workqueue.RateLimitingInterface) {
 	logrus.Error("secretEventHandler.Create(...) event has been FIRED but NOT implemented!")
 }
 

@@ -44,20 +44,20 @@ spec:
   backup:
     enable: false # turn it to true when you want to use back up feature. currently only support postgres
     cron: "0 0 * * *"
-  credentials: 
+  credentials:
     templates:
       - name: USER_PASSWORD
         template: "{{ .Username }}-{{ .Password }}"
         secret: true
   secretsTemplates:
-    CONNECTION_STRING: "jdbc:{{ .Protocol }}://{{ .UserName }}:{{ .Password }}@{{ .DatabaseHost }}:{{ .DatabasePort }}/{{ .DatabaseName }}" 
+    CONNECTION_STRING: "jdbc:{{ .Protocol }}://{{ .UserName }}:{{ .Password }}@{{ .DatabaseHost }}:{{ .DatabasePort }}/{{ .DatabaseName }}"
     PASSWORD_USER: "{{ .Password }}_{{ .UserName }}"
 ```
 With `credentials.templates` you can add new entries to database ConfigMap and Secret. This feature uses go templates, so you can build custom string using either predefined helper functions:
 
 - Protocol: Depends on the db engine. Possible values are mysql/postgresql
-- Hostname: The same value as for db host in the connection configmap 
-- Port: The same value as for db port in the connection configmap 
+- Hostname: The same value as for db host in the connection configmap
+- Port: The same value as for db port in the connection configmap
 - Database: The same value as for db name in the creds secret
 - Username: The same value as for database user in the creds secret
 - Password: The same value as for password in the creds secret
@@ -65,7 +65,7 @@ With `credentials.templates` you can add new entries to database ConfigMap and S
 Or getting data directly from a data source, possible options are.
 
 - Secret: Query data from the Secret
-- ConfigMap: Query data from the ConfigMap 
+- ConfigMap: Query data from the ConfigMap
 - Query: Get data directly from the database
 
 When using `Secret` and `ConfigMap` you can query the previously created secret to template a new one, e.g.:
@@ -101,22 +101,22 @@ Make sure to set `.templates[].secret` to `true` when templating sensitive data,
 
 > `secretsTemplates` are deprecated and will be completely replaced by `credentials.templates` in the `v1beta2`, so please, make sure to migrate, or let the webhook take care of it later. You can't use both: secretsTemplates and credentials.templates at the same time, please choose only one option
 
-With `secretsTemplates` you can add fields to the database secret that are composed by any string and by any of the following templated values: 
+With `secretsTemplates` you can add fields to the database secret that are composed by any string and by any of the following templated values:
 ```YAML
 - Protocol: Depending on db engine. Possible values are mysql/postgresql
 - UserName: The same value as for database user in the creds secret
 - Password: The same value as for password in the creds secret
-- DatabaseHost: The same value as for db host in the connection configmap 
-- DatabasePort: The same value as for db port in the connection configmap 
+- DatabaseHost: The same value as for db host in the connection configmap
+- DatabasePort: The same value as for db port in the connection configmap
 - DatabaseName: The same value as for db host in the creds secret
 ```
 
-If no `credentials.templates` and `secretsTemplates` are specified, a default connection string example will be added to the secret: 
+If no `credentials.templates` and `secretsTemplates` are specified, a default connection string example will be added to the secret:
 ```YAML
-CONNECTION_STRING: "jdbc:{{ .Protocol }}://{{ .UserName }}:{{ .Password }}@{{ .DatabaseHost }}:{{ .DatabasePort }}/{{ .DatabaseName }}" 
+CONNECTION_STRING: "jdbc:{{ .Protocol }}://{{ .UserName }}:{{ .Password }}@{{ .DatabaseHost }}:{{ .DatabasePort }}/{{ .DatabaseName }}"
 ```
 
-For `postgres` it's also possible to drop the `Public` schema after the database creation, or to create additional schemas. To do that, you need to provide these fields: 
+For `postgres` it's also possible to drop the `Public` schema after the database creation, or to create additional schemas. To do that, you need to provide these fields:
 ```YAML
 postgres:
   dropPublicSchema: true # Do not set it, or set to false if you don't want to drop the public schema
@@ -125,7 +125,7 @@ postgres:
     - schema_2
 ```
 
-If you initialize a database with `dropPublicSchema: false` and then later change it to `true`, or add schemas with the `schemas` field and later try to remove them by updating the manifest, you may be unable to do that. Because `db-operator` won't use `DROP CASCADE` for removing schemas, and if there are objects depending on a schema, someone with admin access will have to remove these objects manually. 
+If you initialize a database with `dropPublicSchema: false` and then later change it to `true`, or add schemas with the `schemas` field and later try to remove them by updating the manifest, you may be unable to do that. Because `db-operator` won't use `DROP CASCADE` for removing schemas, and if there are objects depending on a schema, someone with admin access will have to remove these objects manually.
 
 There is a support for [Postgres Database Templates](https://www.postgresql.org/docs/current/manage-ag-templatedbs.html). To create a database from template, you need to set `.spec.postgres.template`. It's referencing to a database on the Postgres server, but not to the k8s Database resource that is created by operator, so there is no validation on the db-operator side that a template exists.
 
@@ -199,7 +199,7 @@ spec:
   cleanup: true
 ```
 
-If this feature is enabled, then `Database` becomes an owner of Secrets and ConfigMaps, and by removing a database, you'll also remove them. 
+If this feature is enabled, then `Database` becomes an owner of Secrets and ConfigMaps, and by removing a database, you'll also remove them.
 ### ConnectingToTheDatabase
 
 By using the secret and the configmap created by operator after database creation, pods in Kubernetes can connect to the database.

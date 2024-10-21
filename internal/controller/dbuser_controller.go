@@ -23,7 +23,6 @@ import (
 	"slices"
 	"time"
 
-	"github.com/db-operator/db-operator/api/v1beta1"
 	kindav1beta1 "github.com/db-operator/db-operator/api/v1beta1"
 	commonhelper "github.com/db-operator/db-operator/internal/helpers/common"
 	dbhelper "github.com/db-operator/db-operator/internal/helpers/database"
@@ -345,7 +344,7 @@ func (r *DbUserReconciler) getAdminSecret(ctx context.Context, dbcr *kindav1beta
 // secrets and configmaps, so it's a generic function that can be used for both:
 // creating and removing
 // It's mostly a copy-paste from the database controller, maybe it might be refactored
-func (r *DbUserReconciler) handleTemplatedCredentials(ctx context.Context, dbcr *kindav1beta1.Database, dbusercr *v1beta1.DbUser, dbuser *database.DatabaseUser) error {
+func (r *DbUserReconciler) handleTemplatedCredentials(ctx context.Context, dbcr *kindav1beta1.Database, dbusercr *kindav1beta1.DbUser, dbuser *database.DatabaseUser) error {
 	databaseSecret, err := r.getDbUserSecret(ctx, dbusercr)
 	if err != nil {
 		return err
