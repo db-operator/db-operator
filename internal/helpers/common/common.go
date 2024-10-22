@@ -17,26 +17,25 @@
 package common
 
 import (
-	"context"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 
-	kindav1beta1 "github.com/db-operator/db-operator/api/v1beta1"
+	kindav1beta2 "github.com/db-operator/db-operator/api/v1beta2"
 	"github.com/db-operator/db-operator/pkg/utils/kci"
 	crdv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 var OperatorVersion string
 
-func IsDBChanged(dbcr *kindav1beta1.Database, databaseSecret *corev1.Secret) bool {
+func IsDBChanged(dbcr *kindav1beta2.Database, databaseSecret *corev1.Secret) bool {
 	annotations := dbcr.ObjectMeta.GetAnnotations()
 
 	return annotations["checksum/spec"] != kci.GenerateChecksum(dbcr.Spec) ||
 		annotations["checksum/secret"] != GenerateChecksumSecretValue(databaseSecret)
 }
 
-func AddDBChecksum(dbcr *kindav1beta1.Database, databaseSecret *corev1.Secret) {
+func AddDBChecksum(dbcr *kindav1beta2.Database, databaseSecret *corev1.Secret) {
 	annotations := dbcr.ObjectMeta.GetAnnotations()
 	if len(annotations) == 0 {
 		annotations = make(map[string]string)
@@ -52,37 +51,6 @@ func GenerateChecksumSecretValue(databaseSecret *corev1.Secret) string {
 		return ""
 	}
 	return kci.GenerateChecksum(databaseSecret.Data)
-}
-
-func IsDBInstanceSpecChanged(ctx context.Context, dbin *kindav1beta1.DbInstance) bool {
-	checksums := dbin.Status.Checksums
-	if checksums["spec"] != kci.GenerateChecksum(dbin.Spec) {
-		return true
-	}
-
-	if backend, _ := dbin.GetBackendType(); backend == "google" {
-		instanceConfig, _ := kci.GetConfigResource(ctx, dbin.Spec.Google.ConfigmapName.ToKubernetesType())
-		if checksums["config"] != kci.GenerateChecksum(instanceConfig) {
-			return true
-		}
-	}
-
-	return false
-}
-
-func AddDBInstanceChecksumStatus(ctx context.Context, dbin *kindav1beta1.DbInstance) {
-	checksums := dbin.Status.Checksums
-	if len(checksums) == 0 {
-		checksums = make(map[string]string)
-	}
-	checksums["spec"] = kci.GenerateChecksum(dbin.Spec)
-
-	if backend, _ := dbin.GetBackendType(); backend == "google" {
-		instanceConfig, _ := kci.GetConfigResource(ctx, dbin.Spec.Google.ConfigmapName.ToKubernetesType())
-		checksums["config"] = kci.GenerateChecksum(instanceConfig)
-	}
-
-	dbin.Status.Checksums = checksums
 }
 
 func ContainsString(slice []string, s string) bool {

@@ -14,14 +14,12 @@
  * limitations under the License.
  */
 
-package v1beta1
+package v1beta2
 
 import (
 	"fmt"
 
-	"github.com/db-operator/db-operator/api/v1beta2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
 // DbUserSpec defines the desired state of DbUser
@@ -32,12 +30,9 @@ type DbUserSpec struct {
 	// AccessType that should be given to a user
 	// Currently only readOnly and readWrite are supported by the operator
 	AccessType string `json:"accessType"`
-	// SecretName name that should be used to save user's credentials
-	SecretName string `json:"secretName"`
 	// A list of additional roles that should be added to the user
 	ExtraPrivileges []string    `json:"extraPrivileges,omitempty"`
 	Credentials     Credentials `json:"credentials,omitempty"`
-	Cleanup         bool        `json:"cleanup,omitempty"`
 	// Should the user be granted to the admin user
 	// For example, it should be set to true on Azure instance,
 	// because the admin given by them is not a super user,
@@ -48,7 +43,7 @@ type DbUserSpec struct {
 	// TODO: Default should be false, but not to introduce breaking
 	//       changes it's now set to true. It should be changed in
 	//       in the next API version
-	// +kubebuilder:default=true
+	// +kubebuilder:default=false
 	// +optional
 	GrantToAdmin bool `json:"grantToAdmin"`
 }
@@ -61,13 +56,13 @@ type DbUserStatus struct {
 	Created bool `json:"created"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:printcolumn:name="Status",type=boolean,JSONPath=`.status.status`,description="current dbuser status"
-//+kubebuilder:printcolumn:name="DatabaseName",type=string,JSONPath=`.spec.databaseRef`,description="To which database user should have access"
-//+kubebuilder:printcolumn:name="AccessType",type=string,JSONPath=`.spec.accessType`,description="A type of access the user has"
-//+kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`,description="time since creation of resource"
-
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Status",type=boolean,JSONPath=`.status.status`,description="current dbuser status"
+// +kubebuilder:printcolumn:name="DatabaseName",type=string,JSONPath=`.spec.databaseRef`,description="To which database user should have access"
+// +kubebuilder:printcolumn:name="AccessType",type=string,JSONPath=`.spec.accessType`,description="A type of access the user has"
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`,description="time since creation of resos¡urce"
+// +kubebuilder:storageversion
 // DbUser is the Schema for the dbusers API
 type DbUser struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -90,6 +85,8 @@ func init() {
 	SchemeBuilder.Register(&DbUser{}, &DbUserList{})
 }
 
+func (dbuser *DbUser) Hub() {}
+
 // Access types that are supported by the operator
 const (
 	READONLY  = "readOnly"
@@ -104,7 +101,7 @@ func IsAccessTypeSupported(wantedAccessType string) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("the provided access type is not supported by the operator: %s - please choose one of these: %v",
+	return fmt.Errorf("the provided access type is not supported by the operator: %s - please chose one of these: %v",
 		wantedAccessType,
 		supportedAccessTypes,
 	)
@@ -112,7 +109,7 @@ func IsAccessTypeSupported(wantedAccessType string) error {
 
 // DbUsers don't have cleanup feature implemented
 func (dbu *DbUser) IsCleanup() bool {
-	return dbu.Spec.Cleanup
+	return dbu.Spec.Credentials.SetOwnerReference
 }
 
 func (dbu *DbUser) IsDeleted() bool {
@@ -120,55 +117,5 @@ func (dbu *DbUser) IsDeleted() bool {
 }
 
 func (dbu *DbUser) GetSecretName() string {
-	return dbu.Spec.SecretName
-}
-
-// ConvertTo converts this v1beta1 to v1beta2. (upgrade)
-func (dbuser *DbUser) ConvertTo(dstRaw conversion.Hub) error {
-	dst := dstRaw.(*v1beta2.DbUser)
-	dst.ObjectMeta = dbuser.ObjectMeta
-	var newTemplates v1beta2.Templates
-	for _, oldTemplate := range dbuser.Spec.Credentials.Templates {
-		newTemplates = append(newTemplates, &v1beta2.Template{
-			Name:     oldTemplate.Name,
-			Template: oldTemplate.Template,
-		})
-	}
-	dst.Spec = v1beta2.DbUserSpec{
-		DatabaseRef:     dbuser.Spec.DatabaseRef,
-		AccessType:      dbuser.Spec.AccessType,
-		ExtraPrivileges: dbuser.Spec.ExtraPrivileges,
-		Credentials: v1beta2.Credentials{
-			SecretName:        dbuser.Spec.SecretName,
-			SetOwnerReference: dbuser.Spec.Cleanup,
-			Templates:         newTemplates,
-		},
-		GrantToAdmin: dbuser.Spec.GrantToAdmin,
-	}
-	return nil
-}
-
-// ConvertFrom converts from the Hub version (v1beta2) to (v1beta1). (downgrade)
-func (dst *DbUser) ConvertFrom(srcRaw conversion.Hub) error {
-	dbuser := srcRaw.(*v1beta2.DbUser)
-	dst.ObjectMeta = dbuser.ObjectMeta
-	var newTemplates Templates
-	for _, oldTemplate := range dbuser.Spec.Credentials.Templates {
-		newTemplates = append(newTemplates, &Template{
-			Name:     oldTemplate.Name,
-			Template: oldTemplate.Template,
-		})
-	}
-	dst.Spec = DbUserSpec{
-		DatabaseRef:     dbuser.Spec.DatabaseRef,
-		AccessType:      dbuser.Spec.AccessType,
-		ExtraPrivileges: dbuser.Spec.ExtraPrivileges,
-		SecretName:      dbuser.Spec.Credentials.SecretName,
-		Cleanup:         dbuser.Spec.Credentials.SetOwnerReference,
-		Credentials: Credentials{
-			Templates: newTemplates,
-		},
-		GrantToAdmin: dbuser.Spec.GrantToAdmin,
-	}
-	return nil
+	return dbu.Spec.Credentials.SecretName
 }
