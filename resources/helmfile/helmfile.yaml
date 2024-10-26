@@ -32,7 +32,7 @@ releases:
     namespace: db-operator
       #chart: db-instances/db-instances
     chart: kinda-charts/db-instances
-    version: 2.3.1
+    version: 2.3.4
     values:
       - ./values/db-instances.values.yaml
 
