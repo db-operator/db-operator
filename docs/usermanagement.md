@@ -18,7 +18,7 @@ apiVersion: "kinda.rocks/v1beta1"
 kind: DbUser
 metadata:
   name: mysql-readwrite
-  name: default
+  namespace: default
 spec:
   secretName: mysql-readwrite-secret
   accessType: readWrite
@@ -34,6 +34,10 @@ As a username, ${metadata.namespace}-${metadata.name} of the `DbUser` will be us
 Users can only access databases that are deployed to the same namespace, and they, currently, cannot be assigned to multiple databases.
 
 DbInstance creation will trigger a new secret creation as well. You will have a secret in the same namespace, the name of which will be taken from `spec.secretName`, it will contain all the data that is required to connect to the DB
+
+### Credentials templating 
+
+Credentials templating is also available here and functions exactly as described in the [Database](./creatingdatabases.md#creatingdatabases) resource.
 
 ### Access Types
 
