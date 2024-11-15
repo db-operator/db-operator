@@ -159,9 +159,16 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	if dbusercr.IsDeleted() {
 		if commonhelper.ContainsString(dbusercr.ObjectMeta.Finalizers, "dbuser."+dbusercr.Name) {
-			if err := r.handleTemplatedCredentials(ctx, dbcr, dbusercr, dbuser); err != nil {
-				return r.manageError(ctx, dbusercr, err, true)
-			}
+			// TODO: Enable the clean-up for the templated secrets
+			// Currently, because of the Modifier logic, ownership labels are removed before
+			// the templated creds clean-up is attempted, and hence the templated secret
+			// modification can not succeed, that ends up in unremovable users.
+			//
+			// I would like to come back to this issues after the crds are upgraded
+			//
+			// if err := r.handleTemplatedCredentials(ctx, dbcr, dbusercr, dbuser); err != nil {
+			// 	 return r.manageError(ctx, dbusercr, err, true)
+			// }
 			if err := database.DeleteUser(ctx, db, dbuser, adminCred); err != nil {
 				log.Error(err, "failed deleting a user")
 				return r.manageError(ctx, dbusercr, err, false)
