@@ -19,7 +19,10 @@ package v1beta1
 import (
 	"errors"
 
+	"github.com/db-operator/db-operator/api/common"
+	"github.com/db-operator/db-operator/api/v1beta2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
@@ -74,23 +77,16 @@ type BackendServer struct {
 // and describes necessary information to use instance
 // generic instance can be any backend, it must be reachable by described address and port
 type GenericInstance struct {
-	Host         string   `json:"host,omitempty"`
-	HostFrom     *FromRef `json:"hostFrom,omitempty"`
-	Port         uint16   `json:"port,omitempty"`
-	PortFrom     *FromRef `json:"portFrom,omitempty"`
-	PublicIP     string   `json:"publicIp,omitempty"`
-	PublicIPFrom *FromRef `json:"publicIpFrom,omitempty"`
+	Host         string          `json:"host,omitempty"`
+	HostFrom     *common.FromRef `json:"hostFrom,omitempty"`
+	Port         uint16          `json:"port,omitempty"`
+	PortFrom     *common.FromRef `json:"portFrom,omitempty"`
+	PublicIP     string          `json:"publicIp,omitempty"`
+	PublicIPFrom *common.FromRef `json:"publicIpFrom,omitempty"`
 	// BackupHost address will be used for dumping database for backup
 	// Usually secondary address for primary-secondary setup or cluster lb address
 	// If it's not defined, above Host will be used as backup host address.
 	BackupHost string `json:"backupHost,omitempty"`
-}
-
-type FromRef struct {
-	Kind      string `json:"kind"`
-	Name      string `json:"name"`
-	Namespace string `json:"namespace"`
-	Key       string `json:"key"`
 }
 
 // DbInstanceBackup defines name of google bucket to use for storing database dumps for backup when backup is enabled
@@ -115,7 +111,6 @@ type DbInstanceSSLConnection struct {
 //+kubebuilder:resource:scope=Cluster,shortName=dbin
 //+kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`,description="current phase"
 //+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.status`,description="health status"
-// +kubebuilder:storageversion
 
 // DbInstance is the Schema for the dbinstances API
 type DbInstance struct {
@@ -215,6 +210,61 @@ func (dbin *DbInstance) GetSecretName() string {
 	return ""
 }
 
-func (db *DbInstance) Hub() {
-	// Function to mark the DbInstance as a hub
+// Function to mark the DbInstance as a hub
+func (db *DbInstance) Hub() {}
+
+// ConvertTo converts this v1beta1 to v1beta2. (upgrade)
+func (dbin *DbInstance) ConvertTo(dstRaw conversion.Hub) error {
+	dst := dstRaw.(*v1beta2.DbInstance)
+	dst.ObjectMeta = dbin.ObjectMeta
+	dst.Spec.AdminCredentials = &v1beta2.AdminCredentials{
+		UsernameFrom: &common.FromRef{
+			Kind:      "Secret",
+			Name:      dbin.Spec.AdminUserSecret.Name,
+			Namespace: dbin.Spec.AdminUserSecret.Namespace,
+			Key:       "user",
+		},
+		PasswordFrom: &common.FromRef{
+			Kind:      "Secret",
+			Name:      dbin.Spec.AdminUserSecret.Name,
+			Namespace: dbin.Spec.AdminUserSecret.Namespace,
+			Key:       "password",
+		},
+	}
+	dst.Spec.AllowedPrivileges = dbin.Spec.AllowedPrivileges
+	dst.Spec.SSLConnection = v1beta2.DbInstanceSSLConnection(dbin.Spec.SSLConnection)
+	if dbin.Spec.DbInstanceSource.Generic != nil {
+		dst.Spec.InstanceData = &v1beta2.InstanceData{
+			Host: dbin.Spec.Generic.Host,
+			Port: dbin.Spec.Generic.Port,
+		}
+	} else if dbin.Spec.DbInstanceSource.Google != nil {
+		return errors.New("google instances are not supported anymore, please conside migrating to other tools for providing them. E.g crossplane")
+	}
+	dst.Spec.Engine = v1beta2.Engine(dbin.Spec.Engine)
+	return nil
+}
+
+// ConvertFrom converts from the Hub version (v1beta2) to (v1beta1). (downgrade)
+func (dst *DbInstance) ConvertFrom(srcRaw conversion.Hub) error {
+	dbin := srcRaw.(*v1beta2.DbInstance)
+	dst.ObjectMeta = dbin.ObjectMeta
+	dst.Spec.AdminUserSecret = NamespacedName{
+		Namespace: dbin.Spec.AdminCredentials.UsernameFrom.Namespace,
+		Name:      dbin.Spec.AdminCredentials.UsernameFrom.Name,
+	}
+	dst.Spec.SSLConnection = DbInstanceSSLConnection(dbin.Spec.SSLConnection)
+	dst.Spec.Backup = DbInstanceBackup{}
+	dst.Spec.DbInstanceSource.Generic = &GenericInstance{
+		Host:         dbin.Spec.InstanceData.Host,
+		HostFrom:     (*common.FromRef)(dbin.Spec.InstanceData.HostFrom),
+		Port:         dbin.Spec.InstanceData.Port,
+		PortFrom:     (*common.FromRef)(dbin.Spec.InstanceData.PortFrom),
+		PublicIP:     "",
+		PublicIPFrom: nil,
+		BackupHost:   "",
+	}
+	dst.Spec.AllowedPrivileges = dbin.Spec.AllowedPrivileges
+	dst.Spec.Engine = string(dbin.Spec.Engine)
+	return nil
 }
