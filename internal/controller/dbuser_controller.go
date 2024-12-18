@@ -155,7 +155,7 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	dbuser.AccessType = dbusercr.Spec.AccessType
 	dbuser.Password = creds.Password
-	dbuser.Username = fmt.Sprintf("%s-%s", dbusercr.GetObjectMeta().GetNamespace(), dbusercr.GetObjectMeta().GetName())
+	dbuser.Username = creds.Username
 
 	if dbusercr.IsDeleted() {
 		if commonhelper.ContainsString(dbusercr.ObjectMeta.Finalizers, "dbuser."+dbusercr.Name) {
