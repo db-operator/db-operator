@@ -1,8 +1,8 @@
 ---
-image: 
+image1:
   repository: ghcr.io/db-operator/db-operator-dev
   tag: ca2c9edf5a2f544e1ac3d6979b92e19900154414
-image1:
+image:
   repository: my-db-operator
   tag: 1.0.0-dev
   pullPolicy: Never

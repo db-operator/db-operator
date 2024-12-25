@@ -199,6 +199,8 @@ spec:
   cleanup: true
 ```
 
+If ArgoCD is used to manage Databases and the `cleanup` is set to `true`, please make sure that the `PrunePropagationPolicy` is not set to `foreground`, because db-operator is using secrets to understand which Database must be removed, and with the `foreground` policy the secret is removed before the Database, that makes it impossible for the operator to finish the reconciliation.
+
 If this feature is enabled, then `Database` becomes an owner of Secrets and ConfigMaps, and by removing a database, you'll also remove them.
 ### ConnectingToTheDatabase
 

@@ -30,7 +30,6 @@ import (
 	"github.com/db-operator/db-operator/internal/utils/templates"
 	"github.com/db-operator/db-operator/pkg/utils/database"
 	"github.com/db-operator/db-operator/pkg/utils/kci"
-	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -47,16 +46,16 @@ type DbUserReconciler struct {
 	client.Client
 	Scheme       *runtime.Scheme
 	Interval     time.Duration
-	Log          logr.Logger
 	Recorder     record.EventRecorder
 	CheckChanges bool
 	kubeHelper   *kubehelper.KubeHelper
 }
 
-//+kubebuilder:rbac:groups=kinda.rocks,resources=dbusers,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=kinda.rocks,resources=dbusers/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=kinda.rocks,resources=dbusers/finalizers,verbs=update
+// +kubebuilder:rbac:groups=kinda.rocks,resources=dbusers,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=kinda.rocks,resources=dbusers/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=kinda.rocks,resources=dbusers/finalizers,verbs=update
 
+// Reconcile a DbUser object
 func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 	reconcilePeriod := r.Interval * time.Second
@@ -72,13 +71,14 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			return reconcileResult, nil
 		}
 		// Error reading the object - requeue the request.
+		log.Error(err, "Couldn't get a DbUser resource")
 		return reconcileResult, err
 	}
 
 	// Update object status always when function exit abnormally or through a panic.
 	defer func() {
 		if err := r.Status().Update(ctx, dbusercr); err != nil {
-			log.Error(err, "failed to update status")
+			log.Error(err, "Failed to update status")
 		}
 	}()
 
@@ -91,27 +91,34 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return r.manageError(ctx, dbusercr, err, false)
 	}
 
+	// The secret is required for all kinds of the events, because it's used a storage for the
+	// dbuser data. So even when a dbuser is removed, we need to get the secret in order to
+	// let the db-operator know which exactly user must be removed.
 	userSecret, err := r.getDbUserSecret(ctx, dbusercr)
 	if err != nil {
-		if k8serrors.IsNotFound(err) {
+		// If a secret is not found on the "delete" event it should be a critical unrecoverable
+		// error, cause we don't know which user must be removed
+		if k8serrors.IsNotFound(err) && !dbusercr.IsDeleted() {
 			dbName := fmt.Sprintf("%s-%s", dbusercr.Namespace, dbusercr.Spec.DatabaseRef)
 			secretData, err := dbhelper.GenerateDatabaseSecretData(dbusercr.ObjectMeta, dbcr.Status.Engine, dbName)
 			if err != nil {
-				log.Error(err, "can not generate credentials for database")
+				log.Error(err, "Could not generate credentials for database")
 				return r.manageError(ctx, dbusercr, err, false)
 			}
 			userSecret = kci.SecretBuilder(dbusercr.Spec.SecretName, dbusercr.Namespace, secretData)
 		} else {
-			log.Error(err, "could not get database secret")
+			log.Error(err, "Could not get database secret")
 			return r.manageError(ctx, dbusercr, err, true)
 		}
 	}
 
-	err = r.kubeHelper.ModifyObject(ctx, userSecret)
+	// Make sure the secret is reflecting the actual desired state
+	err = r.kubeHelper.HandleCreateOrUpdate(ctx, userSecret)
 	if err != nil {
 		// failed to create secret
 		return r.manageError(ctx, dbusercr, err, false)
 	}
+
 	creds, err := parseDbUserSecretData(dbcr.Status.Engine, userSecret.Data)
 	if err != nil {
 		return r.manageError(ctx, dbusercr, err, false)
@@ -121,82 +128,80 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if !r.CheckChanges || isDbUserChanged(dbusercr, userSecret) {
 		dbusercr.Status.Status = false
 	}
-	instance := &kindav1beta1.DbInstance{}
-	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
-		return r.manageError(ctx, dbusercr, err, false)
-	}
-	// Check if chosen ExtraPrivileges are allowed on the instance
-	for _, priv := range dbusercr.Spec.ExtraPrivileges {
-		if !slices.Contains(instance.Spec.AllowedPrivileges, priv) {
-			err := fmt.Errorf("role %s is not allowed on the instance %s", priv, instance.Name)
+
+	if !dbusercr.Status.Status {
+		instance := &kindav1beta1.DbInstance{}
+		if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
 			return r.manageError(ctx, dbusercr, err, false)
 		}
-	}
-	db, dbuser, err := dbhelper.FetchDatabaseData(ctx, dbcr, creds, instance)
-	if err != nil {
-		// failed to determine database type
-		return r.manageError(ctx, dbusercr, err, false)
-	}
-
-	// Add extra privileges
-	dbuser.ExtraPrivileges = dbusercr.Spec.ExtraPrivileges
-	dbuser.GrantToAdmin = dbusercr.Spec.GrantToAdmin
-	adminSecretResource, err := r.getAdminSecret(ctx, dbcr)
-	if err != nil {
-		// failed to get admin secret
-		return r.manageError(ctx, dbusercr, err, false)
-	}
-
-	adminCred, err := db.ParseAdminCredentials(ctx, adminSecretResource.Data)
-	if err != nil {
-		// failed to parse database admin secret
-		return r.manageError(ctx, dbusercr, err, false)
-	}
-
-	dbuser.AccessType = dbusercr.Spec.AccessType
-	dbuser.Password = creds.Password
-	dbuser.Username = creds.Username
-
-	if dbusercr.IsDeleted() {
-		if commonhelper.ContainsString(dbusercr.ObjectMeta.Finalizers, "dbuser."+dbusercr.Name) {
-			// TODO: Enable the clean-up for the templated secrets
-			// Currently, because of the Modifier logic, ownership labels are removed before
-			// the templated creds clean-up is attempted, and hence the templated secret
-			// modification can not succeed, that ends up in unremovable users.
-			//
-			// I would like to come back to this issues after the crds are upgraded
-			//
-			// if err := r.handleTemplatedCredentials(ctx, dbcr, dbusercr, dbuser); err != nil {
-			// 	 return r.manageError(ctx, dbusercr, err, true)
-			// }
-			if err := database.DeleteUser(ctx, db, dbuser, adminCred); err != nil {
-				log.Error(err, "failed deleting a user")
+		// Check if chosen ExtraPrivileges are allowed on the instance
+		for _, priv := range dbusercr.Spec.ExtraPrivileges {
+			if !slices.Contains(instance.Spec.AllowedPrivileges, priv) {
+				err := fmt.Errorf("role %s is not allowed on the instance %s", priv, instance.Name)
 				return r.manageError(ctx, dbusercr, err, false)
 			}
-			kci.RemoveFinalizer(&dbusercr.ObjectMeta, "dbuser."+dbusercr.Name)
-			err = r.Update(ctx, dbusercr)
-			if err != nil {
-				log.Error(err, "error resource updating")
-				return r.manageError(ctx, dbusercr, err, false)
-			}
-			kci.RemoveFinalizer(&dbcr.ObjectMeta, "dbuser."+dbusercr.Name)
-			err = r.Update(ctx, dbcr)
-			if err != nil {
-				log.Error(err, "error resource updating")
-				return r.manageError(ctx, dbusercr, err, false)
-			}
-
 		}
-	} else {
-		if !dbcr.Status.Status {
-			err := fmt.Errorf("database %s is not ready yet", dbcr.Name)
-			return r.manageError(ctx, dbusercr, err, true)
+		db, dbuser, err := dbhelper.FetchDatabaseData(ctx, dbcr, creds, instance)
+		if err != nil {
+			// failed to determine database type
+			return r.manageError(ctx, dbusercr, err, false)
 		}
 
-		// Init the DbUser struct depending on a type
-		if !dbusercr.Status.Status {
+		// Add extra privileges
+		dbuser.ExtraPrivileges = dbusercr.Spec.ExtraPrivileges
+
+		dbuser.GrantToAdmin = dbusercr.Spec.GrantToAdmin
+
+		adminSecretResource, err := r.getAdminSecret(ctx, dbcr)
+		if err != nil {
+			// failed to get admin secret
+			return r.manageError(ctx, dbusercr, err, false)
+		}
+
+		adminCred, err := db.ParseAdminCredentials(ctx, adminSecretResource.Data)
+		if err != nil {
+			// failed to parse database admin secret
+			return r.manageError(ctx, dbusercr, err, false)
+		}
+
+		dbuser.AccessType = dbusercr.Spec.AccessType
+		dbuser.Password = creds.Password
+		dbuser.Username = creds.Username
+
+		if dbusercr.IsDeleted() {
+			if commonhelper.ContainsString(dbusercr.ObjectMeta.Finalizers, "dbuser."+dbusercr.Name) {
+				if err := r.handleTemplatedCredentials(ctx, dbcr, dbusercr, dbuser); err != nil {
+					return r.manageError(ctx, dbusercr, err, true)
+				}
+				if err := database.DeleteUser(ctx, db, dbuser, adminCred); err != nil {
+					log.Error(err, "failed deleting a user")
+					return r.manageError(ctx, dbusercr, err, false)
+				}
+				kci.RemoveFinalizer(&dbusercr.ObjectMeta, "dbuser."+dbusercr.Name)
+				err = r.Update(ctx, dbusercr)
+				if err != nil {
+					log.Error(err, "error resource updating")
+					return r.manageError(ctx, dbusercr, err, false)
+				}
+				kci.RemoveFinalizer(&dbcr.ObjectMeta, "dbuser."+dbusercr.Name)
+				err = r.Update(ctx, dbcr)
+				if err != nil {
+					log.Error(err, "error resource updating")
+					return r.manageError(ctx, dbusercr, err, false)
+				}
+				if err := r.kubeHelper.HandleDelete(ctx, userSecret); err != nil {
+					return r.manageError(ctx, dbusercr, err, false)
+				}
+			}
+		} else {
+			if !dbcr.Status.Status {
+				err := fmt.Errorf("database %s is not ready yet", dbcr.Name)
+				return r.manageError(ctx, dbusercr, err, true)
+			}
+
+			// Init the DbUser struct depending on a type
 			if !dbusercr.Status.Created {
-				r.Log.Info(fmt.Sprintf("creating a user: %s", dbusercr.GetObjectMeta().GetName()))
+				log.Info("creating a user", "name", dbusercr.GetName())
 				if err := database.CreateUser(ctx, db, dbuser, adminCred); err != nil {
 					return r.manageError(ctx, dbusercr, err, false)
 				}
@@ -214,7 +219,7 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 				}
 				dbusercr.Status.Created = true
 			} else {
-				r.Log.Info(fmt.Sprintf("updating a user %s", dbusercr.GetObjectMeta().GetName()))
+				log.Info("updating a user", "name", dbusercr.GetName())
 				if err := database.UpdateUser(ctx, db, dbuser, adminCred); err != nil {
 					return r.manageError(ctx, dbusercr, err, false)
 				}
@@ -222,11 +227,11 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			if err := r.handleTemplatedCredentials(ctx, dbcr, dbusercr, dbuser); err != nil {
 				return r.manageError(ctx, dbusercr, err, true)
 			}
+			dbusercr.Status.OperatorVersion = commonhelper.OperatorVersion
 			dbusercr.Status.Status = true
 			dbusercr.Status.DatabaseName = dbusercr.Spec.DatabaseRef
 		}
 	}
-
 	return reconcileResult, nil
 }
 
