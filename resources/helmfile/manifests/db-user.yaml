@@ -1,8 +1,17 @@
 apiVersion: "kinda.rocks/v1beta1"
 kind: "DbUser"
 metadata:
-  name: postgres-lala
+  name: postgres-user-$NUM
 spec:
-  secretName: postgres-readonly-user-lala
+  secretName: postgres-readonly-user-$NUM
   accessType: readOnly
   databaseRef: postgres-db
+---
+apiVersion: "kinda.rocks/v1beta1"
+kind: "DbUser"
+metadata:
+  name: mysql-user-$NUM
+spec:
+  secretName: mysql-readonly-user-$NUM
+  accessType: readOnly
+  databaseRef: mysql-db

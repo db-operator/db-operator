@@ -158,7 +158,6 @@ func main() {
 		if err = (&controllers.DbUserReconciler{
 			Client:       mgr.GetClient(),
 			Scheme:       mgr.GetScheme(),
-			Log:          ctrl.Log.WithName("controllers").WithName("DbUser"),
 			Recorder:     mgr.GetEventRecorderFor("dbuser-controller"),
 			Interval:     time.Duration(i),
 			CheckChanges: checkForChanges,

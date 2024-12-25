@@ -56,7 +56,8 @@ type DbUserStatus struct {
 	Status       bool   `json:"status"`
 	DatabaseName string `json:"database"`
 	// It's required to let the operator update users
-	Created bool `json:"created"`
+	Created         bool   `json:"created"`
+	OperatorVersion string `json:"operatorVersion,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -64,6 +65,7 @@ type DbUserStatus struct {
 //+kubebuilder:printcolumn:name="Status",type=boolean,JSONPath=`.status.status`,description="current dbuser status"
 //+kubebuilder:printcolumn:name="DatabaseName",type=string,JSONPath=`.spec.databaseRef`,description="To which database user should have access"
 //+kubebuilder:printcolumn:name="AccessType",type=string,JSONPath=`.spec.accessType`,description="A type of access the user has"
+//+kubebuilder:printcolumn:name="OperatorVersion",type=string,JSONPath=`.status.operatorVersion`,description="db-operator version of last full reconcile"
 //+kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`,description="time since creation of resource"
 
 // DbUser is the Schema for the dbusers API
