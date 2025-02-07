@@ -1,0 +1,21 @@
+version: "3.8"
+services:
+  postgres:
+    image: ${IMAGE}
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: "test1234"
+      POSTGRES_USER: "postgres"
+    volumes:
+      # ---------------------------------------------------------------
+      # -- Init script that should bootstrap the postgres server 
+      # --  so it acts like the one given by Azure
+      # -- Azure Flexible server won't give you a super user, 
+      # --  but instead will give you a user with the permissions 
+      # --  like those that are set in the script
+      # ---------------------------------------------------------------
+      - ./resources/test/aws_rds_postgres_init.sh:/docker-entrypoint-initdb.d/az_init.sh
+      - data:/usr/share/postgresql
+volumes:
+  data:
