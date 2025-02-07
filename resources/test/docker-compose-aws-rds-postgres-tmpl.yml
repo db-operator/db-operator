@@ -6,7 +6,7 @@ services:
       - "5432:5432"
     environment:
       POSTGRES_PASSWORD: "test1234"
-      POSTGRES_USER: "postgres"
+      POSTGRES_USER: "aws_superuser"
     volumes:
       # ---------------------------------------------------------------
       # -- Init script that should bootstrap the postgres server 
