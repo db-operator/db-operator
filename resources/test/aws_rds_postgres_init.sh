@@ -4,11 +4,11 @@
 # --  that has the permissions like a user provided by Azure
 # ---------------------------------------------------------------------
 export PGDATABASE=postgres
-export PGUSER=postgres
-psql -c "CREATE ROLE rds_superuser;"
-psql -c "ALTER ROLE rds_superuser WITH CREATEDB CREATEROLE REPLICATION;"
-psql -c "ALTER ROLE postgres WITH NOLOGIN;"
-psql -c "CREATE ROLE myadmin WITH LOGIN PASSWORD 'securepassword' CREATEDB CREATEROLE;"
-psql -c "GRANT rds_superuser TO myadmin;"
+export PGUSER=aws_superuser
+psql -c "CREATE ROLE postgres;"
+psql -c "ALTER ROLE postgres WITH CREATEDB CREATEROLE REPLICATION;"
+psql -c "ALTER ROLE aws_superuser WITH NOLOGIN;"
+psql -c "CREATE ROLE myadmin WITH LOGIN PASSWORD 'test1234' CREATEDB CREATEROLE;"
+psql -c "GRANT postgres TO myadmin;"
 psql -c "REVOKE ALL ON pg_database FROM public;"
 psql -c "REVOKE ALL ON pg_authid FROM public;"
