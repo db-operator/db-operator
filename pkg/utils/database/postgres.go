@@ -638,13 +638,6 @@ func (p Postgres) deleteUser(ctx context.Context, admin *DatabaseUser, user *Dat
 				return err
 			}
 		}
-		// Grant user to admin, if it was never granted
-		if !user.GrantToAdmin {
-			assignRoleToAdmin := fmt.Sprintf("GRANT \"%s\" TO \"%s\";", user.Username, admin.Username)
-			if err := p.executeExec(ctx, p.Database, assignRoleToAdmin, admin); err != nil {
-				log.Error(err, "failed granting user to admin", "username", user.Username, "admin", admin.Username)
-			}
-		}
 
 		for _, schema := range schemas {
 			revokeDefaults := fmt.Sprintf("ALTER DEFAULT PRIVILEGES FOR ROLE \"%s\" IN SCHEMA \"%s\" REVOKE ALL ON TABLES FROM \"%s\";",
