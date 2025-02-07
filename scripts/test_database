@@ -1,13 +1,14 @@
 #! /usr/bin/env bash
 set -e
 
+COMPOSE_TOOL="${COMPOSE_TOOL:=docker compose}"
 
 function usage() {
     cat <<EOF
     Please provide 3 arguments 
-    	- -d | a database type (mysql|postgres)
-    	- -i | image path (mysql:8)
-    	- -f | a path to a docker-compose tempalte
+      - -d | a database type (mysql|postgres)
+      - -i | image path (mysql:8)
+      - -f | a path to a docker-compose tempalte
     EG:
       ./scripts/test_database -d postgres -i postgres:11 -f ./resources/test/docker-compose-psql-tmpl.yaml
 EOF
@@ -15,7 +16,7 @@ EOF
     exit 2
 }
 
-while getopts :d:i:f: FOUND
+while getopts :d:i:f:c FOUND
 do
     case $FOUND in
         d)  DATABASE="${OPTARG}"
@@ -52,11 +53,11 @@ TARGET_COMPOSE="gen-docker-compose-$DATABASE.yml"
 export IMAGE
 envsubst < "$TMPL_PATH" > "$TARGET_COMPOSE"
 
-docker compose -f "$TARGET_COMPOSE" down
-docker compose -f "$TARGET_COMPOSE" up -d
+bash -c "${COMPOSE_TOOL} -f ${TARGET_COMPOSE} down"
+bash -c "${COMPOSE_TOOL} -f ${TARGET_COMPOSE} up -d"
 sleep 10
 
 go test -count=1 -tags tests -run "Test${DATABASE^}" ./... -v -cover
-docker compose -f "$TARGET_COMPOSE" down
+bash -c "${COMPOSE_TOOL} -f ${TARGET_COMPOSE} down"
 rm -f "$TARGET_COMPOSE"
 
