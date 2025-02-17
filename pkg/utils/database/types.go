@@ -38,6 +38,12 @@ type DatabaseUser struct {
 	AccessType      string
 	ExtraPrivileges []string
 	GrantToAdmin    bool
+	// A workaround mostly for AWS RDS. Since we can't
+	// grant a user that is a member of rds_iam role to
+	// the admin, we need to make the grant after a
+	// user is revoked from rds_iam, hence it should
+	// happen while it's being deleted
+	GrantToAdminOnDelete bool
 }
 
 // DatabaseAddress contains host and port of a database instance

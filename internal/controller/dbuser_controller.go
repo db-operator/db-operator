@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
 	"time"
 
 	kindav1beta1 "github.com/db-operator/db-operator/api/v1beta1"
@@ -28,6 +29,7 @@ import (
 	dbhelper "github.com/db-operator/db-operator/internal/helpers/database"
 	kubehelper "github.com/db-operator/db-operator/internal/helpers/kube"
 	"github.com/db-operator/db-operator/internal/utils/templates"
+	"github.com/db-operator/db-operator/pkg/consts"
 	"github.com/db-operator/db-operator/pkg/utils/database"
 	"github.com/db-operator/db-operator/pkg/utils/kci"
 	corev1 "k8s.io/api/core/v1"
@@ -145,6 +147,24 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		if err != nil {
 			// failed to determine database type
 			return r.manageError(ctx, dbusercr, err, false)
+		}
+
+		val, ok := dbusercr.Annotations[consts.GRANT_TO_ADMIN_ON_DELETE]
+		if ok {
+			boolVal, err := strconv.ParseBool(val)
+			if err != nil {
+				log.Info(
+					"can't parse a value of an annotation into a bool, ignoring",
+					"annotation",
+					consts.GRANT_TO_ADMIN_ON_DELETE,
+					"value",
+					val,
+					"error",
+					err,
+				)
+			} else {
+				dbuser.GrantToAdminOnDelete = boolVal
+			}
 		}
 
 		// Add extra privileges

@@ -43,11 +43,18 @@ const (
 
 // Kubernetes Annotations
 const (
-	TEMPLATE_ANNOTATION_KEY        = "kinda.rocks/db-operator-templated-keys"
-	SECRET_FORCE_RECONCILE         = "kinda.rocks/secret-force-reconcile"
-	DATABASE_FORCE_FULL_RECONCILE  = "kinda.rocks/db-force-full-reconcile"
-	USED_OBJECTS                   = "kinda.rocks/used-objects"
+	TEMPLATE_ANNOTATION_KEY       = "kinda.rocks/db-operator-templated-keys"
+	SECRET_FORCE_RECONCILE        = "kinda.rocks/secret-force-reconcile"
+	DATABASE_FORCE_FULL_RECONCILE = "kinda.rocks/db-force-full-reconcile"
+	USED_OBJECTS                  = "kinda.rocks/used-objects"
+	// This annotation should be used, when a DbUser is not allowed to log in
+	// with password
 	RDS_IAM_IMPERSONATE_WORKAROUND = "kinda.rocks/rds-iam-impersonate"
+	// On instances where the admin is not a super user, it might not be able
+	// to drop owned by user, so we need to grant the user to the admin,
+	// But it's not possible on the AWS instances with the rds_iam role,
+	// because then admins are not able to log in with a password anymore
+	GRANT_TO_ADMIN_ON_DELETE = "kinda.rocks/grant-to-admin-on-delete"
 )
 
 // Kubernetes Labels
