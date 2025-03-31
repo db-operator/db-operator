@@ -21,8 +21,8 @@ import (
 	"os"
 	"testing"
 
-	kindav1beta1 "github.com/db-operator/db-operator/api/v1beta1"
-	"github.com/db-operator/db-operator/pkg/config"
+	kindav1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
+	"github.com/db-operator/db-operator/v2/pkg/config"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"

@@ -21,8 +21,8 @@ import (
 	"bytes"
 	"text/template"
 
-	kindav1beta1 "github.com/db-operator/db-operator/api/v1beta1"
-	"github.com/db-operator/db-operator/pkg/utils/database"
+	kindav1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
+	"github.com/db-operator/db-operator/v2/pkg/utils/database"
 	"github.com/sirupsen/logrus"
 	"k8s.io/utils/strings/slices"
 )

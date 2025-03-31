@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/db-operator/db-operator/pkg/consts"
+	"github.com/db-operator/db-operator/v2/pkg/consts"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
@@ -30,7 +30,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	dbotypes "github.com/db-operator/db-operator/pkg/types"
+	dbotypes "github.com/db-operator/db-operator/v2/pkg/types"
 )
 
 const ERROR_CANT_CAST = "couldn't cast a caller to the client.Object"

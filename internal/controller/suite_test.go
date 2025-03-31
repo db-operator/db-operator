@@ -30,7 +30,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	kindarocksv1beta1 "github.com/db-operator/db-operator/api/v1beta1"
+	kindarocksv1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
 	//+kubebuilder:scaffold:imports
 )
 

@@ -20,9 +20,9 @@ import (
 	"errors"
 	"fmt"
 
-	kindav1beta1 "github.com/db-operator/db-operator/api/v1beta1"
-	"github.com/db-operator/db-operator/pkg/config"
-	"github.com/db-operator/db-operator/pkg/utils/kci"
+	kindav1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
+	"github.com/db-operator/db-operator/v2/pkg/config"
+	"github.com/db-operator/db-operator/v2/pkg/utils/kci"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"

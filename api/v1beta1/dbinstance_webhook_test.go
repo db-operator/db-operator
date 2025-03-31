@@ -3,8 +3,8 @@ package v1beta1_test
 import (
 	"testing"
 
-	"github.com/db-operator/db-operator/api/v1beta1"
-	"github.com/db-operator/db-operator/pkg/consts"
+	"github.com/db-operator/db-operator/v2/api/v1beta1"
+	"github.com/db-operator/db-operator/v2/pkg/consts"
 	"github.com/stretchr/testify/assert"
 )
 
