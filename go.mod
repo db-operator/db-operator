@@ -1,4 +1,4 @@
-module github.com/db-operator/db-operator
+module github.com/db-operator/db-operator/v2
 
 go 1.22.0
 

@@ -17,7 +17,7 @@ COPY . .
 ARG TARGETARCH
 RUN GOOS=linux GOARCH=$TARGETARCH CGO_ENABLED=0 \
   go build \
-  -ldflags="-X \"github.com/db-operator/db-operator/internal/helpers/common.OperatorVersion=$OPERATOR_VERSION\"" \
+  -ldflags="-X \"github.com/db-operator/db-operator/v2/internal/helpers/common.OperatorVersion=$OPERATOR_VERSION\"" \
   -tags build -o /usr/local/bin/db-operator cmd/main.go
 
 

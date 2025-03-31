@@ -3,8 +3,8 @@ package v1beta1_test
 import (
 	"testing"
 
-	"github.com/db-operator/db-operator/api/v1beta1"
-	"github.com/db-operator/db-operator/pkg/types"
+	"github.com/db-operator/db-operator/v2/api/v1beta1"
+	"github.com/db-operator/db-operator/v2/pkg/types"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"

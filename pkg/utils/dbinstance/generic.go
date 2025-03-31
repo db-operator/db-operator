@@ -21,8 +21,8 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/db-operator/db-operator/pkg/utils/database"
-	kcidb "github.com/db-operator/db-operator/pkg/utils/database"
+	"github.com/db-operator/db-operator/v2/pkg/utils/database"
+	kcidb "github.com/db-operator/db-operator/v2/pkg/utils/database"
 	"github.com/sirupsen/logrus"
 )
 

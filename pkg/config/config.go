@@ -19,7 +19,7 @@ package config
 import (
 	"os"
 
-	"github.com/db-operator/db-operator/pkg/utils/kci"
+	"github.com/db-operator/db-operator/v2/pkg/utils/kci"
 	yaml "gopkg.in/yaml.v2"
 )
 

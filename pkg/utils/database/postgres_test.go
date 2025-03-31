@@ -20,7 +20,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/db-operator/db-operator/pkg/test"
+	"github.com/db-operator/db-operator/v2/pkg/test"
 	"github.com/stretchr/testify/assert"
 )
 

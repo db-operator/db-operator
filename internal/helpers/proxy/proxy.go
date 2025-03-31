@@ -24,10 +24,10 @@ import (
 	"strconv"
 	"strings"
 
-	kindav1beta1 "github.com/db-operator/db-operator/api/v1beta1"
-	"github.com/db-operator/db-operator/pkg/config"
-	"github.com/db-operator/db-operator/pkg/utils/kci"
-	proxy "github.com/db-operator/db-operator/pkg/utils/proxy"
+	kindav1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
+	"github.com/db-operator/db-operator/v2/pkg/config"
+	"github.com/db-operator/db-operator/v2/pkg/utils/kci"
+	proxy "github.com/db-operator/db-operator/v2/pkg/utils/proxy"
 	"github.com/sirupsen/logrus"
 )
 

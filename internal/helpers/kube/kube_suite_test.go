@@ -24,9 +24,9 @@ import (
 	"testing"
 	"time"
 
-	kindav1beta1 "github.com/db-operator/db-operator/api/v1beta1"
-	"github.com/db-operator/db-operator/internal/helpers/kube"
-	"github.com/db-operator/db-operator/pkg/consts"
+	kindav1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
+	"github.com/db-operator/db-operator/v2/internal/helpers/kube"
+	"github.com/db-operator/db-operator/v2/pkg/consts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"golang.org/x/exp/maps"
