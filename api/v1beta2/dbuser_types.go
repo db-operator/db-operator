@@ -31,8 +31,12 @@ type DbUserSpec struct {
 	// Currently only readOnly and readWrite are supported by the operator
 	AccessType string `json:"accessType"`
 	// A list of additional roles that should be added to the user
-	ExtraPrivileges []string    `json:"extraPrivileges,omitempty"`
-	Credentials     Credentials `json:"credentials,omitempty"`
+	ExtraPrivileges []string       `json:"extraPrivileges,omitempty"`
+	Credentials     Credentials    `json:"credentials,omitempty"`
+	Postgres        PostgresDbUser `json:"postgres,omitempty"`
+}
+
+type PostgresDbUser struct {
 	// Should the user be granted to the admin user
 	// For example, it should be set to true on Azure instance,
 	// because the admin given by them is not a super user,
@@ -40,9 +44,6 @@ type DbUserSpec struct {
 	// privilege is added
 	// By default is set to true
 	// Only applies to Postgres, doesn't have any effect on Mysql
-	// TODO: Default should be false, but not to introduce breaking
-	//       changes it's now set to true. It should be changed in
-	//       in the next API version
 	// +kubebuilder:default=false
 	// +optional
 	GrantToAdmin bool `json:"grantToAdmin"`

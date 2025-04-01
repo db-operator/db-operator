@@ -168,7 +168,7 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	// Add extra privileges
 	dbuser.ExtraPrivileges = dbusercr.Spec.ExtraPrivileges
 
-	dbuser.GrantToAdmin = dbusercr.Spec.GrantToAdmin
+	dbuser.GrantToAdmin = dbusercr.Spec.Postgres.GrantToAdmin
 	adminCred, err := r.getAdminUser(ctx, dbcr)
 	if err != nil {
 		// failed to get admin secret
@@ -414,7 +414,7 @@ func (r *DbUserReconciler) handleTemplatedCredentials(ctx context.Context, dbcr 
 			return err
 		}
 	} else {
-		// Render with an empty slice, so tempalted entries are removed from Data and Annotations
+		// Render with an empty slice, so templated entries are removed from Data and Annotations
 		if err := templateds.Render(kindav1beta2.Templates{}); err != nil {
 			return err
 		}

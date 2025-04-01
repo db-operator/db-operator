@@ -145,7 +145,9 @@ func (dbuser *DbUser) ConvertTo(dstRaw conversion.Hub) error {
 			SetOwnerReference: dbuser.Spec.Cleanup,
 			Templates:         newTemplates,
 		},
-		GrantToAdmin: dbuser.Spec.GrantToAdmin,
+		Postgres: v1beta2.PostgresDbUser{
+			GrantToAdmin: dbuser.Spec.GrantToAdmin,
+		},
 	}
 	return nil
 }
@@ -170,7 +172,7 @@ func (dst *DbUser) ConvertFrom(srcRaw conversion.Hub) error {
 		Credentials: Credentials{
 			Templates: newTemplates,
 		},
-		GrantToAdmin: dbuser.Spec.GrantToAdmin,
+		GrantToAdmin: dbuser.Spec.Postgres.GrantToAdmin,
 	}
 	return nil
 }

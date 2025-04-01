@@ -102,7 +102,7 @@ func (r *DbUser) ValidateUpdate(old runtime.Object) (admission.Warnings, error) 
 		if !slices.Contains(r.Spec.ExtraPrivileges, role) {
 			warnings = append(
 				warnings,
-				fmt.Sprintf("extra privileges can't be removed by the operator, please manualy revoke %s from the user %s",
+				fmt.Sprintf("extra privileges can't be removed by the operator, please manually revoke %s from the user %s",
 					role, r.Name),
 			)
 		}

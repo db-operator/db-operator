@@ -95,14 +95,14 @@ func (r *DbUser) ValidateUpdate(old runtime.Object) (admission.Warnings, error) 
 			return nil, err
 		}
 	}
-	if old.(*DbUser).Spec.GrantToAdmin != r.Spec.GrantToAdmin {
+	if old.(*DbUser).Spec.Postgres.GrantToAdmin != r.Spec.Postgres.GrantToAdmin {
 		return nil, errors.New("grantToAdmin is an immutable field")
 	}
 	for _, role := range old.(*DbUser).Spec.ExtraPrivileges {
 		if !slices.Contains(r.Spec.ExtraPrivileges, role) {
 			warnings = append(
 				warnings,
-				fmt.Sprintf("extra privileges can't be removed by the operator, please manualy revoke %s from the user %s",
+				fmt.Sprintf("extra privileges can't be removed by the operator, please manually revoke %s from the user %s",
 					role, r.Name),
 			)
 		}
