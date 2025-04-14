@@ -3,9 +3,9 @@ package v1beta2_test
 import (
 	"testing"
 
-	"github.com/db-operator/db-operator/api/common"
-	"github.com/db-operator/db-operator/api/v1beta2"
-	"github.com/db-operator/db-operator/pkg/consts"
+	"github.com/db-operator/db-operator/v2/api/common"
+	"github.com/db-operator/db-operator/v2/api/v1beta2"
+	"github.com/db-operator/db-operator/v2/pkg/consts"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
