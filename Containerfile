@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM registry.hub.docker.com/library/golang:1.22.2-alpine3.18 AS builder
+FROM --platform=$BUILDPLATFORM registry.hub.docker.com/library/golang:1.24.2-alpine3.21 AS builder
 
 ARG OPERATOR_VERSION=1.0.0-dev
 
