@@ -217,6 +217,9 @@ func TestPostgresReadOnlyUserLifecycleNoAdminGrant(t *testing.T) {
 	  );`
 	assert.NoError(t, p.execAsUser(context.TODO(), createTable, dbu))
 
+	createSequence := `CREATE SEQUENCE permtest.test START 1`
+	assert.NoError(t, p.execAsUser(context.TODO(), createSequence, dbu))
+
 	err := p.createUser(context.TODO(), admin, readonlyUser)
 	assert.NoErrorf(t, err, "Unexpected error %v", err)
 
@@ -261,11 +264,17 @@ func TestPostgresReadOnlyUserLifecycleNoAdminGrant(t *testing.T) {
 	delete = "DELETE FROM permtest.test_2 WHERE role_id = 1"
 	assert.Error(t, p.execAsUser(context.TODO(), delete, readonlyUser))
 
+	selectQuery = "SELECT nextval('permtest.test');"
+	assert.NoError(t, p.execAsUser(context.TODO(), selectQuery, readonlyUser))
+
 	drop := "DROP TABLE permtest.test_1"
 	assert.Error(t, p.execAsUser(context.TODO(), drop, readonlyUser))
 	assert.NoError(t, p.execAsUser(context.TODO(), drop, dbu))
 	drop = "DROP TABLE permtest.test_2"
 	assert.Error(t, p.execAsUser(context.TODO(), drop, readonlyUser))
+	assert.NoError(t, p.execAsUser(context.TODO(), drop, dbu))
+
+	drop = "DROP SEQUENCE permtest.test"
 	assert.NoError(t, p.execAsUser(context.TODO(), drop, dbu))
 
 	// Test that it can be removed
@@ -289,6 +298,9 @@ func TestPostgresReadWriteUserLifecycleNoAdminGrant(t *testing.T) {
 		AccessType:   ACCESS_TYPE_READWRITE,
 		GrantToAdmin: true,
 	}
+
+	createSequence := `CREATE SEQUENCE permtest.test START 1`
+	assert.NoError(t, p.execAsUser(context.TODO(), createSequence, dbu))
 
 	createTable := `CREATE TABLE permtest.test_1 (
 		role_id serial PRIMARY KEY,
@@ -339,6 +351,9 @@ func TestPostgresReadWriteUserLifecycleNoAdminGrant(t *testing.T) {
 	update = "UPDATE permtest.test_2 SET role_name = 'test-1-new' WHERE role_id = 1"
 	assert.NoError(t, p.execAsUser(context.TODO(), update, readwriteUser))
 
+	selectQuery = "SELECT nextval('permtest.test');"
+	assert.NoError(t, p.execAsUser(context.TODO(), selectQuery, readwriteUser))
+
 	delete := "DELETE FROM permtest.test_1 WHERE role_id = 2"
 	assert.NoError(t, p.execAsUser(context.TODO(), delete, readwriteUser))
 	delete = "DELETE FROM permtest.test_2 WHERE role_id = 2"
@@ -349,6 +364,9 @@ func TestPostgresReadWriteUserLifecycleNoAdminGrant(t *testing.T) {
 	assert.NoError(t, p.execAsUser(context.TODO(), drop, dbu))
 	drop = "DROP TABLE permtest.test_2"
 	assert.Error(t, p.execAsUser(context.TODO(), drop, readwriteUser))
+	assert.NoError(t, p.execAsUser(context.TODO(), drop, dbu))
+
+	drop = "DROP SEQUENCE permtest.test"
 	assert.NoError(t, p.execAsUser(context.TODO(), drop, dbu))
 
 	// Test that it can be removed
@@ -379,6 +397,9 @@ func TestPostgresReadOnlyUserLifecycleAdminGrant(t *testing.T) {
 	  );`
 	assert.NoError(t, p.execAsUser(context.TODO(), createTable, dbu))
 
+	createSequence := `CREATE SEQUENCE permtest.test START 1`
+	assert.NoError(t, p.execAsUser(context.TODO(), createSequence, dbu))
+
 	err := p.createUser(context.TODO(), admin, readonlyUser)
 	assert.NoErrorf(t, err, "Unexpected error %v", err)
 
@@ -418,6 +439,9 @@ func TestPostgresReadOnlyUserLifecycleAdminGrant(t *testing.T) {
 	update = "UPDATE permtest.test_2 SET role_name = 'test-1-new' WHERE role_id = 1"
 	assert.Error(t, p.execAsUser(context.TODO(), update, readonlyUser))
 
+	selectQuery = "SELECT nextval('permtest.test');"
+	assert.NoError(t, p.execAsUser(context.TODO(), selectQuery, readonlyUser))
+
 	delete := "DELETE FROM permtest.test_1 WHERE role_id = 1"
 	assert.Error(t, p.execAsUser(context.TODO(), delete, readonlyUser))
 	delete = "DELETE FROM permtest.test_2 WHERE role_id = 1"
@@ -428,6 +452,9 @@ func TestPostgresReadOnlyUserLifecycleAdminGrant(t *testing.T) {
 	assert.NoError(t, p.execAsUser(context.TODO(), drop, dbu))
 	drop = "DROP TABLE permtest.test_2"
 	assert.Error(t, p.execAsUser(context.TODO(), drop, readonlyUser))
+	assert.NoError(t, p.execAsUser(context.TODO(), drop, dbu))
+
+	drop = "DROP SEQUENCE permtest.test"
 	assert.NoError(t, p.execAsUser(context.TODO(), drop, dbu))
 
 	// Test that it can be removed
@@ -451,6 +478,9 @@ func TestPostgresReadWriteUserLifecycleAdminGrant(t *testing.T) {
 		AccessType:   ACCESS_TYPE_READWRITE,
 		GrantToAdmin: true,
 	}
+
+	createSequence := `CREATE SEQUENCE permtest.test START 1`
+	assert.NoError(t, p.execAsUser(context.TODO(), createSequence, dbu))
 
 	createTable := `CREATE TABLE permtest.test_1 (
 		role_id serial PRIMARY KEY,
@@ -501,6 +531,9 @@ func TestPostgresReadWriteUserLifecycleAdminGrant(t *testing.T) {
 	update = "UPDATE permtest.test_2 SET role_name = 'test-1-new' WHERE role_id = 1"
 	assert.NoError(t, p.execAsUser(context.TODO(), update, readwriteUser))
 
+	selectQuery = "SELECT nextval('permtest.test');"
+	assert.NoError(t, p.execAsUser(context.TODO(), selectQuery, readwriteUser))
+
 	delete := "DELETE FROM permtest.test_1 WHERE role_id = 2"
 	assert.NoError(t, p.execAsUser(context.TODO(), delete, readwriteUser))
 	delete = "DELETE FROM permtest.test_2 WHERE role_id = 2"
@@ -511,6 +544,9 @@ func TestPostgresReadWriteUserLifecycleAdminGrant(t *testing.T) {
 	assert.NoError(t, p.execAsUser(context.TODO(), drop, dbu))
 	drop = "DROP TABLE permtest.test_2"
 	assert.Error(t, p.execAsUser(context.TODO(), drop, readwriteUser))
+	assert.NoError(t, p.execAsUser(context.TODO(), drop, dbu))
+
+	drop = "DROP SEQUENCE permtest.test"
 	assert.NoError(t, p.execAsUser(context.TODO(), drop, dbu))
 
 	// Test that it can be removed

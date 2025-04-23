@@ -549,14 +549,26 @@ func (p Postgres) setUserPermission(ctx context.Context, admin *DatabaseUser, us
 				s,
 				user.Username,
 			)
+			grantSequences := fmt.Sprintf("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA \"%s\" TO \"%s\"", s, user.Username)
+			defaultPrivilegesSeq := fmt.Sprintf("ALTER DEFAULT PRIVILEGES FOR ROLE \"%s\" IN SCHEMA \"%s\" GRANT USAGE, SELECT ON SEQUENCES TO \"%s\";",
+				p.MainUser.Username,
+				s,
+				user.Username,
+			)
+
 			err := p.executeExec(ctx, p.Database, grantUsage, admin)
 			if err != nil {
-				log.Error(err, "failed updating postgres user", "query", grantTables)
+				log.Error(err, "failed updating postgres user", "query", grantUsage)
 				return err
 			}
 			err = p.executeExec(ctx, p.Database, grantTables, admin)
 			if err != nil {
 				log.Error(err, "failed updating postgres user", "query", grantTables)
+				return err
+			}
+			err = p.executeExec(ctx, p.Database, grantSequences, admin)
+			if err != nil {
+				log.Error(err, "failed updating postgres user", "query", grantSequences)
 				return err
 			}
 			// If user is granted to the admin, admin can alter default privileges
@@ -567,10 +579,20 @@ func (p Postgres) setUserPermission(ctx context.Context, admin *DatabaseUser, us
 					log.Error(err, "failed updating postgres user", "query", defaultPrivileges)
 					return err
 				}
+				err = p.execSettingRole(ctx, p.Database, defaultPrivilegesSeq, actingUser, admin)
+				if err != nil {
+					log.Error(err, "failed updating postgres user", "query", defaultPrivilegesSeq)
+					return err
+				}
 			} else {
 				err = p.executeExec(ctx, p.Database, defaultPrivileges, admin)
 				if err != nil {
 					log.Error(err, "failed updating postgres user", "query", defaultPrivileges)
+					return err
+				}
+				err = p.executeExec(ctx, p.Database, defaultPrivilegesSeq, admin)
+				if err != nil {
+					log.Error(err, "failed updating postgres user", "query", defaultPrivilegesSeq)
 					return err
 				}
 			}
@@ -580,6 +602,12 @@ func (p Postgres) setUserPermission(ctx context.Context, admin *DatabaseUser, us
 			grantUsage := fmt.Sprintf("GRANT USAGE ON SCHEMA \"%s\" TO \"%s\"", s, user.Username)
 			grantTables := fmt.Sprintf("GRANT SELECT ON ALL TABLES IN SCHEMA \"%s\" TO \"%s\"", s, user.Username)
 			defaultPrivileges := fmt.Sprintf("ALTER DEFAULT PRIVILEGES FOR ROLE \"%s\" IN SCHEMA \"%s\" GRANT SELECT ON TABLES TO \"%s\";",
+				p.MainUser.Username,
+				s,
+				user.Username,
+			)
+			grantSequences := fmt.Sprintf("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA \"%s\" TO \"%s\"", s, user.Username)
+			defaultPrivilegesSeq := fmt.Sprintf("ALTER DEFAULT PRIVILEGES FOR ROLE \"%s\" IN SCHEMA \"%s\" GRANT USAGE, SELECT ON SEQUENCES TO \"%s\";",
 				p.MainUser.Username,
 				s,
 				user.Username,
@@ -594,16 +622,31 @@ func (p Postgres) setUserPermission(ctx context.Context, admin *DatabaseUser, us
 				log.Error(err, "failed updating postgres user", "query", grantTables)
 				return err
 			}
+			err = p.executeExec(ctx, p.Database, grantSequences, admin)
+			if err != nil {
+				log.Error(err, "failed updating postgres user", "query", grantTables)
+				return err
+			}
 			if p.RDSIAMImpersonateWorkaround {
 				err = p.execSettingRole(ctx, p.Database, defaultPrivileges, actingUser, admin)
 				if err != nil {
 					log.Error(err, "failed updating postgres user", "query", defaultPrivileges)
 					return err
 				}
+				err = p.execSettingRole(ctx, p.Database, defaultPrivilegesSeq, actingUser, admin)
+				if err != nil {
+					log.Error(err, "failed updating postgres user", "query", defaultPrivilegesSeq)
+					return err
+				}
 			} else {
 				err = p.executeExec(ctx, p.Database, defaultPrivileges, admin)
 				if err != nil {
 					log.Error(err, "failed updating postgres user", "query", defaultPrivileges)
+					return err
+				}
+				err = p.executeExec(ctx, p.Database, defaultPrivilegesSeq, admin)
+				if err != nil {
+					log.Error(err, "failed updating postgres user", "query", defaultPrivilegesSeq)
 					return err
 				}
 			}
