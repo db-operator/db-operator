@@ -1,24 +1,15 @@
 version: "3.3"
 services:
   postgres:
-    image: postgres:11-alpine
+    image: postgres:15-alpine
     ports:
       - "5432:5432"
     environment:
       POSTGRES_PASSWORD: "test1234"
   mysql:
-    image: mysql:5.7
+    image: mysql:8.0
     platform: linux/amd64
     ports:
       - "3306:3306"
     environment:
       MYSQL_ROOT_PASSWORD: "test1234"
-  sqladmin:
-    # -- TODO: Switch to a proper version after it's merged in the upstream project
-    image: ghcr.io/db-operator/cloudish-sql:a284d7002eaf71c7b7cfde54f089a7db72dfc33c
-    ports:
-      - "8080:8080"
-    environment:
-      LOG_LEVEL: "DEBUG"
-    command:
-      - --db-address=postgres:5432

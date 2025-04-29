@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package v1beta1
+package v1beta2
 
 import (
 	"errors"
@@ -91,11 +91,11 @@ func (r *DbUser) ValidateUpdate(old runtime.Object) (admission.Warnings, error) 
 		return nil, fmt.Errorf("couldn't get the previous version of %s", r.Name)
 	}
 	if r.Spec.Credentials.Templates != nil {
-		if err := ValidateTemplates(r.Spec.Credentials.Templates, false); err != nil {
+		if err := ValidateTemplates(r.Spec.Credentials.Templates); err != nil {
 			return nil, err
 		}
 	}
-	if old.(*DbUser).Spec.GrantToAdmin != r.Spec.GrantToAdmin {
+	if old.(*DbUser).Spec.Postgres.GrantToAdmin != r.Spec.Postgres.GrantToAdmin {
 		return nil, errors.New("grantToAdmin is an immutable field")
 	}
 	for _, role := range old.(*DbUser).Spec.ExtraPrivileges {
