@@ -31,7 +31,7 @@ require (
 	k8s.io/client-go v0.30.2
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kubectl v0.30.2
-	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
+	k8s.io/utils v0.0.0-20250502105355-0f33e8f1c979
 	sigs.k8s.io/controller-runtime v0.18.4
 )
 
