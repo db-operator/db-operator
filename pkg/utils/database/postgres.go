@@ -549,8 +549,8 @@ func (p Postgres) setUserPermission(ctx context.Context, admin *DatabaseUser, us
 				s,
 				user.Username,
 			)
-			grantSequences := fmt.Sprintf("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA \"%s\" TO \"%s\"", s, user.Username)
-			defaultPrivilegesSeq := fmt.Sprintf("ALTER DEFAULT PRIVILEGES FOR ROLE \"%s\" IN SCHEMA \"%s\" GRANT USAGE, SELECT ON SEQUENCES TO \"%s\";",
+			grantSequences := fmt.Sprintf("GRANT UPDATE, USAGE, SELECT ON ALL SEQUENCES IN SCHEMA \"%s\" TO \"%s\"", s, user.Username)
+			defaultPrivilegesSeq := fmt.Sprintf("ALTER DEFAULT PRIVILEGES FOR ROLE \"%s\" IN SCHEMA \"%s\" GRANT UPDATE, USAGE, SELECT ON SEQUENCES TO \"%s\";",
 				p.MainUser.Username,
 				s,
 				user.Username,
