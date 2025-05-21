@@ -266,6 +266,8 @@ func TestPostgresReadOnlyUserLifecycleNoAdminGrant(t *testing.T) {
 
 	selectQuery = "SELECT nextval('permtest.test');"
 	assert.NoError(t, p.execAsUser(context.TODO(), selectQuery, readonlyUser))
+	selectQuery = "SELECT setval('permtest.test', 10);"
+	assert.Error(t, p.execAsUser(context.TODO(), selectQuery, readonlyUser))
 
 	drop := "DROP TABLE permtest.test_1"
 	assert.Error(t, p.execAsUser(context.TODO(), drop, readonlyUser))
@@ -352,6 +354,8 @@ func TestPostgresReadWriteUserLifecycleNoAdminGrant(t *testing.T) {
 	assert.NoError(t, p.execAsUser(context.TODO(), update, readwriteUser))
 
 	selectQuery = "SELECT nextval('permtest.test');"
+	assert.NoError(t, p.execAsUser(context.TODO(), selectQuery, readwriteUser))
+	selectQuery = "SELECT setval('permtest.test', 10);"
 	assert.NoError(t, p.execAsUser(context.TODO(), selectQuery, readwriteUser))
 
 	delete := "DELETE FROM permtest.test_1 WHERE role_id = 2"
@@ -441,6 +445,8 @@ func TestPostgresReadOnlyUserLifecycleAdminGrant(t *testing.T) {
 
 	selectQuery = "SELECT nextval('permtest.test');"
 	assert.NoError(t, p.execAsUser(context.TODO(), selectQuery, readonlyUser))
+	selectQuery = "SELECT setval('permtest.test', 10);"
+	assert.Error(t, p.execAsUser(context.TODO(), selectQuery, readonlyUser))
 
 	delete := "DELETE FROM permtest.test_1 WHERE role_id = 1"
 	assert.Error(t, p.execAsUser(context.TODO(), delete, readonlyUser))
@@ -531,6 +537,8 @@ func TestPostgresReadWriteUserLifecycleAdminGrant(t *testing.T) {
 	update = "UPDATE permtest.test_2 SET role_name = 'test-1-new' WHERE role_id = 1"
 	assert.NoError(t, p.execAsUser(context.TODO(), update, readwriteUser))
 
+	selectQuery = "SELECT nextval('permtest.test');"
+	assert.NoError(t, p.execAsUser(context.TODO(), selectQuery, readwriteUser))
 	selectQuery = "SELECT nextval('permtest.test');"
 	assert.NoError(t, p.execAsUser(context.TODO(), selectQuery, readwriteUser))
 
