@@ -2,120 +2,56 @@
 
 The DB Operator eases the pain of managing PostgreSQL and MySQL instances for applications running in Kubernetes. The Operator creates databases and make them available in the cluster via Custom Resource. It is designed to support the on demand creation of test environments in CI/CD pipelines.
 
-## Features
-
-DB Operator provides following features:
-
-* Create/Delete databases on the database server running outside/inside Kubernetes by creating `Database` custom resource;
-* Create Google Cloud SQL instances by creating `DbInstance` custom resource;
-* Automatically create backup `CronJob` with defined schedule (limited feature);
-
 ## Documentations
-* [How it works](docs/howitworks.md) - a general overview and definitions
 * [Creating Instances](docs/creatinginstances.md) - make database instances available for the operator
-* [Creating Databases](docs/creatingdatabases.md) - creating databases in those instances
-* [Enabling regular Backup](docs/enablingbackup.md) - and schedule cronjob
-* [Upgrade guide](docs/upgradeguide.md) - breaking changes and guide for the upgrade
-
-## Helm Chart is migrated!
-The repository contains helm charts for db-operator is moved to https://github.com/db-operator/charts
-New chart after db-operator > 1.2.7, db-instances > 1.3.0 will be only available in new repository.
-
-## CRD Versions are upgraded!
-Now both `DbInstance` and `Database` resources are upgraded to `v1beta1`.
-In case you were using `connectionStringTemplate`, make sure I've migrated to `secretsTempaltes` before upgrading, because `connectionStringTemplate` is removed in this version. Everything else should go seamless. We've added `Webhooks` that will take care of resources with an old API version and convert them to the newer one.  
-
-### Downloading old charts
-
-Installing older version of charts is still possible.
-Check available versions by following command.
-
-```
-$ helm repo add kloeckneri-old https://kloeckner-i.github.io/db-operator/
-$ helm search repo kloeckneri-old/ --versions
-```
+* [Creating Databases](docs/creatingdatabases.md) - creating databases on instances
+* [Creating Users](docs/creatingusers.md) - creating users in databases
 
 ## Quickstart
 
+We are distributing the operator and `DbInstances` CR as helm charts.
+
 ### To install DB Operator with helm:
 
-```
+```SHELL
 $ helm repo add db-operator https://db-operator.github.io/charts/
 $ helm install --name my-release db-operator/db-operator
 ```
 
 To see more options of helm values, [see chart repo]([https://github.com/db-operator/charts/tree/main/charts/db-operator])
 
-To see which version is working together check out our [version matrix](https://github.com/db-operator/db-operator/wiki/Version-Matrix).
-
 ## Development
 
 #### Prerequisites
-* go 1.15+
-* docker
+* go 1.23.0+
 * make
-* kubectl v1.14+ (< v1.21)
-* helm v3.0.2+
-* [k3d](https://github.com/rancher/k3d)
-
-To have kubernetes environment locally, you need to install [k3d](https://github.com/rancher/k3d).
-
-
-#### makefile help
-
-```
-addexamples           add examples via kubectl create -f examples/
-build                 build db-operator docker image
-controller-gen        Download controller-gen locally if necessary.
-generate              generate supporting code for custom resource types
-help                  show this help
-k3d_image             rebuild the docker images and upload into your k3d cluster
-k3d_install           install k3d cluster locally
-k3d_setup             install k3d and import image to your k3d cluster
-k3s_mac_deploy        build image and import image to local lima k8s
-k3s_mac_image         import built image to local lima k8s
-k3s_mac_lima_create   create local k8s using lima
-k3s_mac_lima_start    start local lima k8s
-lint                  lint go code
-manifests             generate custom resource definitions
-test                  run go unit test
-vet                   go vet to find issues
-```
+* kubectl
+* helm
+* a kubernetes cluster
 
 ### Developing locally
+
+As we are using **Kubebuilder** for the code generation, we assume that a developer should be aware of how it works. Though **kubebuilder** knowledge is required mostly for changing **CRDs**.
+
+We tend not to release breaking changes to the API, and it means that once there is something that needs to be changed in the API and that would produce a breaking change, we are upgrading the API version
 
 #### After code changes
 
 rebuild CRD manifests
-```
+```SHELL
 $ make manifests
+$ make generate
 ```
 
 rebuild local docker image
-```
+```SHELL
 $ make build
 ```
 
-#### Run local kubernetes
-```
-$ make k3d_setup
-```
+if you don't use docker, you can set the `CONTAINER_TOOL` environment variable to use another tool, for example:
 
-or
-
-```
-$ make k3s_mac_lima_create
-```
-
-#### Import local docker image
-
-```
-$ make k3d_build
-```
-
-or
-```
-$ make k3s_mac_image
+```SHELL
+$ export CONTAINER_TOOL=nerdctl
 ```
 
 ### Deploy
@@ -126,8 +62,21 @@ helm repo update
 helm upgrade my-release db-operator/db-operator --set image.repository=my-db-operator --set image.tag=1.0.0-dev --set image.pullPolicy=IfNotPresent --install
 ```
 
-### Run unit test locally
+### Run test locally
 
+to run unit tests, use:
+```SHELL
+$ make unit
 ```
+
+integration test for database require accessible databases which can be used by the operator for creating resources. They will be started by docker-compose if you run this command:
+
+```SHELL
 $ make test
+```
+
+if you don't use docker, you can set the `COMPOSE_TOOL` environment variable, for example
+
+```SHELL
+$ export COMPOSE_TOOL="nerdctl compose"
 ```

@@ -30,6 +30,26 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /mutate-kinda-rocks-v1beta1-database
+  failurePolicy: Fail
+  name: mdatabase.kb.io
+  rules:
+  - apiGroups:
+    - kinda.rocks
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - databases
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /mutate-kinda-rocks-v1beta1-dbinstance
   failurePolicy: Fail
   name: mdbinstance.kb.io
@@ -50,6 +70,66 @@ kind: ValidatingWebhookConfiguration
 metadata:
   name: validating-webhook-configuration
 webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-kinda-rocks-v1beta1-database
+  failurePolicy: Fail
+  name: vdatabase.kb.io
+  rules:
+  - apiGroups:
+    - kinda.rocks
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - databases
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-kinda-rocks-v1beta2-dbinstance
+  failurePolicy: Fail
+  name: vdbinstance.kb.io
+  rules:
+  - apiGroups:
+    - kinda.rocks
+    apiVersions:
+    - v1beta2
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - dbinstances
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-kinda-rocks-v1beta1-dbuser
+  failurePolicy: Fail
+  name: vdbuser.kb.io
+  rules:
+  - apiGroups:
+    - kinda.rocks
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - dbusers
+  sideEffects: None
 - admissionReviewVersions:
   - v1
   clientConfig:
