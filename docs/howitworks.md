@@ -63,3 +63,7 @@ At this moment, db-operator can run on arm nodes, but currently we're not provid
     mysql:
       image: "${{ image_name }}:${{image_tag}}"
 ```
+
+## Experimental features
+
+Some experimental features are added via annotations, to see the full list of supported annotations, have a look at this file: <https://github.com/db-operator/db-operator/blob/9308ca2ad187c3d94970573db7e0b014e35ab8eb/pkg/consts/consts.go#L44C26-L45C1>

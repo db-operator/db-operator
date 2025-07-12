@@ -72,5 +72,6 @@ type Database interface {
 	updateUser(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error
 	deleteUser(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error
 	setUserPermission(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error
+	revokePermissions(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error
 	execAsUser(ctx context.Context, query string, user *DatabaseUser) error
 }

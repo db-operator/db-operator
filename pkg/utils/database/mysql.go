@@ -363,6 +363,13 @@ func (m Mysql) setUserPermission(ctx context.Context, admin *DatabaseUser, user 
 	return nil
 }
 
+// Not implemented on mysql, but required for the interface
+func (p Mysql) revokePermissions(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error {
+	log.FromContext(ctx).
+		Info("Permissions can't be revoked on Mysql instance, please do it manually")
+	return nil
+}
+
 func (m Mysql) deleteUser(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error {
 	delete := fmt.Sprintf("DROP USER `%s`;", user.Username)
 

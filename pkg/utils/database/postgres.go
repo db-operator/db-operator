@@ -666,7 +666,7 @@ func (p Postgres) setUserPermission(ctx context.Context, admin *DatabaseUser, us
 	return nil
 }
 
-func (p Postgres) deleteUser(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error {
+func (p Postgres) revokePermissions(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error {
 	log := log.FromContext(ctx)
 	if user.AccessType != ACCESS_TYPE_MAINUSER && p.isUserExist(ctx, admin, user) {
 		schemas := p.Schemas
@@ -712,6 +712,11 @@ func (p Postgres) deleteUser(ctx context.Context, admin *DatabaseUser, user *Dat
 
 		}
 	}
+	return nil
+}
+
+func (p Postgres) deleteUser(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error {
+	log := log.FromContext(ctx)
 	delete := fmt.Sprintf("DROP USER \"%s\";", user.Username)
 	if p.isUserExist(ctx, admin, user) {
 		err := p.executeExec(ctx, "postgres", delete, admin)
