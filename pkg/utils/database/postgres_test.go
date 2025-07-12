@@ -280,6 +280,9 @@ func TestPostgresReadOnlyUserLifecycleNoAdminGrant(t *testing.T) {
 	assert.NoError(t, p.execAsUser(context.TODO(), drop, dbu))
 
 	// Test that it can be removed
+	err = p.revokePermissions(context.TODO(), admin, readonlyUser)
+	assert.NoErrorf(t, err, "Unexpected error %v", err)
+
 	err = p.deleteUser(context.TODO(), admin, readonlyUser)
 	assert.NoErrorf(t, err, "Unexpected error %v", err)
 }
@@ -374,6 +377,9 @@ func TestPostgresReadWriteUserLifecycleNoAdminGrant(t *testing.T) {
 	assert.NoError(t, p.execAsUser(context.TODO(), drop, dbu))
 
 	// Test that it can be removed
+	err = p.revokePermissions(context.TODO(), admin, readwriteUser)
+	assert.NoErrorf(t, err, "Unexpected error %v", err)
+
 	err = p.deleteUser(context.TODO(), admin, readwriteUser)
 	assert.NoErrorf(t, err, "Unexpected error %v", err)
 }
@@ -464,6 +470,9 @@ func TestPostgresReadOnlyUserLifecycleAdminGrant(t *testing.T) {
 	assert.NoError(t, p.execAsUser(context.TODO(), drop, dbu))
 
 	// Test that it can be removed
+	err = p.revokePermissions(context.TODO(), admin, readonlyUser)
+	assert.NoErrorf(t, err, "Unexpected error %v", err)
+
 	err = p.deleteUser(context.TODO(), admin, readonlyUser)
 	assert.NoErrorf(t, err, "Unexpected error %v", err)
 }
@@ -558,6 +567,9 @@ func TestPostgresReadWriteUserLifecycleAdminGrant(t *testing.T) {
 	assert.NoError(t, p.execAsUser(context.TODO(), drop, dbu))
 
 	// Test that it can be removed
+	err = p.revokePermissions(context.TODO(), admin, readwriteUser)
+	assert.NoErrorf(t, err, "Unexpected error %v", err)
+
 	err = p.deleteUser(context.TODO(), admin, readwriteUser)
 	assert.NoErrorf(t, err, "Unexpected error %v", err)
 }
@@ -647,7 +659,10 @@ func TestPostgresDeleteUser(t *testing.T) {
 	admin := getPostgresAdmin()
 	p, dbu := testPostgres()
 
-	err := p.deleteUser(context.TODO(), admin, dbu)
+	err := p.revokePermissions(context.TODO(), admin, dbu)
+	assert.NoErrorf(t, err, "Unexpected error %v", err)
+
+	err = p.deleteUser(context.TODO(), admin, dbu)
 	assert.NoErrorf(t, err, "Unexpected error %v", err)
 }
 

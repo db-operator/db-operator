@@ -104,6 +104,10 @@ func (Dummy) setUserPermission(ctx context.Context, admin *DatabaseUser, user *D
 	panic("unimplemented")
 }
 
+func (p Dummy) revokePermissions(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error {
+	panic("unimplemented")
+}
+
 // updateUser implements Database.
 func (Dummy) updateUser(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error {
 	panic("unimplemented")

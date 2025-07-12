@@ -187,15 +187,41 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		dbuser.AccessType = dbusercr.Spec.AccessType
 		dbuser.Password = creds.Password
 		dbuser.Username = creds.Username
+		// If allow existing is set to true, db-operator will not force user creation
+		// and also when a user with that property is removed, user won't be removed
+		// from the database, instead only the permissions will be revoked
+		allowExisting := false
+		allowExistingRaw, ok := dbusercr.Annotations[consts.ALLOW_EXISTING_USER]
+		if ok {
+			allowExisting, err = strconv.ParseBool(allowExistingRaw)
+			if err != nil {
+				log.Info(
+					"can't parse a value of an annotation into a bool, ignoring",
+					"annotation",
+					consts.ALLOW_EXISTING_USER,
+					"value",
+					allowExistingRaw,
+					"error",
+					err,
+				)
+			}
+		}
 
 		if dbusercr.IsDeleted() {
 			if commonhelper.ContainsString(dbusercr.ObjectMeta.Finalizers, "dbuser."+dbusercr.Name) {
 				if err := r.handleTemplatedCredentials(ctx, dbcr, dbusercr, dbuser); err != nil {
 					return r.manageError(ctx, dbusercr, err, true)
 				}
-				if err := database.DeleteUser(ctx, db, dbuser, adminCred); err != nil {
-					log.Error(err, "failed deleting a user")
-					return r.manageError(ctx, dbusercr, err, false)
+				if allowExisting {
+					if err := database.RevokePermissions(ctx, db, dbuser, adminCred); err != nil {
+						log.Error(err, "failed deleting a user")
+						return r.manageError(ctx, dbusercr, err, false)
+					}
+				} else {
+					if err := database.DeleteUser(ctx, db, dbuser, adminCred); err != nil {
+						log.Error(err, "failed deleting a user")
+						return r.manageError(ctx, dbusercr, err, false)
+					}
 				}
 				kci.RemoveFinalizer(&dbusercr.ObjectMeta, "dbuser."+dbusercr.Name)
 				err = r.Update(ctx, dbusercr)
@@ -219,29 +245,32 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 				return r.manageError(ctx, dbusercr, err, true)
 			}
 
-			// Init the DbUser struct depending on a type
-			if !dbusercr.Status.Created {
-				log.Info("creating a user", "name", dbusercr.GetName())
-				if err := database.CreateUser(ctx, db, dbuser, adminCred); err != nil {
+			// If allow existing is set to true, always exexute UpdateOrCreate,
+			// otherwise follow the old logic
+			if allowExisting {
+				log.Info("existing user management is allowed")
+				if err := database.CreateOrUpdateUser(ctx, db, dbuser, adminCred); err != nil {
 					return r.manageError(ctx, dbusercr, err, false)
 				}
-				kci.AddFinalizer(&dbusercr.ObjectMeta, "dbuser."+dbusercr.Name)
-				err = r.Update(ctx, dbusercr)
-				if err != nil {
-					log.Error(err, "error resource updating")
-					return r.manageError(ctx, dbusercr, err, false)
-				}
-				kci.AddFinalizer(&dbcr.ObjectMeta, "dbuser."+dbusercr.Name)
-				err = r.Update(ctx, dbcr)
-				if err != nil {
-					log.Error(err, "error resource updatinsr")
+				if err = r.addFinalizers(ctx, dbusercr, dbcr); err != nil {
 					return r.manageError(ctx, dbusercr, err, false)
 				}
 				dbusercr.Status.Created = true
 			} else {
-				log.Info("updating a user", "name", dbusercr.GetName())
-				if err := database.UpdateUser(ctx, db, dbuser, adminCred); err != nil {
-					return r.manageError(ctx, dbusercr, err, false)
+				if !dbusercr.Status.Created {
+					log.Info("creating a user", "name", dbusercr.GetName())
+					if err := database.CreateUser(ctx, db, dbuser, adminCred); err != nil {
+						return r.manageError(ctx, dbusercr, err, false)
+					}
+					if err = r.addFinalizers(ctx, dbusercr, dbcr); err != nil {
+						return r.manageError(ctx, dbusercr, err, false)
+					}
+					dbusercr.Status.Created = true
+				} else {
+					log.Info("updating a user", "name", dbusercr.GetName())
+					if err := database.UpdateUser(ctx, db, dbuser, adminCred); err != nil {
+						return r.manageError(ctx, dbusercr, err, false)
+					}
 				}
 			}
 			if err := r.handleTemplatedCredentials(ctx, dbcr, dbusercr, dbuser); err != nil {
@@ -441,4 +470,21 @@ func (r *DbUserReconciler) getDatabaseConfigMap(ctx context.Context, dbcr *kinda
 	}
 
 	return configMap, nil
+}
+
+func (r *DbUserReconciler) addFinalizers(ctx context.Context, dbusercr *kindav1beta1.DbUser, dbcr *kindav1beta1.Database) (err error) {
+	log := log.FromContext(ctx)
+	kci.AddFinalizer(&dbusercr.ObjectMeta, "dbuser."+dbusercr.Name)
+	err = r.Update(ctx, dbusercr)
+	if err != nil {
+		log.Error(err, "error resource updating")
+		return err
+	}
+	kci.AddFinalizer(&dbcr.ObjectMeta, "dbuser."+dbusercr.Name)
+	err = r.Update(ctx, dbcr)
+	if err != nil {
+		log.Error(err, "error resource updatinsr")
+		return err
+	}
+	return nil
 }
