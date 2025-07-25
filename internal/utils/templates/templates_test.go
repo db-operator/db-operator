@@ -470,6 +470,25 @@ func TestUnitRenderErrDupSecret(t *testing.T) {
 	assert.ErrorContains(t, err, "POSTGRES_PASSWORD already exists in the secret")
 }
 
+func TestUnitRenderHTML(t *testing.T) {
+	databaseNew := databaseK8s.DeepCopy()
+	databaseNew.Status.Engine = consts.ENGINE_POSTGRES
+	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretPostgres.DeepCopy(), configmapK8s.DeepCopy(), db, database.NewDummyUser("mainUser"))
+	if err != nil {
+		t.Error(err)
+	}
+	expectedResult := []byte("<div>")
+	err = templateds.Render(v1beta1.Templates{
+		&v1beta1.Template{
+			Name:     "HTML_TEST",
+			Template: "<div>",
+			Secret:   true,
+		},
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, expectedResult, templateds.SecretK8sObj.Data["HTML_TEST"])
+}
+
 func TestUnitRenderAppendCustomSecret(t *testing.T) {
 	expectedResult := map[string][]byte{
 		"STRING":         []byte("STRING"),
