@@ -53,12 +53,13 @@ var (
 // DbInstanceReconciler reconciles a DbInstance object
 type DbInstanceReconciler struct {
 	client.Client
-	Log        logr.Logger
-	Scheme     *runtime.Scheme
-	Interval   time.Duration
-	Recorder   record.EventRecorder
-	Conf       *config.Config
-	kubeHelper *kubehelper.KubeHelper
+	Log          logr.Logger
+	Scheme       *runtime.Scheme
+	Interval     time.Duration
+	Recorder     record.EventRecorder
+	Conf         *config.Config
+	kubeHelper   *kubehelper.KubeHelper
+	CheckChanges bool
 }
 
 //+kubebuilder:rbac:groups=kinda.rocks,resources=dbinstances,verbs=get;list;watch;create;update;patch;delete
@@ -94,7 +95,6 @@ func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	r.kubeHelper = kubehelper.NewKubeHelper(r.Client, r.Recorder, dbin)
 	// Check if spec changed
 	if commonhelper.IsDBInstanceSpecChanged(ctx, dbin) {
-		log.Info("spec changed")
 		dbin.Status.Status = false
 		dbin.Status.Phase = dbInstancePhaseValidate // set phase to initial state
 	}
@@ -105,7 +105,7 @@ func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	defer func() { promDBInstancesPhaseTime.WithLabelValues(phase).Observe(time.Since(start).Seconds()) }()
 
 	promDBInstancesPhase.WithLabelValues(dbin.Name).Set(dbInstancePhaseToFloat64(phase))
-	if !dbin.Status.Status {
+	if !dbin.Status.Status || !r.CheckChanges {
 		if err := dbin.ValidateBackend(); err != nil {
 			return reconcileResult, err
 		}

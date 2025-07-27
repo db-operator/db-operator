@@ -21,8 +21,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"text/template"
 	"strings"
+	"text/template"
 
 	"github.com/db-operator/db-operator/v2/api/v1beta1"
 	"github.com/db-operator/db-operator/v2/pkg/consts"

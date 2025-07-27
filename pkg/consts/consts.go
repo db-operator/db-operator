@@ -43,15 +43,15 @@ const (
 
 // Kubernetes Annotations
 const (
-	TEMPLATE_ANNOTATION_KEY       = "kinda.rocks/db-operator-templated-keys"
-	SECRET_FORCE_RECONCILE        = "kinda.rocks/secret-force-reconcile"
+	TEMPLATE_ANNOTATION_KEY = "kinda.rocks/db-operator-templated-keys"
+	SECRET_FORCE_RECONCILE  = "kinda.rocks/secret-force-reconcile"
 	// When set to "true" db-operator will run full reconciliation,
 	// even if it wasn't required, after a full reconcile cycle,
 	// the annotation is removed from the database
 	DATABASE_FORCE_FULL_RECONCILE = "kinda.rocks/db-force-full-reconcile"
 	USED_OBJECTS                  = "kinda.rocks/used-objects"
 	// ----------------------------------------------------------------------
-	// EXPIREMENTAL FEATURES 
+	// EXPIREMENTAL FEATURES
 	// This annotation should be used, when a DbUser is not allowed to log in
 	// with password, should be used on the RDS instances, when the SSO is
 	// for authentication

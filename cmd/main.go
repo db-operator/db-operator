@@ -126,12 +126,13 @@ func main() {
 		}
 
 		if err = (&controllers.DbInstanceReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("DbInstance"),
-			Scheme:   mgr.GetScheme(),
-			Interval: time.Duration(i),
-			Recorder: mgr.GetEventRecorderFor("dbinstance-controller"),
-			Conf:     conf,
+			Client:       mgr.GetClient(),
+			Log:          ctrl.Log.WithName("controllers").WithName("DbInstance"),
+			Scheme:       mgr.GetScheme(),
+			Interval:     time.Duration(i),
+			Recorder:     mgr.GetEventRecorderFor("dbinstance-controller"),
+			Conf:         conf,
+			CheckChanges: checkForChanges,
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DbInstance")
 			os.Exit(1)
