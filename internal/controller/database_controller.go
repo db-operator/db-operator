@@ -25,9 +25,8 @@ import (
 	"strconv"
 	"time"
 
-	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	kindav1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
 	"github.com/db-operator/db-operator/v2/internal/controller/backup"
@@ -85,6 +84,7 @@ var (
 //+kubebuilder:rbac:groups=kinda.rocks,resources=databases,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=kinda.rocks,resources=databases/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=kinda.rocks,resources=databases/finalizers,verbs=update
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	phase := dbPhaseReconcile
@@ -136,11 +136,6 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if err := r.healthCheck(ctx, dbcr); err != nil {
 			log.Info("Healthcheck is failed")
 			dbcr.Status.Status = false
-			err = r.Status().Update(ctx, dbcr)
-			if err != nil {
-				log.Error(err, "error status subresource updating")
-				return r.manageError(ctx, dbcr, err, true, phase)
-			}
 		}
 	}
 
@@ -356,7 +351,7 @@ func (r *DatabaseReconciler) handleDbCreateOrUpdate(ctx context.Context, dbcr *k
 
 func (r *DatabaseReconciler) handleDbDelete(ctx context.Context, dbcr *kindav1beta1.Database) (reconcile.Result, error) {
 	log := log.FromContext(ctx)
-	var phase string = dbPhaseDelete
+	phase := dbPhaseDelete
 	r.Recorder.Event(dbcr, "Normal", phase, "Deleting database")
 	reconcilePeriod := r.Interval * time.Second
 	reconcileResult := reconcile.Result{RequeueAfter: reconcilePeriod}
@@ -364,12 +359,12 @@ func (r *DatabaseReconciler) handleDbDelete(ctx context.Context, dbcr *kindav1be
 	// Run finalization logic for database. If the
 	// finalization logic fails, don't remove the finalizer so
 	// that we can retry during the next reconciliation.
-	if commonhelper.SliceContainsSubString(dbcr.ObjectMeta.Finalizers, "dbuser.") {
+	if commonhelper.SliceContainsSubString(dbcr.Finalizers, "dbuser.") {
 		err := errors.New("database can't be removed, while there are DbUser referencing it")
 		return r.manageError(ctx, dbcr, err, true, phase)
 	}
 
-	if commonhelper.ContainsString(dbcr.ObjectMeta.Finalizers, "db."+dbcr.Name) {
+	if commonhelper.ContainsString(dbcr.Finalizers, "db."+dbcr.Name) {
 		err := r.deleteDatabase(ctx, dbcr)
 		if err != nil {
 			log.Error(err, "failed deleting database")
@@ -424,23 +419,55 @@ func (r *DatabaseReconciler) handleDbDelete(ctx context.Context, dbcr *kindav1be
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DatabaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	eventFilter := predicate.Funcs{
-		CreateFunc: func(e event.CreateEvent) bool {
-			return isWatchedNamespace(r.WatchNamespaces, e.Object) && isDatabase(e.Object)
-		}, // Reconcile only Database Create Event
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			return isWatchedNamespace(r.WatchNamespaces, e.Object) && isDatabase(e.Object)
-		}, // Reconcile only Database Delete Event
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			return isWatchedNamespace(r.WatchNamespaces, e.ObjectNew) && isObjectUpdated(e)
-		}, // Reconcile Database and Secret Update Events
-		GenericFunc: func(e event.GenericEvent) bool { return true }, // Reconcile any Generic Events (operator POD or cluster restarted)
-	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&kindav1beta1.Database{}).
-		WithEventFilter(eventFilter).
-		Watches(&corev1.Secret{}, &secretEventHandler{r.Client}).
+		Watches(
+			&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.findDatabaseForSecret),
+		).
 		Complete(r)
+}
+
+func (r *DatabaseReconciler) findDatabaseForSecret(ctx context.Context, secret client.Object) []reconcile.Request {
+	log := log.FromContext(ctx)
+	name := secret.GetName()
+	namespace := secret.GetNamespace()
+	labels := secret.GetLabels()
+	log = log.WithValues("secret", name, "namespace", namespace)
+	log.Info("A secret modification was spotted")
+	kind, ok := labels[consts.USED_BY_KIND_LABEL_KEY]
+	if !ok {
+		log.Info("Secret is not used by anything")
+		return nil
+	}
+	if kind != "Database" {
+		log.Info("Kind is not database")
+		return nil
+	}
+	databaseName, ok := labels[consts.USED_BY_NAME_LABEL_KEY]
+	if !ok {
+		log.Info("Name is not found on the secret")
+		return nil
+	}
+	log.Info("Getting databases for the secret")
+	database := &kindav1beta1.Database{}
+
+	if err := r.Get(ctx, client.ObjectKey{
+		Namespace: namespace,
+		Name:      databaseName,
+	}, database); err != nil {
+		log.Error(err, "Couldn't get the database", "database", databaseName)
+		return nil
+	}
+
+	log.Info("Got databases", "database", databaseName)
+	request := reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Name:      databaseName,
+			Namespace: namespace,
+		},
+	}
+	return []reconcile.Request{request}
 }
 
 func (r *DatabaseReconciler) setEngine(ctx context.Context, dbcr *kindav1beta1.Database) error {

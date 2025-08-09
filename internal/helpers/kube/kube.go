@@ -109,7 +109,7 @@ func (kh *KubeHelper) Create(ctx context.Context, obj client.Object) (client.Obj
 	}
 	// Return an updated object already
 	// I'm not sure how to make it better
-	var refreshedObj client.Object = obj.DeepCopyObject().(client.Object)
+	refreshedObj := obj.DeepCopyObject().(client.Object)
 	if err := kh.Cli.Get(ctx, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, refreshedObj); err != nil {
 		logrus.Errorf("couldn't get %s %s: %s", obj.GetObjectKind().GroupVersionKind().Kind, obj.GetName(), err)
 		return nil, err

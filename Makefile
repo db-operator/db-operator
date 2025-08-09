@@ -18,7 +18,7 @@ K8S_VERSION ?= v1.22.3
 # ---------------------------------------------------------------------
 # -- Helper tools version
 # ---------------------------------------------------------------------
-GOLANGCI_LINT_VERSION ?= v1.61.0
+GOLANGCI_LINT_VERSION ?= v2.3.1
 # ---------------------------------------------------------------------
 # -- Get the currently used golang install path 
 # --  (in GOPATH/bin, unless GOBIN is set)
@@ -78,7 +78,7 @@ build: ## Build a container
 lint: ## lint go code
 	echo "desired golangci-lint version is ${GOLANGCI_LINT_VERSION}"
 	@go mod download
-	test -s $(LOCALBIN)/golangci-lint || GOBIN=$(LOCALBIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@${GOLANGCI_LINT_VERSION}
+	test -s $(LOCALBIN)/golangci-lint || GOBIN=$(LOCALBIN) go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${GOLANGCI_LINT_VERSION}
 	$(LOCALBIN)/golangci-lint --version
 	$(LOCALBIN)/golangci-lint run ./...  --timeout 240s
 

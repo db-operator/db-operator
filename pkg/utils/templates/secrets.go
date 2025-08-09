@@ -107,7 +107,7 @@ func GenerateTemplatedSecrets(dbcr *kindav1beta1.Database, databaseCred database
 				key,
 			)
 		} else {
-			var tmpl string = value
+			tmpl := value
 			t, err := template.New("secret").Parse(tmpl)
 			if err != nil {
 				return nil, err

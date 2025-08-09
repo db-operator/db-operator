@@ -208,7 +208,7 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		}
 
 		if dbusercr.IsDeleted() {
-			if commonhelper.ContainsString(dbusercr.ObjectMeta.Finalizers, "dbuser."+dbusercr.Name) {
+			if commonhelper.ContainsString(dbusercr.Finalizers, "dbuser."+dbusercr.Name) {
 				if err := r.handleTemplatedCredentials(ctx, dbcr, dbusercr, dbuser); err != nil {
 					return r.manageError(ctx, dbusercr, err, true)
 				}
@@ -292,7 +292,7 @@ func (r *DbUserReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func isDbUserChanged(dbucr *kindav1beta1.DbUser, userSecret *corev1.Secret) bool {
-	annotations := dbucr.ObjectMeta.GetAnnotations()
+	annotations := dbucr.GetAnnotations()
 
 	return annotations["checksum/spec"] != kci.GenerateChecksum(dbucr.Spec) ||
 		annotations["checksum/secret"] != commonhelper.GenerateChecksumSecretValue(userSecret)

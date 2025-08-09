@@ -21,8 +21,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"text/template"
 	"strings"
+	"text/template"
 
 	"github.com/db-operator/db-operator/v2/api/v1beta1"
 	"github.com/db-operator/db-operator/v2/pkg/consts"
@@ -80,15 +80,15 @@ func (tds *TemplateDataSources) Render(templates v1beta1.Templates) error {
 	cleanUpData(tds.SecretK8sObj.Data, lastAppliedSecret, currentTemplatesSec)
 	cleanUpData(tds.ConfigMapK8sObj.Data, lastAppliedConfigMap, currentTemplatesCm)
 
-	tds.SecretK8sObj.ObjectMeta.Annotations[consts.TEMPLATE_ANNOTATION_KEY] = strings.Join(currentTemplatesSec, ",")
-	tds.ConfigMapK8sObj.ObjectMeta.Annotations[consts.TEMPLATE_ANNOTATION_KEY] = strings.Join(currentTemplatesCm, ",")
+	tds.SecretK8sObj.Annotations[consts.TEMPLATE_ANNOTATION_KEY] = strings.Join(currentTemplatesSec, ",")
+	tds.ConfigMapK8sObj.Annotations[consts.TEMPLATE_ANNOTATION_KEY] = strings.Join(currentTemplatesCm, ",")
 
-	if len(tds.SecretK8sObj.ObjectMeta.Annotations[consts.TEMPLATE_ANNOTATION_KEY]) == 0 {
-		delete(tds.SecretK8sObj.ObjectMeta.Annotations, consts.TEMPLATE_ANNOTATION_KEY)
+	if len(tds.SecretK8sObj.Annotations[consts.TEMPLATE_ANNOTATION_KEY]) == 0 {
+		delete(tds.SecretK8sObj.Annotations, consts.TEMPLATE_ANNOTATION_KEY)
 	}
 
-	if len(tds.ConfigMapK8sObj.ObjectMeta.Annotations[consts.TEMPLATE_ANNOTATION_KEY]) == 0 {
-		delete(tds.ConfigMapK8sObj.ObjectMeta.Annotations, consts.TEMPLATE_ANNOTATION_KEY)
+	if len(tds.ConfigMapK8sObj.Annotations[consts.TEMPLATE_ANNOTATION_KEY]) == 0 {
+		delete(tds.ConfigMapK8sObj.Annotations, consts.TEMPLATE_ANNOTATION_KEY)
 	}
 
 	return nil
@@ -174,11 +174,11 @@ func NewTemplateDataSource(
 		return nil, fmt.Errorf("configmap %s doesn't belong to the database %s", secretK8s.Name, databaseK8s.Name)
 	}
 
-	if configmapK8s.ObjectMeta.Annotations == nil {
-		configmapK8s.ObjectMeta.Annotations = make(map[string]string)
+	if configmapK8s.Annotations == nil {
+		configmapK8s.Annotations = make(map[string]string)
 	}
-	if secretK8s.ObjectMeta.Annotations == nil {
-		secretK8s.ObjectMeta.Annotations = make(map[string]string)
+	if secretK8s.Annotations == nil {
+		secretK8s.Annotations = make(map[string]string)
 	}
 
 	return &TemplateDataSources{

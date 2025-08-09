@@ -30,6 +30,7 @@ import (
 	kindarocksv1alpha1 "github.com/db-operator/db-operator/v2/api/v1alpha1"
 	kindarocksv1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
 	controllers "github.com/db-operator/db-operator/v2/internal/controller"
+	webhookv1beta1 "github.com/db-operator/db-operator/v2/internal/webhook/v1beta1"
 	"github.com/db-operator/db-operator/v2/pkg/config"
 	"github.com/db-operator/db-operator/v2/pkg/utils/thirdpartyapi"
 
@@ -98,18 +99,22 @@ func main() {
 	if isWebhook {
 		setupLog.Info("Starting webhook server")
 
-		if err = (&kindarocksv1beta1.Database{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "Database")
+		// nolint:goconst
+		if err := webhookv1beta1.SetupDatabaseWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "database")
 			os.Exit(1)
 		}
-		if err = (&kindarocksv1beta1.DbInstance{}).SetupWebhookWithManager(mgr); err != nil {
+		// nolint:goconst
+		if err := webhookv1beta1.SetupDbInstanceWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "DbInstance")
 			os.Exit(1)
 		}
-		if err = (&kindarocksv1beta1.DbUser{}).SetupWebhookWithManager(mgr); err != nil {
+		// nolint:goconst
+		if err := webhookv1beta1.SetupDbUserWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "DbUser")
 			os.Exit(1)
 		}
+
 	} else {
 		setupLog.Info("Starting controller")
 		conf, err := config.LoadConfig()
