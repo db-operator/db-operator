@@ -271,10 +271,10 @@ func (r *DbInstanceReconciler) broadcast(ctx context.Context, dbin *kindav1beta1
 
 	for _, db := range dbList.Items {
 		if db.Spec.Instance == dbin.Name {
-			annotations := db.ObjectMeta.GetAnnotations()
+			annotations := db.GetAnnotations()
 			if _, found := annotations["checksum/spec"]; found {
 				annotations["checksum/spec"] = ""
-				db.ObjectMeta.SetAnnotations(annotations)
+				db.SetAnnotations(annotations)
 				err = r.Update(ctx, &db)
 				if err != nil {
 					return err

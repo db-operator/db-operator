@@ -13,6 +13,8 @@ patches:
 - patches/webhook_in_dbinstances.yaml
 - patches/webhook_in_databases.yaml
 #- patches/webhook_in_dbusers.yaml
+- path: patches/webhook_in_databases.yaml
+- path: patches/webhook_in_dbinstances.yaml
 #+kubebuilder:scaffold:crdkustomizewebhookpatch
 
 # [CERTMANAGER] To enable cert-manager, uncomment all the sections with [CERTMANAGER] prefix.

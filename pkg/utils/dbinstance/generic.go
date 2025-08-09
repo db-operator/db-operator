@@ -22,7 +22,6 @@ import (
 	"strconv"
 
 	"github.com/db-operator/db-operator/v2/pkg/utils/database"
-	kcidb "github.com/db-operator/db-operator/v2/pkg/utils/database"
 	"github.com/sirupsen/logrus"
 )
 
@@ -38,10 +37,10 @@ type Generic struct {
 	SkipCAVerify bool
 }
 
-func makeInterface(in *Generic) (kcidb.Database, error) {
+func makeInterface(in *Generic) (database.Database, error) {
 	switch in.Engine {
 	case "postgres":
-		db := kcidb.Postgres{
+		db := database.Postgres{
 			Host:         in.Host,
 			Port:         in.Port,
 			Database:     "postgres",
@@ -50,7 +49,7 @@ func makeInterface(in *Generic) (kcidb.Database, error) {
 		}
 		return db, nil
 	case "mysql":
-		db := kcidb.Mysql{
+		db := database.Mysql{
 			Host:         in.Host,
 			Port:         in.Port,
 			Database:     "mysql",
