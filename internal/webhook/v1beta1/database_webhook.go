@@ -91,26 +91,27 @@ func (v *DatabaseCustomValidator) ValidateCreate(_ context.Context, obj runtime.
 	}
 	databaselog.Info("Validation for Database upon creation", "name", database.GetName())
 
+	var warnings []string
 	// TODO(user): fill in your validation logic upon object creation.
 	if database.Spec.SecretsTemplates != nil && database.Spec.Credentials.Templates != nil {
 		return nil, errors.New("using both: secretsTemplates and templates, is not allowed")
 	}
 
 	if database.Spec.SecretsTemplates != nil {
-		databaselog.Info("secretsTemplates are deprecated, it will be removed in the next API version. Please, consider switching to templates")
-		// TODO: Migrate this logic to the webhook packate
+		warnings = append(warnings, "secretsTemplates are deprecated, it will be removed in the next API version. Please, consider switching to templates")
+		// TODO: Migrate this logic to the webhook package
 		if err := ValidateSecretTemplates(database.Spec.SecretsTemplates); err != nil {
-			return nil, err
+			return warnings, err
 		}
 	}
 
 	if database.Spec.Credentials.Templates != nil {
 		if err := ValidateTemplates(database.Spec.Credentials.Templates, true); err != nil {
-			return nil, err
+			return warnings, err
 		}
 	}
 
-	return nil, nil
+	return warnings, nil
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type Database.
@@ -125,17 +126,19 @@ func (v *DatabaseCustomValidator) ValidateUpdate(_ context.Context, oldObj, newO
 		return nil, errors.New("using both: secretsTemplates and templates, is not allowed")
 	}
 
+	var warnings []string
+
 	if database.Spec.SecretsTemplates != nil {
-		databaselog.Info("secretsTemplates are deprecated, it will be removed in the next API version. Please, consider switching to templates")
+		warnings = append(warnings, "secretsTemplates are deprecated, it will be removed in the next API version. Please, consider switching to templates")
 		err := ValidateSecretTemplates(database.Spec.SecretsTemplates)
 		if err != nil {
-			return nil, err
+			return warnings, err
 		}
 	}
 
 	if database.Spec.Credentials.Templates != nil {
 		if err := ValidateTemplates(database.Spec.Credentials.Templates, true); err != nil {
-			return nil, err
+			return warnings, err
 		}
 	}
 
@@ -143,14 +146,14 @@ func (v *DatabaseCustomValidator) ValidateUpdate(_ context.Context, oldObj, newO
 	immutableErr := "cannot change %s, the field is immutable"
 	oldDatabase, _ := oldObj.(*kindarocksv1beta1.Database)
 	if database.Spec.Instance != oldDatabase.Spec.Instance {
-		return nil, fmt.Errorf(immutableErr, "spec.instance")
+		return warnings, fmt.Errorf(immutableErr, "spec.instance")
 	}
 
 	if database.Spec.Postgres.Template != oldDatabase.Spec.Postgres.Template {
-		return nil, fmt.Errorf(immutableErr, "spec.postgres.template")
+		return warnings, fmt.Errorf(immutableErr, "spec.postgres.template")
 	}
 
-	return nil, nil
+	return warnings, nil
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type Database.
