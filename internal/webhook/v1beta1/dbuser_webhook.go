@@ -66,15 +66,16 @@ func (v *DbUserCustomValidator) ValidateCreate(_ context.Context, obj runtime.Ob
 	dbuserlog.Info("Validation for DbUser upon creation", "name", dbuser.GetName())
 
 	warnings := []string{}
-	if err := TestExtraPrivileges(dbuser.Spec.ExtraPrivileges); err != nil {
-		return nil, err
-	}
 	if len(dbuser.Spec.ExtraPrivileges) > 0 {
 		warnings = append(warnings,
 			"extra privileges is an experimental feature, please use at your own risk and feel free to open GitHub issues.")
 	}
+
+	if err := TestExtraPrivileges(dbuser.Spec.ExtraPrivileges); err != nil {
+		return warnings, err
+	}
 	if err := kindarocksv1beta1.IsAccessTypeSupported(dbuser.Spec.AccessType); err != nil {
-		return nil, err
+		return warnings, err
 	}
 
 	return warnings, nil
@@ -94,18 +95,18 @@ func (v *DbUserCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj
 			"extra privileges is an experimental feature, please use at your own risk and feel free to open GitHub issues.")
 	}
 	if err := TestExtraPrivileges(dbuser.Spec.ExtraPrivileges); err != nil {
-		return nil, err
+		return warnings, err
 	}
 	if err := kindarocksv1beta1.IsAccessTypeSupported(dbuser.Spec.AccessType); err != nil {
-		return nil, err
+		return warnings, err
 	}
 	_, ok = oldObj.(*kindarocksv1beta1.DbUser)
 	if !ok {
-		return nil, fmt.Errorf("couldn't get the previous version of %s", dbuser.GetName())
+		return warnings, fmt.Errorf("couldn't get the previous version of %s", dbuser.GetName())
 	}
 	if dbuser.Spec.Credentials.Templates != nil {
 		if err := ValidateTemplates(dbuser.Spec.Credentials.Templates, false); err != nil {
-			return nil, err
+			return warnings, err
 		}
 	}
 
