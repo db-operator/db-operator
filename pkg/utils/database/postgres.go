@@ -543,8 +543,8 @@ func (p Postgres) setUserPermission(ctx context.Context, admin *DatabaseUser, us
 	case ACCESS_TYPE_READWRITE:
 		for _, s := range schemas {
 			grantUsage := fmt.Sprintf("GRANT USAGE ON SCHEMA \"%s\" TO \"%s\"", s, user.Username)
-			grantTables := fmt.Sprintf("GRANT SELECT, INSERT, DELETE, UPDATE ON ALL TABLES IN SCHEMA \"%s\" TO \"%s\"", s, user.Username)
-			defaultPrivileges := fmt.Sprintf("ALTER DEFAULT PRIVILEGES FOR ROLE \"%s\" IN SCHEMA \"%s\" GRANT SELECT, INSERT, DELETE, UPDATE ON TABLES TO \"%s\";",
+			grantTables := fmt.Sprintf("GRANT SELECT, INSERT, DELETE, UPDATE, TRUNCATE ON ALL TABLES IN SCHEMA \"%s\" TO \"%s\"", s, user.Username)
+			defaultPrivileges := fmt.Sprintf("ALTER DEFAULT PRIVILEGES FOR ROLE \"%s\" IN SCHEMA \"%s\" GRANT SELECT, INSERT, DELETE, UPDATE, TRUNCATE ON TABLES TO \"%s\";",
 				p.MainUser.Username,
 				s,
 				user.Username,

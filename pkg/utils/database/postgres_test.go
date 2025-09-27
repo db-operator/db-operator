@@ -259,6 +259,11 @@ func TestPostgresReadOnlyUserLifecycleNoAdminGrant(t *testing.T) {
 	update = "UPDATE permtest.test_2 SET role_name = 'test-1-new' WHERE role_id = 1"
 	assert.Error(t, p.execAsUser(context.TODO(), update, readonlyUser))
 
+	truncate := "TRUNCATE TABLE permtest.test_1"
+	assert.Error(t, p.execAsUser(context.TODO(), truncate, readonlyUser))
+	truncate = "TRUNCATE TABLE permtest.test_2"
+	assert.Error(t, p.execAsUser(context.TODO(), truncate, readonlyUser))
+
 	delete := "DELETE FROM permtest.test_1 WHERE role_id = 1"
 	assert.Error(t, p.execAsUser(context.TODO(), delete, readonlyUser))
 	delete = "DELETE FROM permtest.test_2 WHERE role_id = 1"
@@ -365,6 +370,11 @@ func TestPostgresReadWriteUserLifecycleNoAdminGrant(t *testing.T) {
 	assert.NoError(t, p.execAsUser(context.TODO(), delete, readwriteUser))
 	delete = "DELETE FROM permtest.test_2 WHERE role_id = 2"
 	assert.NoError(t, p.execAsUser(context.TODO(), delete, readwriteUser))
+
+	truncate := "TRUNCATE TABLE permtest.test_1"
+	assert.NoError(t, p.execAsUser(context.TODO(), truncate, readwriteUser))
+	truncate = "TRUNCATE TABLE permtest.test_2"
+	assert.NoError(t, p.execAsUser(context.TODO(), truncate, readwriteUser))
 
 	drop := "DROP TABLE permtest.test_1"
 	assert.Error(t, p.execAsUser(context.TODO(), drop, readwriteUser))
