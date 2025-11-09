@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"fmt"
+	"slices"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -99,10 +100,8 @@ const (
 // IsAccessTypeSupported returns an error if access type is not supported
 func IsAccessTypeSupported(wantedAccessType string) error {
 	supportedAccessTypes := []string{READONLY, READWRITE}
-	for _, supportedAccessType := range supportedAccessTypes {
-		if supportedAccessType == wantedAccessType {
-			return nil
-		}
+	if slices.Contains(supportedAccessTypes, wantedAccessType) {
+		return nil
 	}
 	return fmt.Errorf("the provided access type is not supported by the operator: %s - please choose one of these: %v",
 		wantedAccessType,

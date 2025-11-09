@@ -409,6 +409,18 @@ spec:
                 type: object
               deletionProtected:
                 type: boolean
+              extraGrants:
+                items:
+                  properties:
+                    accessType:
+                      type: string
+                    user:
+                      type: string
+                  required:
+                  - accessType
+                  - user
+                  type: object
+                type: array
               instance:
                 type: string
               postgres:
@@ -452,6 +464,18 @@ spec:
                 type: string
               engine:
                 type: string
+              extraGrants:
+                items:
+                  properties:
+                    accessType:
+                      type: string
+                    user:
+                      type: string
+                  required:
+                  - accessType
+                  - user
+                  type: object
+                type: array
               monitorUserSecret:
                 type: string
               operatorVersion:

@@ -547,7 +547,52 @@ func (r *DatabaseReconciler) createDatabase(ctx context.Context, dbcr *kindav1be
 	if err != nil {
 		return err
 	}
+	if len(dbcr.Status.ExtraGrants) > 0 && !instance.Spec.AllowExtraGrants {
+		err := errors.New("extra grants are not allowed on the instance")
+		return err
+	}
+	if instance.Spec.AllowExtraGrants {
+		for _, existingExtraGrant := range dbcr.Status.ExtraGrants {
+			if !existingExtraGrant.IsExtraGrant(dbcr.Spec.ExtraGrants) {
+				log.Info("Removing an extra grant from the db", "username", existingExtraGrant.User, "accessType", existingExtraGrant.AccessType)
+				// Creating a dbuser instance without a password,
+				// only to use it for revoking permissions
+				userGrant := &database.DatabaseUser{
+					Username:             existingExtraGrant.User,
+					AccessType:           existingExtraGrant.AccessType,
+					GrantToAdmin:         dbuser.GrantToAdmin,
+					GrantToAdminOnDelete: dbuser.GrantToAdminOnDelete,
+				}
+				if err := database.RevokePermissions(ctx, db, userGrant, adminCred); err != nil {
+					return err
+				}
+			}
+		}
 
+		for _, extraGrant := range dbcr.Spec.ExtraGrants {
+			if !extraGrant.IsExtraGrant(dbcr.Status.ExtraGrants) {
+				log.Info("Adding an extra grant to the db", "username", extraGrant.User, "accessType", extraGrant.AccessType)
+				// Creating a dbuser instance without a password,
+				// only to use it for setting permissions
+				userGrant := &database.DatabaseUser{
+					Username:             extraGrant.User,
+					AccessType:           extraGrant.AccessType,
+					GrantToAdmin:         dbuser.GrantToAdmin,
+					GrantToAdminOnDelete: dbuser.GrantToAdminOnDelete,
+				}
+				if err := database.SetPermissions(ctx, db, userGrant, adminCred); err != nil {
+					return err
+				}
+
+			}
+		}
+	}
+
+	dbcr.Status.ExtraGrants = dbcr.Spec.ExtraGrants
+	if err := r.Status().Update(ctx, dbcr); err != nil {
+		return err
+	}
+	// if only in status.extraGrant revoke permissions
 	kci.AddFinalizer(&dbcr.ObjectMeta, "db."+dbcr.Name)
 
 	commonhelper.AddDBChecksum(dbcr, dbSecret)

@@ -111,6 +111,12 @@ func (v *DatabaseCustomValidator) ValidateCreate(_ context.Context, obj runtime.
 		}
 	}
 
+	for _, extraGrant := range database.Spec.ExtraGrants {
+		if err := kindarocksv1beta1.IsAccessTypeSupported(extraGrant.AccessType); err != nil {
+			return warnings, err
+		}
+	}
+
 	return warnings, nil
 }
 
