@@ -236,6 +236,11 @@ spec:
                 - Name
                 - Namespace
                 type: object
+              allowExtraGrants:
+                description: |-
+                  If set to true, extra grants are enabled on the databases
+                  making it possible to provide access to any user on the database instance
+                type: boolean
               allowedPrivileges:
                 description: A list of privileges that are allowed to be set as Dbuser's
                   extra privileges

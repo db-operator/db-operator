@@ -35,6 +35,12 @@ type DatabaseSpec struct {
 	Postgres          Postgres          `json:"postgres,omitempty"`
 	Cleanup           bool              `json:"cleanup,omitempty"`
 	Credentials       Credentials       `json:"credentials,omitempty"`
+	ExtraGrants       []*ExtraGrant     `json:"extraGrants,omitempty"`
+}
+
+type ExtraGrant struct {
+	User       string `json:"user"`
+	AccessType string `json:"accessType"`
 }
 
 // Postgres struct should be used to provide resource that only applicable to postgres
@@ -59,6 +65,7 @@ type DatabaseStatus struct {
 	UserName              string              `json:"user"`
 	Engine                string              `json:"engine"`
 	OperatorVersion       string              `json:"operatorVersion,omitempty"`
+	ExtraGrants           []*ExtraGrant       `json:"extraGrants,omitempty"`
 }
 
 // DatabaseProxyStatus defines whether proxy for database is enabled or not
@@ -137,6 +144,16 @@ func (db *Database) ToClientObject() client.Object {
 // AccessSecretName returns string value to define name of the secret resource for accessing instance
 func (db *Database) InstanceAccessSecretName() string {
 	return "dbin-" + db.Spec.Instance + "-access-secret"
+}
+
+func (extraGrant *ExtraGrant) IsExtraGrant(extraGrants []*ExtraGrant) bool {
+	for _, existingExtraGrant := range extraGrants {
+		if existingExtraGrant.User == extraGrant.User &&
+			existingExtraGrant.AccessType == extraGrant.AccessType {
+			return true
+		}
+	}
+	return false
 }
 
 // Function to mark the Database as a hub

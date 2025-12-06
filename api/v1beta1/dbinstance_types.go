@@ -34,7 +34,10 @@ type DbInstanceSpec struct {
 	SSLConnection   DbInstanceSSLConnection `json:"sslConnection,omitempty"`
 	// A list of privileges that are allowed to be set as Dbuser's extra privileges
 	AllowedPrivileges []string `json:"allowedPrivileges,omitempty"`
-	DbInstanceSource  `json:",inline"`
+	// If set to true, extra grants are enabled on the databases
+	// making it possible to provide access to any user on the database instance
+	AllowExtraGrants bool `json:"allowExtraGrants,omitempty"`
+	DbInstanceSource `json:",inline"`
 }
 
 // DbInstanceSource represents the source of an instance.

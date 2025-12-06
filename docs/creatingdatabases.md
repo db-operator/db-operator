@@ -255,6 +255,29 @@ spec:
           secretName: example-db-credentials # has to be same with spec.secretName of Database custom resource
 ```
 
+### Adding extra grants per database
+
+It is possible to apply extra grants to databases, when it's enabled on the db-instance level.
+To enable it, one must set `.spec.allowExtraGrants` to `true` on an instance.
+
+We have two types of access defined in the code:
+    - readOnly
+    - readWrite
+
+It reflects the `DbUser` types of access. 
+
+The idea behind the extra grants is that there might be a database user that must have access to certain databases, that is not necessarily managed by the operator. Let's say the user is called `database-admin`.
+
+Now for whatever reason, we want to let the admin access a database with readOnly permissions. In the db definition we need to add the following:
+```yaml
+kind: Database
+spec:
+  extraGrants:
+    - user: database-admin
+      accessType: readOnly
+```
+
+Now the `database-admin` should have enough permissions for reading data from this database. If access needs to be revoked or changed to `readWrite`, it should be enough to remove the entry from the spec or modify it. 
 
 ### CheckingDatabaseStatus
 

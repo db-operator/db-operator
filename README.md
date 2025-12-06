@@ -2,6 +2,16 @@
 
 The DB Operator eases the pain of managing PostgreSQL and MySQL instances for applications running in Kubernetes. The Operator creates databases and make them available in the cluster via Custom Resource. It is designed to support the on demand creation of test environments in CI/CD pipelines.
 
+## Status of the project
+
+> Until we find more maintainers for the project, I (@allanger) only plan to implement features that I personally need and keep the codebase up-to-date. For a couple of years, I’ve been receiving requests for new features related to DbUsers or cloud provider compatibility, but I don’t use either of these.
+>
+> I don’t want to discourage anyone from creating issues or asking questions. I try to stay active, and I’m always ready to help. If there are bugs or vulnerabilities, they will be fixed as soon as I have time.
+>
+> However, I want to make it clear that, as of now, I consider the project complete. Even though I have many ideas for improvements, my focus has shifted away from Go and Kubernetes development into a different field.
+>
+> With that said, if you need a new feature — especially related to DbUsers or cloud providers — feel free to create an issue, but be prepared to implement it yourself. I am always ready to review pull requests.
+
 ## Features
 
 DB Operator provides following features:
