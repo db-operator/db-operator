@@ -276,6 +276,31 @@ func (r *DatabaseReconciler) handleDbCreateOrUpdate(ctx context.Context, dbcr *k
 		}
 	}
 
+
+	// Apply extra metadata from the Database credentials spec to the
+	// credentials Secret before it is created or updated in the cluster.
+	// This ensures that changes to .spec.credentials.metadata are
+	// reconciled onto the Secret on subsequent reconciliations.
+	if dbcr.Spec.Credentials.Metadata != nil {
+		meta := dbcr.Spec.Credentials.Metadata
+		if len(meta.ExtraLabels) > 0 {
+			if dbSecret.Labels == nil {
+				dbSecret.Labels = map[string]string{}
+			}
+			for k, v := range meta.ExtraLabels {
+				dbSecret.Labels[k] = v
+			}
+		}
+		if len(meta.ExtraAnnotations) > 0 {
+			if dbSecret.Annotations == nil {
+				dbSecret.Annotations = map[string]string{}
+			}
+			for k, v := range meta.ExtraAnnotations {
+				dbSecret.Annotations[k] = v
+			}
+		}
+	}
+
 	if err := r.kubeHelper.ModifyObject(ctx, dbSecret); err != nil {
 		return r.manageError(ctx, dbcr, err, true, phase)
 	}
