@@ -49,7 +49,6 @@ type Template struct {
 
 type Templates []*Template
 
-
 // CredentialsMetadata contains additional metadata that should be applied
 // to Kubernetes objects created from credentials configuration.
 //

@@ -28,6 +28,7 @@ func TestUnitTemplatesValidator(t *testing.T) {
 		{Name: "TEMPLATE_7", Template: "{{ .ConfigMap \"CHECK\" }}"},
 		{Name: "TEMPLATE_8", Template: "{{ .Query \"CHECK\" }}"},
 		{Name: "TEMPLATE_9", Template: "{{ if eq 1 1 }} It's true {{ else }} It's false {{ end }}"},
+		{Name: "TEMPLATE_10", Template: "{{ .InstanceVar \"TEST\" }}"},
 	}
 
 	err := webhook.ValidateTemplates(validTemplates, true)

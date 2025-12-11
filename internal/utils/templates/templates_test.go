@@ -91,74 +91,76 @@ var dbuserK8s *v1beta1.DbUser = &v1beta1.DbUser{
 var db database.Database = database.New("dummy")
 
 func TestUnitNewDSDatabase(t *testing.T) {
-	templateds, err := templates.NewTemplateDataSource(databaseK8s, nil, secretK8s, configmapK8s, db, nil)
+	templateds, err := templates.NewTemplateDataSource(databaseK8s, nil, secretK8s, configmapK8s, db, nil, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, &templates.TemplateDataSources{
-		DatabaseK8sObj:  databaseK8s,
-		DbUserK8sObj:    nil,
-		SecretK8sObj:    secretK8s,
-		ConfigMapK8sObj: configmapK8s,
-		DatabaseObj:     db,
-		DatabaseUser:    nil,
+		DatabaseK8sObj:    databaseK8s,
+		DbUserK8sObj:      nil,
+		SecretK8sObj:      secretK8s,
+		ConfigMapK8sObj:   configmapK8s,
+		DatabaseObj:       db,
+		DatabaseUser:      nil,
+		ExtraTemplateVars: map[string]string{},
 	}, templateds)
 }
 
 func TestUnitNewDSDatabaseUser(t *testing.T) {
-	templateds, err := templates.NewTemplateDataSource(databaseK8s, dbuserK8s, secretK8sUser, configmapK8s, db, nil)
+	templateds, err := templates.NewTemplateDataSource(databaseK8s, dbuserK8s, secretK8sUser, configmapK8s, db, nil, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, &templates.TemplateDataSources{
-		DatabaseK8sObj:  databaseK8s,
-		DbUserK8sObj:    dbuserK8s,
-		SecretK8sObj:    secretK8sUser,
-		ConfigMapK8sObj: configmapK8s,
-		DatabaseObj:     db,
-		DatabaseUser:    nil,
+		DatabaseK8sObj:    databaseK8s,
+		DbUserK8sObj:      dbuserK8s,
+		SecretK8sObj:      secretK8sUser,
+		ConfigMapK8sObj:   configmapK8s,
+		DatabaseObj:       db,
+		DatabaseUser:      nil,
+		ExtraTemplateVars: map[string]string{},
 	}, templateds)
 }
 
 func TestUnitNewDSSecretOwnershipError(t *testing.T) {
 	newSecret := secretK8s.DeepCopy()
 	newSecret.ObjectMeta.Name = "newname"
-	_, err := templates.NewTemplateDataSource(databaseK8s, nil, newSecret, configmapK8s, db, nil)
+	_, err := templates.NewTemplateDataSource(databaseK8s, nil, newSecret, configmapK8s, db, nil, nil)
 	assert.Error(t, errors.New("secret newname doesn't belong to the database database"), err)
 }
 
 func TestUnitNewDSSecretOwnershipUserError(t *testing.T) {
 	newSecret := secretK8s.DeepCopy()
 	newSecret.ObjectMeta.Name = "creds"
-	_, err := templates.NewTemplateDataSource(databaseK8s, dbuserK8s, newSecret, configmapK8s, db, nil)
+	_, err := templates.NewTemplateDataSource(databaseK8s, dbuserK8s, newSecret, configmapK8s, db, nil, nil)
 	assert.Error(t, errors.New("secret creds doesn't belong to the DbUser dbuser"), err)
 }
 
 func TestUnitNewDSSecretNotPassedError(t *testing.T) {
-	_, err := templates.NewTemplateDataSource(databaseK8s, nil, nil, configmapK8s, db, nil)
+	_, err := templates.NewTemplateDataSource(databaseK8s, nil, nil, configmapK8s, db, nil, nil)
 	assert.Error(t, errors.New("secret must be passed"), err)
 }
 
 func TestUnitNewDSConfigMapOwnershipError(t *testing.T) {
 	newConfigmap := configmapK8s.DeepCopy()
 	newConfigmap.ObjectMeta.Name = "newname"
-	_, err := templates.NewTemplateDataSource(databaseK8s, nil, secretK8s, newConfigmap, db, nil)
+	_, err := templates.NewTemplateDataSource(databaseK8s, nil, secretK8s, newConfigmap, db, nil, nil)
 	assert.Error(t, errors.New("configmap newname doesn't belong to the database database"), err)
 }
 
 func TestUnitNewDSConfigMapOwnershipUserNoError(t *testing.T) {
-	_, err := templates.NewTemplateDataSource(databaseK8s, dbuserK8s, secretK8sUser, configmapK8s, db, nil)
+	_, err := templates.NewTemplateDataSource(databaseK8s, dbuserK8s, secretK8sUser, configmapK8s, db, nil, nil)
 	assert.NoError(t, err)
 }
 
 func TestUnitNewDSConfigMapNotPassedError(t *testing.T) {
-	_, err := templates.NewTemplateDataSource(databaseK8s, nil, secretK8s, nil, db, nil)
+	_, err := templates.NewTemplateDataSource(databaseK8s, nil, secretK8s, nil, db, nil, nil)
 	assert.Error(t, errors.New("configmap must be passed"), err)
 }
 
 func TestUnitNewDSDatabaseNotPassedError(t *testing.T) {
-	_, err := templates.NewTemplateDataSource(nil, nil, secretK8s, configmapK8s, db, nil)
+	_, err := templates.NewTemplateDataSource(nil, nil, secretK8s, configmapK8s, db, nil, nil)
 	assert.Error(t, errors.New("database must be passed"), err)
 }
 
 func TestUnitTemplatesSecret(t *testing.T) {
-	templateds, err := templates.NewTemplateDataSource(databaseK8s, nil, secretK8s, configmapK8s, db, nil)
+	templateds, err := templates.NewTemplateDataSource(databaseK8s, nil, secretK8s, configmapK8s, db, nil, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -169,8 +171,30 @@ func TestUnitTemplatesSecret(t *testing.T) {
 	assert.Equal(t, "testpassword", entry)
 }
 
+func TestUnitTemplatesInstanceVar(t *testing.T) {
+	templateds, err := templates.NewTemplateDataSource(databaseK8s, nil, secretK8s, configmapK8s, db, nil, map[string]string{"test": "test"})
+	if err != nil {
+		t.Error(err)
+	}
+	entry, err := templateds.InstanceVar("test")
+	if err != nil {
+		t.Error(err)
+	}
+	assert.Equal(t, "test", entry)
+}
+
+func TestUnitTemplatesInstanceVarErr(t *testing.T) {
+	templateds, err := templates.NewTemplateDataSource(databaseK8s, nil, secretK8s, configmapK8s, db, nil, map[string]string{"test": "test"})
+	if err != nil {
+		t.Error(err)
+	}
+	entry, err := templateds.InstanceVar("testNotExist")
+	assert.Empty(t, entry)
+	assert.Error(t, errors.New("variable is not found"), err)
+}
+
 func TestUnitTemplatesSecretErr(t *testing.T) {
-	templateds, err := templates.NewTemplateDataSource(databaseK8s, nil, secretK8s, configmapK8s, db, nil)
+	templateds, err := templates.NewTemplateDataSource(databaseK8s, nil, secretK8s, configmapK8s, db, nil, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -179,7 +203,7 @@ func TestUnitTemplatesSecretErr(t *testing.T) {
 }
 
 func TestUnitTemplatesConfigMap(t *testing.T) {
-	templateds, err := templates.NewTemplateDataSource(databaseK8s, nil, secretK8s, configmapK8s, db, nil)
+	templateds, err := templates.NewTemplateDataSource(databaseK8s, nil, secretK8s, configmapK8s, db, nil, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -196,7 +220,7 @@ func TestUnitTemplatesQueryErr(t *testing.T) {
 		Error: err,
 	}
 
-	templateds, err := templates.NewTemplateDataSource(databaseK8s, nil, secretK8s, configmapK8s, dbNew, nil)
+	templateds, err := templates.NewTemplateDataSource(databaseK8s, nil, secretK8s, configmapK8s, dbNew, nil, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -206,7 +230,7 @@ func TestUnitTemplatesQueryErr(t *testing.T) {
 
 func TestUnitTemplatesQuery(t *testing.T) {
 	query := "SELECT SOMETHING FROM SOMETHING"
-	templateds, err := templates.NewTemplateDataSource(databaseK8s, nil, secretK8s, configmapK8s, db, nil)
+	templateds, err := templates.NewTemplateDataSource(databaseK8s, nil, secretK8s, configmapK8s, db, nil, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -218,7 +242,7 @@ func TestUnitTemplatesQuery(t *testing.T) {
 }
 
 func TestUnitTemplatesConfigMapErr(t *testing.T) {
-	templateds, err := templates.NewTemplateDataSource(databaseK8s, nil, secretK8s, configmapK8s, db, nil)
+	templateds, err := templates.NewTemplateDataSource(databaseK8s, nil, secretK8s, configmapK8s, db, nil, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -241,7 +265,7 @@ var mysqlInstance *v1beta1.DbInstance = &v1beta1.DbInstance{
 func TestUnitProtocolGetterPostgres(t *testing.T) {
 	databaseNew := databaseK8s.DeepCopy()
 	databaseNew.Status.Engine = consts.ENGINE_POSTGRES
-	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretK8s, configmapK8s, db, nil)
+	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretK8s, configmapK8s, db, nil, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -255,7 +279,7 @@ func TestUnitProtocolGetterPostgres(t *testing.T) {
 func TestUnitProtocolGetterMysql(t *testing.T) {
 	databaseNew := databaseK8s.DeepCopy()
 	databaseNew.Status.Engine = consts.ENGINE_MYSQL
-	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretK8s, configmapK8s, db, nil)
+	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretK8s, configmapK8s, db, nil, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -293,7 +317,7 @@ var secretMysql *corev1.Secret = &corev1.Secret{
 func TestUnitUsernameGetterPostgres(t *testing.T) {
 	databaseNew := databaseK8s.DeepCopy()
 	databaseNew.Status.Engine = consts.ENGINE_POSTGRES
-	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretPostgres, configmapK8s, db, nil)
+	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretPostgres, configmapK8s, db, nil, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -307,7 +331,7 @@ func TestUnitUsernameGetterPostgres(t *testing.T) {
 func TestUnitUsernameGetterMysql(t *testing.T) {
 	databaseNew := databaseK8s.DeepCopy()
 	databaseNew.Status.Engine = consts.ENGINE_MYSQL
-	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretMysql, configmapK8s, db, nil)
+	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretMysql, configmapK8s, db, nil, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -321,14 +345,14 @@ func TestUnitUsernameGetterMysql(t *testing.T) {
 func TestUnitUsernameGetterUnknownEngineError(t *testing.T) {
 	databaseNew := databaseK8s.DeepCopy()
 	databaseNew.Status.Engine = "dymmysql"
-	_, err := templates.NewTemplateDataSource(databaseNew, nil, secretK8s, configmapK8s, db, nil)
+	_, err := templates.NewTemplateDataSource(databaseNew, nil, secretK8s, configmapK8s, db, nil, nil)
 	assert.Error(t, errors.New("unknown engine: fake"), err)
 }
 
 func TestUnitPasswordGetterPostgres(t *testing.T) {
 	databaseNew := databaseK8s.DeepCopy()
 	databaseNew.Status.Engine = consts.ENGINE_POSTGRES
-	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretPostgres, configmapK8s, db, nil)
+	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretPostgres, configmapK8s, db, nil, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -342,7 +366,7 @@ func TestUnitPasswordGetterPostgres(t *testing.T) {
 func TestUnitPasswordGetterMysql(t *testing.T) {
 	databaseNew := databaseK8s.DeepCopy()
 	databaseNew.Status.Engine = consts.ENGINE_MYSQL
-	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretMysql, configmapK8s, db, nil)
+	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretMysql, configmapK8s, db, nil, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -356,14 +380,14 @@ func TestUnitPasswordGetterMysql(t *testing.T) {
 func TestUnitPasswordGetterUnknownEngineError(t *testing.T) {
 	databaseNew := databaseK8s.DeepCopy()
 	databaseNew.Status.Engine = "dymmysql"
-	_, err := templates.NewTemplateDataSource(databaseNew, nil, secretK8s, configmapK8s, db, nil)
+	_, err := templates.NewTemplateDataSource(databaseNew, nil, secretK8s, configmapK8s, db, nil, nil)
 	assert.Error(t, errors.New("unknown engine: fake"), err)
 }
 
 func TestUnitDatabaseGetterPostgres(t *testing.T) {
 	databaseNew := databaseK8s.DeepCopy()
 	databaseNew.Status.Engine = consts.ENGINE_POSTGRES
-	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretPostgres, configmapK8s, db, nil)
+	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretPostgres, configmapK8s, db, nil, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -377,7 +401,7 @@ func TestUnitDatabaseGetterPostgres(t *testing.T) {
 func TestUnitDatabaseGetterMysql(t *testing.T) {
 	databaseNew := databaseK8s.DeepCopy()
 	databaseNew.Status.Engine = consts.ENGINE_MYSQL
-	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretMysql, configmapK8s, db, nil)
+	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretMysql, configmapK8s, db, nil, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -391,13 +415,13 @@ func TestUnitDatabaseGetterMysql(t *testing.T) {
 func TestUnitDatabaseGetterUnknownEngineError(t *testing.T) {
 	databaseNew := databaseK8s.DeepCopy()
 	databaseNew.Status.Engine = "dymmysql"
-	_, err := templates.NewTemplateDataSource(databaseNew, nil, secretK8s, configmapK8s, db, nil)
+	_, err := templates.NewTemplateDataSource(databaseNew, nil, secretK8s, configmapK8s, db, nil, nil)
 	assert.Error(t, errors.New("unknown engine: fake"), err)
 }
 
 func TestUnitHostGetterNoProxy(t *testing.T) {
 	databaseNew := databaseK8s.DeepCopy()
-	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretMysql, configmapK8s, db, nil)
+	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretMysql, configmapK8s, db, nil, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -413,7 +437,7 @@ func TestUnitHostGetterProxy(t *testing.T) {
 	databaseNew := databaseK8s.DeepCopy()
 	databaseNew.Status.ProxyStatus.Status = true
 	databaseNew.Status.ProxyStatus.ServiceName = expecterHostname
-	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretMysql, configmapK8s, db, nil)
+	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretMysql, configmapK8s, db, nil, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -426,7 +450,7 @@ func TestUnitHostGetterProxy(t *testing.T) {
 
 func TestUnitPortGetterNoProxy(t *testing.T) {
 	databaseNew := databaseK8s.DeepCopy()
-	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretMysql, configmapK8s, db, nil)
+	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretMysql, configmapK8s, db, nil, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -442,7 +466,7 @@ func TestUnitPortGetterProxy(t *testing.T) {
 	databaseNew := databaseK8s.DeepCopy()
 	databaseNew.Status.ProxyStatus.Status = true
 	databaseNew.Status.ProxyStatus.SQLPort = expectedPort
-	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretMysql, configmapK8s, db, nil)
+	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretMysql, configmapK8s, db, nil, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -456,7 +480,7 @@ func TestUnitPortGetterProxy(t *testing.T) {
 func TestUnitRenderErrDupSecret(t *testing.T) {
 	databaseNew := databaseK8s.DeepCopy()
 	databaseNew.Status.Engine = consts.ENGINE_POSTGRES
-	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretPostgres, configmapK8s, db, database.NewDummyUser("mainUser"))
+	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretPostgres, configmapK8s, db, database.NewDummyUser("mainUser"), nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -473,7 +497,7 @@ func TestUnitRenderErrDupSecret(t *testing.T) {
 func TestUnitRenderHTML(t *testing.T) {
 	databaseNew := databaseK8s.DeepCopy()
 	databaseNew.Status.Engine = consts.ENGINE_POSTGRES
-	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretPostgres.DeepCopy(), configmapK8s.DeepCopy(), db, database.NewDummyUser("mainUser"))
+	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretPostgres.DeepCopy(), configmapK8s.DeepCopy(), db, database.NewDummyUser("mainUser"), nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -502,7 +526,7 @@ func TestUnitRenderAppendCustomSecret(t *testing.T) {
 	}
 	databaseNew := databaseK8s.DeepCopy()
 	databaseNew.Status.Engine = consts.ENGINE_POSTGRES
-	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretPostgres.DeepCopy(), configmapK8s.DeepCopy(), db, database.NewDummyUser("mainUser"))
+	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretPostgres.DeepCopy(), configmapK8s.DeepCopy(), db, database.NewDummyUser("mainUser"), nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -553,7 +577,7 @@ func TestUnitRenderCleanupSecret(t *testing.T) {
 
 	databaseNew := databaseK8s.DeepCopy()
 	databaseNew.Status.Engine = consts.ENGINE_POSTGRES
-	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretNew, configmapK8s.DeepCopy(), db, database.NewDummyUser("mainUser"))
+	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretNew, configmapK8s.DeepCopy(), db, database.NewDummyUser("mainUser"), nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -589,7 +613,7 @@ func TestUnitRenderCleanupSecret(t *testing.T) {
 func TestUnitRenderErrDupConfigMap(t *testing.T) {
 	databaseNew := databaseK8s.DeepCopy()
 	databaseNew.Status.Engine = consts.ENGINE_POSTGRES
-	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretPostgres, configmapK8s, db, database.NewDummyUser("mainUser"))
+	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretPostgres, configmapK8s, db, database.NewDummyUser("mainUser"), nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -616,7 +640,7 @@ func TestUnitRenderAppendCustomConfigMap(t *testing.T) {
 	}
 	databaseNew := databaseK8s.DeepCopy()
 	databaseNew.Status.Engine = consts.ENGINE_POSTGRES
-	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretPostgres.DeepCopy(), configmapK8s.DeepCopy(), db, database.NewDummyUser("mainUser"))
+	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretPostgres.DeepCopy(), configmapK8s.DeepCopy(), db, database.NewDummyUser("mainUser"), nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -663,7 +687,7 @@ func TestUnitRenderCleanupConfigmMap(t *testing.T) {
 
 	databaseNew := databaseK8s.DeepCopy()
 	databaseNew.Status.Engine = consts.ENGINE_POSTGRES
-	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretPostgres, configmapK8s.DeepCopy(), db, database.NewDummyUser("mainUser"))
+	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretPostgres, configmapK8s.DeepCopy(), db, database.NewDummyUser("mainUser"), nil)
 	if err != nil {
 		t.Error(err)
 	}
