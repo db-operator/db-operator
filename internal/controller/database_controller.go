@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"strconv"
 	"time"
@@ -815,7 +816,7 @@ func (r *DatabaseReconciler) handleTemplatedCredentials(ctx context.Context, dbc
 		return err
 	}
 
-	templateds, err := templates.NewTemplateDataSource(dbcr, nil, databaseSecret, databaseConfigMap, db, dbuser)
+	templateds, err := templates.NewTemplateDataSource(dbcr, nil, databaseSecret, databaseConfigMap, db, dbuser, instance.Spec.ExtraTemplateVars)
 	if err != nil {
 		return err
 	}
@@ -881,9 +882,7 @@ func (r *DatabaseReconciler) createTemplatedSecrets(ctx context.Context, dbcr *k
 		newSecretData := secTemplates.AppendTemplatedSecretData(dbcr, databaseSecret.Data, dbSecrets)
 		newSecretData = secTemplates.RemoveObsoleteSecret(dbcr, newSecretData, dbSecrets)
 
-		for key, value := range newSecretData {
-			databaseSecret.Data[key] = value
-		}
+		maps.Copy(databaseSecret.Data, newSecretData)
 
 		if err := r.kubeHelper.ModifyObject(ctx, databaseSecret); err != nil {
 			return err
