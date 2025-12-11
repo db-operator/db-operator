@@ -114,7 +114,6 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		}
 	}
 
-
 	// Apply extra metadata from the DbUser credentials spec to the
 	// user credentials Secret before it is created or updated. This
 	// allows users to configure labels and annotations that are
@@ -457,7 +456,7 @@ func (r *DbUserReconciler) handleTemplatedCredentials(ctx context.Context, dbcr 
 		return err
 	}
 
-	templateds, err := templates.NewTemplateDataSource(dbcr, dbusercr, databaseSecret, databaseConfigMap, db, dbuser)
+	templateds, err := templates.NewTemplateDataSource(dbcr, dbusercr, databaseSecret, databaseConfigMap, db, dbuser, instance.Spec.InstanceVars)
 	if err != nil {
 		return err
 	}
