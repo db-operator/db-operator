@@ -114,6 +114,31 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		}
 	}
 
+
+	// Apply extra metadata from the DbUser credentials spec to the
+	// user credentials Secret before it is created or updated. This
+	// allows users to configure labels and annotations that are
+	// required by external controllers such as secret reflectors.
+	if dbusercr.Spec.Credentials.Metadata != nil {
+		meta := dbusercr.Spec.Credentials.Metadata
+		if len(meta.ExtraLabels) > 0 {
+			if userSecret.Labels == nil {
+				userSecret.Labels = map[string]string{}
+			}
+			for k, v := range meta.ExtraLabels {
+				userSecret.Labels[k] = v
+			}
+		}
+		if len(meta.ExtraAnnotations) > 0 {
+			if userSecret.Annotations == nil {
+				userSecret.Annotations = map[string]string{}
+			}
+			for k, v := range meta.ExtraAnnotations {
+				userSecret.Annotations[k] = v
+			}
+		}
+	}
+
 	// Make sure the secret is reflecting the actual desired state
 	err = r.kubeHelper.HandleCreateOrUpdate(ctx, userSecret)
 	if err != nil {

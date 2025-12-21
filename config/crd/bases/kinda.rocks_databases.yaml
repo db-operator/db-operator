@@ -387,6 +387,33 @@ spec:
                   Credentials should be used to setup everything relates to k8s secrets and configmaps
                   TODO(@allanger): Field .spec.secretName should be moved here in the v1beta2 version
                 properties:
+                  metadata:
+                    description: |-
+                      Metadata defines additional metadata that should be applied to
+                      k8s resources created from credentials configuration.
+
+
+                      For Database and DbUser, this metadata is applied to the Secret
+                      that stores generated credentials.
+                    properties:
+                      extraAnnotations:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          ExtraAnnotations will be merged into the annotations of the Secret
+                          created for the credentials. Existing annotations are preserved, and
+                          keys from this map will overwrite annotations with the same key on
+                          the Secret.
+                        type: object
+                      extraLabels:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          ExtraLabels will be merged into the labels of the Secret created
+                          for the credentials. Existing labels are preserved, and keys from
+                          this map will overwrite labels with the same key on the Secret.
+                        type: object
+                    type: object
                   templates:
                     description: Templates to add custom entries to ConfigMaps and
                       Secrets

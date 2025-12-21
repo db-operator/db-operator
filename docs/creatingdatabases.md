@@ -49,6 +49,14 @@ spec:
       - name: USER_PASSWORD
         template: "{{ .Username }}-{{ .Password }}"
         secret: true
+    metadata:
+      extraLabels:
+        environment: development
+      extraAnnotations:
+        reflector.v1.k8s.emberstack.com/reflection-allowed: "true"
+        reflector.v1.k8s.emberstack.com/reflection-auto-enabled: "true"
+        reflector.v1.k8s.emberstack.com/reflection-auto-namespaces: target-namespace
+`
   secretsTemplates:
     CONNECTION_STRING: "jdbc:{{ .Protocol }}://{{ .UserName }}:{{ .Password }}@{{ .DatabaseHost }}:{{ .DatabasePort }}/{{ .DatabaseName }}"
     PASSWORD_USER: "{{ .Password }}_{{ .UserName }}"
@@ -61,6 +69,16 @@ With `credentials.templates` you can add new entries to database ConfigMap and S
 - Database: The same value as for db name in the creds secret
 - Username: The same value as for database user in the creds secret
 - Password: The same value as for password in the creds secret
+
+With `credentials.metadata.extraLabels` and `credentials.metadata.extraAnnotations` you can add
+additional labels and annotations to the Secret that stores the generated credentials for the
+`Database`. These maps are merged into the existing Secret metadata:
+
+- Existing labels and annotations are preserved.
+- Keys from `extraLabels` and `extraAnnotations` overwrite existing values with the same key.
+
+This can be used, for example, to configure external controllers that watch Secrets via
+annotations, or to add additional labels used for selection or inventory purposes.
 
 Or getting data directly from a data source, possible options are.
 

@@ -35,9 +35,32 @@ Users can only access databases that are deployed to the same namespace, and the
 
 DbInstance creation will trigger a new secret creation as well. You will have a secret in the same namespace, the name of which will be taken from `spec.secretName`, it will contain all the data that is required to connect to the DB
 
-### Credentials templating 
+### Credentials templating and additional secret metadata
 
 Credentials templating is also available here and functions exactly as described in the [Database](./creatingdatabases.md#creatingdatabases) resource.
+
+With `credentials.metadata.extraLabels` and `credentials.metadata.extraAnnotations` you can add custom metadata to the Secret that stores the generated user credentials. These values are merged with the metadata created by the operator. Keys defined in `extraLabels` or `extraAnnotations` overwrite existing values with the same key.
+
+Example:
+
+```yaml
+spec:
+  credentials:
+    templates:
+      - name: USER_PASSWORD
+        template: "{{ .Username }}-{{ .Password }}"
+        secret: true
+    metadata:
+      extraLabels:
+        environment: development
+      extraAnnotations:
+        reflector.v1.k8s.emberstack.com/reflection-allowed: "true"
+        reflector.v1.k8s.emberstack.com/reflection-auto-enabled: "true"
+        reflector.v1.k8s.emberstack.com/reflection-auto-namespaces: target-namespace
+```
+
+This metadata can be used by external controllers that watch annotations or require specific labels to enable Secret synchronization or reflection across namespaces.
+
 
 ### Access Types
 
