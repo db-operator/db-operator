@@ -37,7 +37,11 @@ type DbInstanceSpec struct {
 	// If set to true, extra grants are enabled on the databases
 	// making it possible to provide access to any user on the database instance
 	AllowExtraGrants bool `json:"allowExtraGrants,omitempty"`
-	DbInstanceSource `json:",inline"`
+	// ExtraTemplateVars can be used by any database/dbuser that are deployed
+	// to this instance to build templated credentials with some generic values.
+	// Can be used for example to provide a read only postgres replica url
+	ExtraTemplateVars map[string]string `json:"extraTemplateVars,omitempty"`
+	DbInstanceSource  `json:",inline"`
 }
 
 // DbInstanceSource represents the source of an instance.
