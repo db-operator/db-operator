@@ -19,10 +19,7 @@ package controllers
 import (
 	"context"
 	"errors"
-	"strconv"
-	"time"
-
-	kindav1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
+	kindav1 "github.com/db-operator/db-operator/v2/api/v1"
 	commonhelper "github.com/db-operator/db-operator/v2/internal/helpers/common"
 	kubehelper "github.com/db-operator/db-operator/v2/internal/helpers/kube"
 	proxyhelper "github.com/db-operator/db-operator/v2/internal/helpers/proxy"
@@ -31,15 +28,16 @@ import (
 	"github.com/db-operator/db-operator/v2/pkg/utils/dbinstance"
 	"github.com/db-operator/db-operator/v2/pkg/utils/kci"
 	"github.com/db-operator/db-operator/v2/pkg/utils/proxy"
-	"github.com/go-logr/logr"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"strconv"
+	"time"
 )
 
 var (
@@ -50,15 +48,19 @@ var (
 	dbInstancePhaseRunning     = "Running"
 )
 
+type DbInstanceReconcilerOpts struct {
+	ReconcileInterval time.Duration
+}
+
 // DbInstanceReconciler reconciles a DbInstance object
 type DbInstanceReconciler struct {
 	client.Client
-	Log        logr.Logger
 	Scheme     *runtime.Scheme
 	Interval   time.Duration
 	Recorder   record.EventRecorder
 	Conf       *config.Config
 	kubeHelper *kubehelper.KubeHelper
+	Opts       *DbInstanceReconcilerOpts
 }
 
 //+kubebuilder:rbac:groups=kinda.rocks,resources=dbinstances,verbs=get;list;watch;create;update;patch;delete
@@ -66,12 +68,12 @@ type DbInstanceReconciler struct {
 //+kubebuilder:rbac:groups=kinda.rocks,resources=dbinstances/finalizers,verbs=update
 
 func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := log.FromContext(ctx)
+	log := logf.FromContext(ctx)
 	reconcilePeriod := r.Interval * time.Second
 	reconcileResult := reconcile.Result{RequeueAfter: reconcilePeriod}
 
 	// Fetch the DbInstance custom resource
-	dbin := &kindav1beta1.DbInstance{}
+	dbin := &kindav1.DbInstance{}
 	err := r.Get(ctx, req.NamespacedName, dbin)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -147,12 +149,12 @@ func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DbInstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&kindav1beta1.DbInstance{}).
+		For(&kindav1.DbInstance{}).
 		Complete(r)
 }
 
-func (r *DbInstanceReconciler) create(ctx context.Context, dbin *kindav1beta1.DbInstance) error {
-	log := log.FromContext(ctx)
+func (r *DbInstanceReconciler) create(ctx context.Context, dbin *kindav1.DbInstance) error {
+	log := logf.FromContext(ctx)
 	secret, err := kci.GetSecretResource(ctx, dbin.Spec.AdminUserSecret.ToKubernetesType())
 	if err != nil {
 		log.Error(err, "failed to get instance admin user secret",
@@ -262,8 +264,8 @@ func (r *DbInstanceReconciler) create(ctx context.Context, dbin *kindav1beta1.Db
 	return nil
 }
 
-func (r *DbInstanceReconciler) broadcast(ctx context.Context, dbin *kindav1beta1.DbInstance) error {
-	dbList := &kindav1beta1.DatabaseList{}
+func (r *DbInstanceReconciler) broadcast(ctx context.Context, dbin *kindav1.DbInstance) error {
+	dbList := &kindav1.DatabaseList{}
 	err := r.List(ctx, dbList)
 	if err != nil {
 		return err
@@ -286,8 +288,8 @@ func (r *DbInstanceReconciler) broadcast(ctx context.Context, dbin *kindav1beta1
 	return nil
 }
 
-func (r *DbInstanceReconciler) createProxy(ctx context.Context, dbin *kindav1beta1.DbInstance, _ []metav1.OwnerReference) error {
-	log := log.FromContext(ctx)
+func (r *DbInstanceReconciler) createProxy(ctx context.Context, dbin *kindav1.DbInstance, _ []metav1.OwnerReference) error {
+	log := logf.FromContext(ctx)
 	proxyInterface, err := proxyhelper.DetermineProxyTypeForInstance(r.Conf, dbin)
 	if err != nil {
 		if err == proxyhelper.ErrNoProxySupport {
