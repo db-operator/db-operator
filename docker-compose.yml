@@ -7,7 +7,7 @@ services:
     environment:
       POSTGRES_PASSWORD: "test1234"
   mysql:
-    image: mysql:5.7
+    image: mysql:9.6
     platform: linux/amd64
     ports:
       - "3306:3306"
