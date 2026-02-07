@@ -132,7 +132,7 @@ These variables can be also accessed by the Database/DbUser templates
 ...
 ```
 
-Then the secret that is created by the operator should contain the following entry: `DB_INSTANCE_VAR: TEST_VALUE`. When a instance variable is changed on the instance level, it should also trigger reconciliation of the databases and hence the values should also be updated in the target secrets.
+Then the secret that is created by the operator should contain the following entry: `DB_INSTANCE_VAR: TEST_VALUE`. When the value is changed on the instance level, it should also trigger reconciliation of the databases and hence the values should also be updated in the target secrets.
 
 
 Make sure to set `.templates[].secret` to `true` when templating sensitive data, db-operator will not detect it automatically. By default, secret is set to `false`, so new entry will be added to the ConfigMap
