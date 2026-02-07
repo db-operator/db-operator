@@ -21,9 +21,9 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 
 	kindarocksv1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
-	"k8s.io/utils/strings/slices"
 )
 
 var (
