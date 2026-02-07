@@ -21,7 +21,7 @@ RUN GOOS=linux GOARCH=$TARGETARCH CGO_ENABLED=0 \
   -tags build -o /usr/local/bin/db-operator cmd/main.go
 
 
-FROM registry.hub.docker.com/library/alpine:3.22
+FROM registry.hub.docker.com/library/alpine:3.23
 LABEL org.opencontainers.image.authors="Nikolai Rodionov<allanger@badhouseplants.net>"
 
 ENV USER_UID=1001
