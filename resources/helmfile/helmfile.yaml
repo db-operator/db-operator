@@ -22,7 +22,7 @@ releases:
   - name: db-operator
     #chart: db-operator/db-operator
     chart: kinda-charts/db-operator
-    version: 1.42.1
+    version: 2.3.0
     namespace: db-operator
     createNamespace: true
     values:
