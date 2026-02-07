@@ -19,12 +19,12 @@ package templates
 
 import (
 	"bytes"
+	"slices"
 	"text/template"
 
 	kindav1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
 	"github.com/db-operator/db-operator/v2/pkg/utils/database"
 	"github.com/sirupsen/logrus"
-	"k8s.io/utils/strings/slices"
 )
 
 const (
