@@ -124,7 +124,7 @@ func isBlocked(blockedKeys []string, key string) bool {
 	return slices.Contains(blockedKeys, key)
 }
 
-// TemplateDataSource  should be only the database resource
+// TemplateDataSource are used by the template renderer to fill the templated values
 type TemplateDataSources struct {
 	DatabaseK8sObj  *v1beta1.Database
 	DbUserK8sObj    *v1beta1.DbUser
@@ -132,6 +132,10 @@ type TemplateDataSources struct {
 	ConfigMapK8sObj *corev1.ConfigMap
 	DatabaseObj     database.Database
 	DatabaseUser    *database.DatabaseUser
+	// A map of extra values that can be used for templating
+	// When used by controllers, these values should be passed
+	// from the dbinstance spec
+	ExtraTemplateVars map[string]string
 }
 
 // NewTemplateDataSource is used to init the struct that should handle the templating of secrets and other key-values
@@ -144,6 +148,7 @@ func NewTemplateDataSource(
 	configmapK8s *corev1.ConfigMap,
 	db database.Database,
 	databaseUser *database.DatabaseUser,
+	extraTemplateVars map[string]string,
 ) (*TemplateDataSources, error) {
 	if databaseK8s == nil {
 		return nil, errors.New("database must be passed")
@@ -153,6 +158,9 @@ func NewTemplateDataSource(
 	}
 	if configmapK8s == nil {
 		return nil, errors.New("configmap must be passed")
+	}
+	if extraTemplateVars == nil {
+		extraTemplateVars = map[string]string{}
 	}
 
 	var secretName string
@@ -181,12 +189,13 @@ func NewTemplateDataSource(
 	}
 
 	return &TemplateDataSources{
-		DatabaseK8sObj:  databaseK8s,
-		DbUserK8sObj:    dbuserk8s,
-		SecretK8sObj:    secretK8s,
-		ConfigMapK8sObj: configmapK8s,
-		DatabaseObj:     db,
-		DatabaseUser:    databaseUser,
+		DatabaseK8sObj:    databaseK8s,
+		DbUserK8sObj:      dbuserk8s,
+		SecretK8sObj:      secretK8s,
+		ConfigMapK8sObj:   configmapK8s,
+		DatabaseObj:       db,
+		DatabaseUser:      databaseUser,
+		ExtraTemplateVars: extraTemplateVars,
 	}, nil
 }
 
@@ -211,6 +220,15 @@ func (tds *TemplateDataSources) ConfigMap(entry string) (string, error) {
 		return string(configmap), nil
 	}
 	return "", fmt.Errorf("entry not found in the configmap: %s", entry)
+}
+
+// Get the data from the extra template vars
+func (tds *TemplateDataSources) InstanceVar(name string) (string, error) {
+	val, ok := tds.ExtraTemplateVars[name]
+	if !ok {
+		return "", errors.New("variable is not found")
+	}
+	return val, nil
 }
 
 // Get the data directly from the database

@@ -37,6 +37,10 @@ type DbInstanceSpec struct {
 	// If set to true, extra grants are enabled on the databases
 	// making it possible to provide access to any user on the database instance
 	AllowExtraGrants bool `json:"allowExtraGrants,omitempty"`
+	// InstanceVars can be used by any database/dbuser that are deployed
+	// to this instance to build templated credentials with some generic values.
+	// Can be used for example to provide a read only postgres replica url
+	InstanceVars     map[string]string `json:"instanceVars,omitempty"`
 	DbInstanceSource `json:",inline"`
 }
 
@@ -118,7 +122,6 @@ type DbInstanceSSLConnection struct {
 //+kubebuilder:resource:scope=Cluster,shortName=dbin
 //+kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`,description="current phase"
 //+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.status`,description="health status"
-// +kubebuilder:storageversion
 
 // DbInstance is the Schema for the dbinstances API
 type DbInstance struct {

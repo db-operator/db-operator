@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: dbinstances.kinda.rocks
 spec:
   group: kinda.rocks
@@ -16,6 +16,185 @@ spec:
     singular: dbinstance
   scope: Cluster
   versions:
+  - additionalPrinterColumns:
+    - description: health status
+      jsonPath: .status.status
+      name: Status
+      type: string
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: DbInstance is the Schema for the dbinstances API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: spec defines the desired state of DbInstance
+            properties:
+              adminCredentials:
+                description: |-
+                  When using with ArgoCD, it might make sense to provide
+                  UsernameKey and PasswordKey explicitly to avoid state
+                  conflicts.
+                properties:
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                  passwordKey:
+                    default: password
+                    description: When not set, defaults to "password"
+                    type: string
+                  usernameKey:
+                    default: username
+                    description: When not set, defaults to "username"
+                    type: string
+                required:
+                - name
+                - namespace
+                - passwordKey
+                - usernameKey
+                type: object
+              engine:
+                description: |-
+                  If provided, operator will not try to detect the backend
+                  automatically and will use the value to bootstrap
+                  the database interface
+                enum:
+                - postgres
+                - mysql
+                type: string
+              host:
+                type: string
+              port:
+                type: string
+            required:
+            - adminCredentials
+            - host
+            - port
+            type: object
+          status:
+            description: status defines the observed state of DbInstance
+            properties:
+              conditions:
+                description: |-
+                  conditions represent the current state of the DbInstance resource.
+                  Each condition has a unique type and reflects the status of a specific aspect of the resource.
+
+                  Standard condition types include:
+                  - "Available": the resource is fully functional
+                  - "Progressing": the resource is being created or updated
+                  - "Degraded": the resource failed to reach or maintain its desired state
+
+                  The status of each condition is one of True, False, or Unknown.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              connected:
+                description: Is the operator able to connect to the database server
+                type: boolean
+              databases:
+                description: A list of databases deployed to the instance
+                items:
+                  type: string
+                type: array
+              engine:
+                description: Either detected engine, or the value of the engine in
+                  the spec
+                type: string
+              operatorVersion:
+                description: |-
+                  A version of the operator that was used for the last
+                  full reconciliation
+                type: string
+              status:
+                description: Is the instance ready to accept instances and users
+                type: boolean
+              version:
+                description: Version of the database server
+                type: string
+            required:
+            - connected
+            - databases
+            - status
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
   - additionalPrinterColumns:
     - description: current phase
       jsonPath: .status.phase
@@ -366,6 +545,14 @@ spec:
                 - configmapRef
                 - instance
                 type: object
+              instanceVars:
+                additionalProperties:
+                  type: string
+                description: |-
+                  InstanceVars can be used by any database/dbuser that are deployed
+                  to this instance to build templated credentials with some generic values.
+                  Can be used for example to provide a read only postgres replica url
+                type: object
               monitoring:
                 description: DbInstanceMonitoring defines if exporter
                 properties:
@@ -415,6 +602,6 @@ spec:
             type: object
         type: object
     served: true
-    storage: true
+    storage: false
     subresources:
       status: {}
