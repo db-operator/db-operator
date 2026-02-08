@@ -16,6 +16,8 @@ package v1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // +kubebuilder:validation:Enum=postgres;mysql;
@@ -27,15 +29,40 @@ type DbInstanceSpec struct {
 	// automatically and will use the value to bootstrap
 	// the database interface
 	// +optional
-	Engine Engine `json:"engine,omitempty"`
-	// InstanceData
-	// Credentials
+	Engine           *Engine                     `json:"engine,omitempty"`
+	AdminCredentials *DbInstanceAdminCredentials `json:"adminCredentials"`
+	Host             string                      `json:"host"`
+	Port             string                      `json:"port"`
+}
+
+// When using with ArgoCD, it might make sense to provide
+// UsernameKey and PasswordKey explicitly to avoid state
+// conflicts.
+type DbInstanceAdminCredentials struct {
+	*NamespacedName `json:",inline"`
+	// When not set, defaults to "username"
+	// +kubebuilder:default:=username
+	UsernameKey string `json:"usernameKey"`
+	// When not set, defaults to "password"
+	// +kubebuilder:default:=password
+	PasswordKey string `json:"passwordKey"`
 }
 
 // DbInstanceStatus defines the observed state of DbInstance.
 type DbInstanceStatus struct {
 	// Is the operator able to connect to the database server
 	Connected bool `json:"connected"`
+	// A list of databases deployed to the instance
+	Databases []string `json:"databases"`
+	// A version of the operator that was used for the last
+	// full reconciliation
+	OperatorVersion string `json:"operatorVersion,omitempty"`
+	// Is the instance ready to accept instances and users
+	Status bool `json:"status"`
+	// Either detected engine, or the value of the engine in the spec
+	Engine string `json:"engine,omitempty"`
+	// Version of the database server
+	Version string `json:"version,omitempty"`
 	// conditions represent the current state of the DbInstance resource.
 	// Each condition has a unique type and reflects the status of a specific aspect of the resource.
 	//
@@ -53,6 +80,9 @@ type DbInstanceStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:scope=Cluster,shortName=dbin
+//+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.status`,description="health status"
+// +kubebuilder:storageversion
 
 // DbInstance is the Schema for the dbinstances API
 type DbInstance struct {
@@ -69,6 +99,45 @@ type DbInstance struct {
 	// status defines the observed state of DbInstance
 	// +optional
 	Status DbInstanceStatus `json:"status,omitzero"`
+}
+
+// GetName implements [types.KindaObject].
+// Subtle: this method shadows the method (ObjectMeta).GetName of DbInstance.ObjectMeta.
+func (in *DbInstance) GetName() string {
+	panic("unimplemented")
+}
+
+// GetNamespace implements [types.KindaObject].
+// Subtle: this method shadows the method (ObjectMeta).GetNamespace of DbInstance.ObjectMeta.
+func (in *DbInstance) GetNamespace() string {
+	panic("unimplemented")
+}
+
+// GetObjectKind implements [types.KindaObject].
+// Subtle: this method shadows the method (TypeMeta).GetObjectKind of DbInstance.TypeMeta.
+func (in *DbInstance) GetObjectKind() schema.ObjectKind {
+	panic("unimplemented")
+}
+
+// GetSecretName implements [types.KindaObject].
+func (in *DbInstance) GetSecretName() string {
+	panic("unimplemented")
+}
+
+// GetUID implements [types.KindaObject].
+// Subtle: this method shadows the method (ObjectMeta).GetUID of DbInstance.ObjectMeta.
+func (in *DbInstance) GetUID() types.UID {
+	panic("unimplemented")
+}
+
+// IsCleanup implements [types.KindaObject].
+func (in *DbInstance) IsCleanup() bool {
+	panic("unimplemented")
+}
+
+// IsDeleted implements [types.KindaObject].
+func (in *DbInstance) IsDeleted() bool {
+	panic("unimplemented")
 }
 
 // +kubebuilder:object:root=true
