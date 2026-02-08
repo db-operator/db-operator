@@ -30,6 +30,6 @@ echo "$EOF" >> "$GITHUB_ENV"
 # --------------------------------------------
 # -- Set the image tag by commit sha
 # --------------------------------------------
-echo "TAGS=v${GITHUB_SHA}" >> "${GITHUB_ENV}"
+echo "TAGS=${GITHUB_SHA}" >> "${GITHUB_ENV}"
 
 
