@@ -28,6 +28,8 @@ type DbInstanceSpec struct {
 	// the database interface
 	// +optional
 	Engine Engine `json:"engine,omitempty"`
+	// InstanceData
+	// Credentials
 }
 
 // DbInstanceStatus defines the observed state of DbInstance.
