@@ -18,6 +18,8 @@ package controllers
 
 import (
 	"context"
+	"time"
+
 	kindav1 "github.com/db-operator/db-operator/v2/api/v1"
 	kubehelper "github.com/db-operator/db-operator/v2/internal/helpers/kube"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -27,7 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"time"
 )
 
 type DbInstanceReconcilerOpts struct {
