@@ -27,6 +27,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 
+	kindarocksv1 "github.com/db-operator/db-operator/v2/api/v1"
 	kindarocksv1alpha1 "github.com/db-operator/db-operator/v2/api/v1alpha1"
 	kindarocksv1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
 	controllers "github.com/db-operator/db-operator/v2/internal/controller"
@@ -133,11 +134,11 @@ func main() {
 
 		if err = (&controllers.DbInstanceReconciler{
 			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("DbInstance"),
 			Scheme:   mgr.GetScheme(),
-			Interval: time.Duration(i),
 			Recorder: mgr.GetEventRecorderFor("dbinstance-controller"),
-			Conf:     conf,
+			Opts: &controllers.DbInstanceReconcilerOpts{
+				ReconcileInterval: time.Duration(i),
+			},
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DbInstance")
 			os.Exit(1)
