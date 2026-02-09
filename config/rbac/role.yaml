@@ -16,57 +16,7 @@ rules:
   - kinda.rocks
   resources:
   - databases
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - kinda.rocks
-  resources:
-  - databases/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - kinda.rocks
-  resources:
-  - databases/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - kinda.rocks
-  resources:
   - dbinstances
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - kinda.rocks
-  resources:
-  - dbinstances/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - kinda.rocks
-  resources:
-  - dbinstances/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - kinda.rocks
-  resources:
   - dbusers
   verbs:
   - create
@@ -79,12 +29,16 @@ rules:
 - apiGroups:
   - kinda.rocks
   resources:
+  - databases/finalizers
+  - dbinstances/finalizers
   - dbusers/finalizers
   verbs:
   - update
 - apiGroups:
   - kinda.rocks
   resources:
+  - databases/status
+  - dbinstances/status
   - dbusers/status
   verbs:
   - get

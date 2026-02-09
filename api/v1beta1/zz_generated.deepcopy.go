@@ -390,6 +390,13 @@ func (in *DbInstanceSpec) DeepCopyInto(out *DbInstanceSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.InstanceVars != nil {
+		in, out := &in.InstanceVars, &out.InstanceVars
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	in.DbInstanceSource.DeepCopyInto(&out.DbInstanceSource)
 }
 
