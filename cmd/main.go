@@ -64,6 +64,9 @@ func main() {
 	var enableLeaderElection bool
 	var checkForChanges bool
 	var isWebhook bool
+    var zapDevelopment bool
+    var zapLogLevel string
+
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":60000", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&checkForChanges, "check-for-changes", false,
@@ -72,8 +75,11 @@ func main() {
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.BoolVar(&isWebhook, "webhook", false, "Starts the webhook server when set.")
+	flag.BoolVar(&zapDevelopment, "zap-devel", false, "Enable development logging, if needed")
+	flag.StringVar(&zapLogLevel, "zap-log-level", "info", "Zap log level (debug, info, warn, error)")
+
 	opts := zap.Options{
-		Development: true,
+		Development: zapDevelopment,
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
