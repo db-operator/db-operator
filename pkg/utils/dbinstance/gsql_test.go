@@ -1,18 +1,20 @@
 package dbinstance
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
 
 	"bou.ke/monkey"
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-func (ins *Gsql) mockWaitUntilRunnable() error {
-	logrus.Debugf("waiting gsql instance %s", ins.Name)
+func (ins *Gsql) mockWaitUntilRunnable(ctx context.Context) error {
+	log := log.FromContext(ctx)
+	log.V(2).Info("waiting gsql instance", ins.Name)
 
 	time.Sleep(10 * time.Second)
 
@@ -63,15 +65,16 @@ func myMockGsql() *Gsql {
 	}
 }
 
-func TestGsqlGetInstanceNonExist(t *testing.T) {
+func TestGsqlGetInstanceNonExist(ctx context.Context, t *testing.T) {
+	log := log.FromContext(ctx)
 	myGsql := myMockGsql()
 
 	rs, err := myGsql.getInstance()
-	logrus.Infof("%#v\n, %s", rs, err)
+	log.Info("error", err, rs)
 	assert.Error(t, err)
 }
 
-func TestGsqlCreateInvalidInstance(t *testing.T) {
+func TestGsqlCreateInvalidInstance(ctx context.Context, t *testing.T) {
 	myGsql := myMockGsql()
 	myGsql.Config = ""
 
@@ -79,7 +82,7 @@ func TestGsqlCreateInvalidInstance(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestGsqlCreateInstance(t *testing.T) {
+func TestGsqlCreateInstance(ctx context.Context, t *testing.T) {
 	myGsql := myMockGsql()
 
 	patchWait := monkey.Patch((*Gsql).waitUntilRunnable, (*Gsql).mockWaitUntilRunnable)
@@ -89,18 +92,19 @@ func TestGsqlCreateInstance(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestGsqlGetInstanceExist(t *testing.T) {
+func TestGsqlGetInstanceExist(ctx context.Context, t *testing.T) {
+	log := log.FromContext(ctx)
 	myGsql := myMockGsql()
 
 	err := myGsql.createInstance()
 	assert.NoError(t, err)
 
 	rs, err := myGsql.getInstance()
-	logrus.Infof("%#v\n, %s", rs, err)
+	log.Info("error", err, rs)
 	assert.NoError(t, err)
 }
 
-func TestGsqlCreateExistingInstance(t *testing.T) {
+func TestGsqlCreateExistingInstance(ctx context.Context, t *testing.T) {
 	myGsql := myMockGsql()
 
 	err := myGsql.createInstance()
@@ -110,7 +114,7 @@ func TestGsqlCreateExistingInstance(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestGsqlUpdateInstance(t *testing.T) {
+func TestGsqlUpdateInstance(ctx context.Context, t *testing.T) {
 	myGsql := myMockGsql()
 
 	err := myGsql.createInstance()
@@ -123,12 +127,12 @@ func TestGsqlUpdateInstance(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestGsqlUpdateUser(t *testing.T) {
+func TestGsqlUpdateUser(ctx context.Context, t *testing.T) {
 	myGsql := myMockGsql()
 
 	err := myGsql.createInstance()
 	assert.NoError(t, err)
 
-	err = myGsql.updateUser()
+	err = myGsql.updateUser(ctx)
 	assert.NoError(t, err)
 }

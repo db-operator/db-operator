@@ -147,7 +147,7 @@ func TestUnitPsqlTemplatedSecretGeneratationWithProxy(t *testing.T) {
 	}
 
 	db, _, _ := dbhelper.FetchDatabaseData(ctx, postgresDbCr, testDbcred, &instance)
-	connString, err := templates.GenerateTemplatedSecrets(postgresDbCr, testDbcred, db.GetDatabaseAddress(ctx))
+	connString, err := templates.GenerateTemplatedSecrets(ctx, postgresDbCr, testDbcred, db.GetDatabaseAddress(ctx))
 	if err != nil {
 		t.Logf("Unexpected error: %s", err)
 		t.Fail()
@@ -180,7 +180,7 @@ func TestUnitPsqlCustomSecretGeneratation(t *testing.T) {
 	}
 
 	db, _, _ := dbhelper.FetchDatabaseData(ctx, postgresDbCr, testDbcred, &instance)
-	templatedSecrets, err := templates.GenerateTemplatedSecrets(postgresDbCr, testDbcred, db.GetDatabaseAddress(ctx))
+	templatedSecrets, err := templates.GenerateTemplatedSecrets(ctx, postgresDbCr, testDbcred, db.GetDatabaseAddress(ctx))
 	if err != nil {
 		t.Logf("unexpected error: %s", err)
 		t.Fail()
@@ -197,7 +197,7 @@ func TestUnitWrongTemplatedSecretGeneratation(t *testing.T) {
 	}
 
 	db, _, _ := dbhelper.FetchDatabaseData(ctx, postgresDbCr, testDbcred, &instance)
-	_, err := templates.GenerateTemplatedSecrets(postgresDbCr, testDbcred, db.GetDatabaseAddress(ctx))
+	_, err := templates.GenerateTemplatedSecrets(ctx, postgresDbCr, testDbcred, db.GetDatabaseAddress(ctx))
 	errSubstr := "can't evaluate field User in type templates.SecretsTemplatesFields"
 
 	assert.Contains(t, err.Error(), errSubstr, "the error doesn't contain expected substring")
@@ -217,7 +217,7 @@ func TestUnitBlockedTempatedKeysGeneratation(t *testing.T) {
 		"TMPL": []byte("DUMMY"),
 	}
 	db, _, _ := dbhelper.FetchDatabaseData(ctx, postgresDbCr, testDbcred, &instance)
-	sercretData, err := templates.GenerateTemplatedSecrets(postgresDbCr, testDbcred, db.GetDatabaseAddress(ctx))
+	sercretData, err := templates.GenerateTemplatedSecrets(ctx, postgresDbCr, testDbcred, db.GetDatabaseAddress(ctx))
 	if err != nil {
 		t.Logf("unexpected error: %s", err)
 		t.Fail()
@@ -227,7 +227,7 @@ func TestUnitBlockedTempatedKeysGeneratation(t *testing.T) {
 		Data: map[string][]byte{},
 	}
 
-	newSecret := templates.AppendTemplatedSecretData(postgresDbCr, dummySecret.Data, sercretData)
+	newSecret := templates.AppendTemplatedSecretData(ctx, postgresDbCr, dummySecret.Data, sercretData)
 	assert.Equal(t, newSecret, expectedData, "generated connections string is wrong")
 }
 
@@ -242,7 +242,7 @@ func TestUnitObsoleteFieldsRemoving(t *testing.T) {
 	}
 
 	db, _, _ := dbhelper.FetchDatabaseData(ctx, postgresDbCr, testDbcred, &instance)
-	secretData, err := templates.GenerateTemplatedSecrets(postgresDbCr, testDbcred, db.GetDatabaseAddress(ctx))
+	secretData, err := templates.GenerateTemplatedSecrets(ctx, postgresDbCr, testDbcred, db.GetDatabaseAddress(ctx))
 	if err != nil {
 		t.Logf("unexpected error: %s", err)
 		t.Fail()
@@ -257,8 +257,8 @@ func TestUnitObsoleteFieldsRemoving(t *testing.T) {
 			"TO_REMOVE": []byte("this is supposed to be removed"),
 		},
 	}
-	newSecret := templates.AppendTemplatedSecretData(postgresDbCr, dummySecret.Data, secretData)
-	newSecret = templates.RemoveObsoleteSecret(postgresDbCr, dummySecret.Data, secretData)
+	newSecret := templates.AppendTemplatedSecretData(ctx, postgresDbCr, dummySecret.Data, secretData)
+	newSecret = templates.RemoveObsoleteSecret(ctx, postgresDbCr, dummySecret.Data, secretData)
 
 	assert.Equal(t, newSecret, expectedData, "generated connections string is wrong")
 }

@@ -192,7 +192,7 @@ func (r *DbInstanceReconciler) create(ctx context.Context, dbin *kindav1beta1.Db
 		password := cred.Password
 		apiEndpoint := dbin.Spec.Google.APIEndpoint
 
-		instance = dbinstance.GsqlNew(name, config, user, password, apiEndpoint)
+		instance = dbinstance.GsqlNew(ctx, name, config, user, password, apiEndpoint)
 	case "generic":
 		var host string
 		var port uint16
@@ -288,7 +288,7 @@ func (r *DbInstanceReconciler) broadcast(ctx context.Context, dbin *kindav1beta1
 
 func (r *DbInstanceReconciler) createProxy(ctx context.Context, dbin *kindav1beta1.DbInstance, _ []metav1.OwnerReference) error {
 	log := log.FromContext(ctx)
-	proxyInterface, err := proxyhelper.DetermineProxyTypeForInstance(r.Conf, dbin)
+	proxyInterface, err := proxyhelper.DetermineProxyTypeForInstance(ctx, r.Conf, dbin)
 	if err != nil {
 		if err == proxyhelper.ErrNoProxySupport {
 			return nil
@@ -297,7 +297,7 @@ func (r *DbInstanceReconciler) createProxy(ctx context.Context, dbin *kindav1bet
 	}
 
 	// Create proxy deployment
-	deploy, err := proxy.BuildDeployment(proxyInterface)
+	deploy, err := proxy.BuildDeployment(ctx, proxyInterface)
 	if err != nil {
 		log.Error(err, "failed to build proxy deployment")
 		return err
@@ -319,7 +319,7 @@ func (r *DbInstanceReconciler) createProxy(ctx context.Context, dbin *kindav1bet
 	}
 
 	// Create proxy service
-	svc, err := proxy.BuildService(proxyInterface)
+	svc, err := proxy.BuildService(ctx, proxyInterface)
 	if err != nil {
 		log.Error(err, "failed to build proxy service")
 		return err

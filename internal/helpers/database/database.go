@@ -62,12 +62,9 @@ func FetchDatabaseData(ctx context.Context, dbcr *kindav1beta1.Database, dbCred 
 		if err != nil {
 			log.Info(
 				"can't parse a value of an annotation into a bool, ignoring",
-				"annotation",
-				consts.RDS_IAM_IMPERSONATE_WORKAROUND,
-				"value",
-				val,
-				"error",
-				err,
+				"annotation", consts.RDS_IAM_IMPERSONATE_WORKAROUND,
+				"value", val,
+				"error", err,
 			)
 		} else {
 			enableRdsIamImpersonate = boolVal
@@ -185,7 +182,10 @@ func GenerateDatabaseSecretData(objectMeta metav1.ObjectMeta, engine, dbName str
 		dbName = objectMeta.Namespace + "-" + objectMeta.Name
 	}
 	dbUser := objectMeta.Namespace + "-" + objectMeta.Name
-	dbPassword := kci.GeneratePass()
+	dbPassword, err := kci.GeneratePass()
+	if err != nil {
+		return nil, err
+	}
 
 	switch engine {
 	case "postgres":
