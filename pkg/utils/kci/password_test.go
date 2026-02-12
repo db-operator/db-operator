@@ -26,7 +26,8 @@ import (
 
 // Verify we generate a valid password based on the default rule.
 func TestUnitGeneratePass(t *testing.T) {
-	generatedPassword := GeneratePass()
+	generatedPassword, err := GeneratePass()
+	assert.NoError(t, err)
 
 	if assert.NotEmpty(t, generatedPassword) {
 		assert.True(t, len(generatedPassword) >= 20)

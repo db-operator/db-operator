@@ -20,17 +20,16 @@ import (
 	"regexp"
 
 	"github.com/db-operator/can-haz-password/password"
-	"github.com/sirupsen/logrus"
 )
 
 // GeneratePass generates secure password string
-func GeneratePass() string {
+func GeneratePass() (string, error) {
 	generator := password.NewGenerator(newDbPasswordRule())
 	password, err := generator.Generate()
 	if err != nil {
-		logrus.Fatalf("can not generate password - %s", err)
+		return "", err
 	}
-	return password
+	return password, nil
 }
 
 // Minimum length of 20 characters, maximum length of 30 characters.

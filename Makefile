@@ -31,13 +31,13 @@ endif
 # ---------------------------------------------------------------------
 # -- Which container tool to use
 # ---------------------------------------------------------------------
-CONTAINER_TOOL ?= docker
+CONTAINER_TOOL ?= podman
 # ---------------------------------------------------------------------
 # -- Which compose tool to use
 # -- For example
 # -- $ export COMPOSE_TOOL="nerdctl compose"
 # ---------------------------------------------------------------------
-COMPOSE_TOOL ?= docker-compose
+COMPOSE_TOOL ?= podman-compose
 # ---------------------------------------------------------------------
 # -- It's required when you want to use k3s and nerdctl
 # -- $ export CONTAINER_TOOL_NAMESPACE_ARG="--namespace k8s.io"
@@ -69,7 +69,7 @@ help: ## show this help
 
 .PHONY: build
 build: ## Build a container
-	$(CONTAINER_TOOL) build ${CONTAINER_TOOL_ARGS} -t ${IMAGE_TAG} . ${CONTAINER_TOOL_NAMESPACE_ARG} --build-arg="OPERATOR_VERSION=v1.0.0-dev"
+	$(CONTAINER_TOOL) build -f Containerfile ${CONTAINER_TOOL_ARGS} -t ${IMAGE_TAG} . ${CONTAINER_TOOL_NAMESPACE_ARG} --build-arg="OPERATOR_VERSION=v1.0.0-dev"
 	$(CONTAINER_TOOL) save ${CONTAINER_TOOL_NAMESPACE_ARG} ${IMAGE_TAG} -o my-image.tar
 
 # ---------------------------------------------------------------------

@@ -17,17 +17,20 @@
 package proxy
 
 import (
+	"context"
+
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	"github.com/sirupsen/logrus"
 	v1apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // BuildDeployment builds kubernetes deployment object to create proxy container of the database
-func BuildDeployment(proxy Proxy) (*v1apps.Deployment, error) {
+func BuildDeployment(ctx context.Context, proxy Proxy) (*v1apps.Deployment, error) {
+	log := log.FromContext(ctx)
 	deploy, err := proxy.buildDeployment()
 	if err != nil {
-		logrus.Error("failed building proxy deployment")
+		log.Error(err, "failed building proxy deployment")
 		return nil, err
 	}
 
@@ -35,10 +38,11 @@ func BuildDeployment(proxy Proxy) (*v1apps.Deployment, error) {
 }
 
 // BuildService builds kubernetes service object for proxy service of the database
-func BuildService(proxy Proxy) (*v1.Service, error) {
+func BuildService(ctx context.Context, proxy Proxy) (*v1.Service, error) {
+	log := log.FromContext(ctx)
 	svc, err := proxy.buildService()
 	if err != nil {
-		logrus.Error("failed building proxy service")
+		log.Error(err, "failed building proxy service")
 		return nil, err
 	}
 
@@ -46,10 +50,11 @@ func BuildService(proxy Proxy) (*v1.Service, error) {
 }
 
 // BuildConfigmap builds kubernetes configmap object used by proxy container of the database
-func BuildConfigmap(proxy Proxy) (*v1.ConfigMap, error) {
+func BuildConfigmap(ctx context.Context, proxy Proxy) (*v1.ConfigMap, error) {
+	log := log.FromContext(ctx)
 	cm, err := proxy.buildConfigMap()
 	if err != nil {
-		logrus.Error("failed building proxy configmap")
+		log.Error(err, "failed building proxy configmap")
 		return nil, err
 	}
 
@@ -57,10 +62,11 @@ func BuildConfigmap(proxy Proxy) (*v1.ConfigMap, error) {
 }
 
 // BuildServiceMonitor builds kubernetes prometheus ServiceMonitor CR object used for monitoring
-func BuildServiceMonitor(proxy Proxy) (*promv1.ServiceMonitor, error) {
+func BuildServiceMonitor(ctx context.Context, proxy Proxy) (*promv1.ServiceMonitor, error) {
+	log := log.FromContext(ctx)
 	promSerMon, err := proxy.buildServiceMonitor()
 	if err != nil {
-		logrus.Error("failed building promServiceMonitor configmap")
+		log.Error(err, "failed building promServiceMonitor configmap")
 		return nil, err
 	}
 

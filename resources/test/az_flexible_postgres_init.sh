@@ -18,3 +18,5 @@ psql -c "GRANT pg_stat_scan_tables to \"postgres\";"
 # ---------------------------------------------------------------------
 export PGDATABASE=template1
 psql -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+
+//
