@@ -20,7 +20,7 @@ import (
 	"os"
 
 	"github.com/db-operator/db-operator/v2/pkg/utils/kci"
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 // LoadConfig reads config file for db-operator from defined path and parse
