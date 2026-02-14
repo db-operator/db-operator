@@ -728,3 +728,30 @@ func TestPostgresParseAdminCredentials(t *testing.T) {
 	assert.Equal(t, "postgres", cred.Username, "expect same values")
 	assert.Equal(t, string(validData3["postgresql-postgres-password"]), cred.Password, "expect same values")
 }
+
+func TestPostgresPresentConnectionNoForce(t *testing.T) {
+	admin := getPostgresAdmin()
+	p, user := testPostgres()
+	p.Database = "testactiveconnection1"
+	sleepQuery := "SELECT PG_SLEEP(5.0);"
+
+	p.createDatabase(t.Context(), admin)
+
+	go p.execAsUser(t.Context(), sleepQuery, user)
+	err := p.deleteDatabase(t.Context(), admin)
+	assert.Error(t, err)
+}
+
+func TestPostgresPresentConnectionForce(t *testing.T) {
+	admin := getPostgresAdmin()
+	p, user := testPostgres()
+	p.Database = "testactiveconnection2"
+	p.ForceDelete = true
+	sleepQuery := "SELECT PG_SLEEP(5.0);"
+
+	p.createDatabase(t.Context(), admin)
+
+	go p.execAsUser(t.Context(), sleepQuery, user)
+	err := p.deleteDatabase(t.Context(), admin)
+	assert.NoError(t, err)
+}

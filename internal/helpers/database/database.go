@@ -76,6 +76,16 @@ func FetchDatabaseData(ctx context.Context, dbcr *kindav1beta1.Database, dbCred 
 
 	switch dbcr.Status.Engine {
 	case "postgres":
+		// Is force delete enabled
+		enableforceDelete := false
+		val, ok := dbcr.Annotations[consts.POSTGRES_FORCE_DELETE_DB]
+		if ok {
+			enableforceDelete, err = strconv.ParseBool(val)
+			if err != nil {
+				enableforceDelete = false
+			}
+		}
+
 		extList := dbcr.Spec.Postgres.Extensions
 		db := database.Postgres{
 			Backend:                     backend,
@@ -91,6 +101,7 @@ func FetchDatabaseData(ctx context.Context, dbcr *kindav1beta1.Database, dbCred 
 			Template:                    dbcr.Spec.Postgres.Template,
 			MainUser:                    dbuser,
 			RDSIAMImpersonateWorkaround: enableRdsIamImpersonate,
+			ForceDelete:                 enableforceDelete,
 		}
 		return db, dbuser, nil
 
