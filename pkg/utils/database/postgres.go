@@ -57,6 +57,9 @@ type Postgres struct {
 	// admin/main users by connection as an admin and then
 	// setting role to the user that is being created
 	RDSIAMImpersonateWorkaround bool
+	// If true, databases with active connections will be 
+	// forcefully removed.
+	ForceDelete bool
 }
 
 const postgresDefaultSSLMode = "disable"
@@ -65,9 +68,8 @@ const postgresDefaultSSLMode = "disable"
 
 func (p Postgres) sslMode() string {
 	if !p.SSLEnabled {
-		return "disable"
-	}
-
+		return "diactive connections will be 
+		// forcefully removed.
 	if p.SSLEnabled && !p.SkipCAVerify {
 		return "verify-ca"
 	}
@@ -405,7 +407,11 @@ func (p Postgres) createDatabase(ctx context.Context, admin *DatabaseUser) error
 func (p Postgres) deleteDatabase(ctx context.Context, admin *DatabaseUser) error {
 	log := log.FromContext(ctx)
 	revoke := fmt.Sprintf("REVOKE CONNECT ON DATABASE \"%s\" FROM PUBLIC, \"%s\";", p.Database, admin.Username)
-	delete := fmt.Sprintf("DROP DATABASE \"%s\";", p.Database)
+	delete := fmt.Sprintf("DROP DATABASE \"%s\"", p.Database)
+
+	if p.ForceDelete {
+		delete = fmt.Sprintf("%s WITH (FORCE)", delete)
+	}
 
 	if p.isDbExist(ctx, admin) {
 		err := p.executeExec(ctx, "postgres", revoke, admin)

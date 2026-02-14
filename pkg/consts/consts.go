@@ -65,6 +65,9 @@ const (
 	// When this annotations is set to "true", the operator would not
 	// try to force the user creation
 	ALLOW_EXISTING_USER = "kinda.rocks/allow-existing-user"
+	// Delete a postgres database with present connectins,
+	// might be useful when pgbouncer is used
+	POSTGRES_FORCE_DELETE_DB = "kinda.rocks/postgres-force-delete-db"
 )
 
 // Kubernetes Labels
