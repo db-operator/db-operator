@@ -57,7 +57,7 @@ type Postgres struct {
 	// admin/main users by connection as an admin and then
 	// setting role to the user that is being created
 	RDSIAMImpersonateWorkaround bool
-	// If true, databases with active connections will be 
+	// If true, databases with active connections will be
 	// forcefully removed.
 	ForceDelete bool
 }
@@ -68,8 +68,9 @@ const postgresDefaultSSLMode = "disable"
 
 func (p Postgres) sslMode() string {
 	if !p.SSLEnabled {
-		return "diactive connections will be 
-		// forcefully removed.
+		return "disable"
+	}
+
 	if p.SSLEnabled && !p.SkipCAVerify {
 		return "verify-ca"
 	}
