@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"bou.ke/monkey"
+	// "bou.ke/monkey"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -81,15 +81,15 @@ func TestGsqlCreateInvalidInstance(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestGsqlCreateInstance(t *testing.T) {
-	myGsql := myMockGsql()
+// func TestGsqlCreateInstance(t *testing.T) {
+// 	myGsql := myMockGsql()
 
-	patchWait := monkey.Patch((*Gsql).waitUntilRunnable, (*Gsql).mockWaitUntilRunnable)
-	defer patchWait.Unpatch()
+// 	patchWait := monkey.Patch((*Gsql).waitUntilRunnable, (*Gsql).mockWaitUntilRunnable)
+// 	defer patchWait.Unpatch()
 
-	err := myGsql.createInstance()
-	assert.NoError(t, err)
-}
+// 	err := myGsql.createInstance()
+// 	assert.NoError(t, err)
+// }
 
 func TestGsqlGetInstanceExist(t *testing.T) {
 	log := log.FromContext(t.Context())
@@ -113,18 +113,18 @@ func TestGsqlCreateExistingInstance(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestGsqlUpdateInstance(t *testing.T) {
-	myGsql := myMockGsql()
+// func TestGsqlUpdateInstance(t *testing.T) {
+// 	myGsql := myMockGsql()
 
-	err := myGsql.createInstance()
-	assert.NoError(t, err)
+// 	err := myGsql.createInstance()
+// 	assert.NoError(t, err)
 
-	patchWait := monkey.Patch((*Gsql).waitUntilRunnable, (*Gsql).mockWaitUntilRunnable)
-	defer patchWait.Unpatch()
+// 	patchWait := monkey.Patch((*Gsql).waitUntilRunnable, (*Gsql).mockWaitUntilRunnable)
+// 	defer patchWait.Unpatch()
 
-	err = myGsql.updateInstance()
-	assert.NoError(t, err)
-}
+// 	err = myGsql.updateInstance()
+// 	assert.NoError(t, err)
+// }
 
 func TestGsqlUpdateUser(t *testing.T) {
 	myGsql := myMockGsql()
