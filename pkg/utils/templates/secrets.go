@@ -19,8 +19,8 @@ package templates
 
 import (
 	"bytes"
-	"slices"
 	"context"
+	"slices"
 	"text/template"
 
 	kindav1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
@@ -104,9 +104,9 @@ func GenerateTemplatedSecrets(ctx context.Context, dbcr *kindav1beta1.Database, 
 	log.Info("creating secrets from templates", "namespace", dbcr.Namespace, "name", dbcr.Name)
 	for key, value := range templates {
 		if slices.Contains(getBlockedTempatedKeys(), key) {
-			log.Info("can't be used for templating, because it's used for default secret created by operator",
-				"namespace", dbcr.Namespace,
-				"name", dbcr.Name,
+			log.Info("key can't be used for templating, because it's used for default secret created by operator",
+				"key namespace", dbcr.Namespace,
+				"key name", dbcr.Name,
 				"key", key,
 			)
 		} else {
@@ -133,9 +133,9 @@ func AppendTemplatedSecretData(ctx context.Context, dbcr *kindav1beta1.Database,
 	blockedTempatedKeys := getBlockedTempatedKeys()
 	for key, value := range newSecretFields {
 		if slices.Contains(blockedTempatedKeys, key) {
-			log.Info("can't be used for templating, because it's used for default secret created by operator",
-				"namespace", dbcr.Namespace,
-				"name", dbcr.Name,
+			log.Info("key can't be used for templating, because it's used for default secret created by operator",
+				"key namespace", dbcr.Namespace,
+				"key name", dbcr.Name,
 				"key", key,
 			)
 		} else {
