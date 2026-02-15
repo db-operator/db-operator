@@ -71,7 +71,7 @@ func TestUnitDetermineProxyTypeForDBGoogleBackend(t *testing.T) {
 	config := &config.Config{}
 	dbin := makeGsqlInstance()
 	db := testutils.NewPostgresTestDbCr(dbin)
-	dbProxy, err := proxyhelper.DetermineProxyTypeForDB(config, db, &dbin)
+	dbProxy, err := proxyhelper.DetermineProxyTypeForDB(t.Context(), config, db, &dbin)
 	assert.NoError(t, err)
 	cloudProxy, ok := dbProxy.(*proxy.CloudProxy)
 	assert.Equal(t, ok, true, "expected true")
@@ -82,7 +82,7 @@ func TestUnitDetermineProxyTypeForDBGenericBackend(t *testing.T) {
 	config := &config.Config{}
 	dbin := makeGenericInstance()
 	db := testutils.NewPostgresTestDbCr(dbin)
-	_, err := proxyhelper.DetermineProxyTypeForDB(config, db, &dbin)
+	_, err := proxyhelper.DetermineProxyTypeForDB(t.Context(), config, db, &dbin)
 	assert.Error(t, err)
 }
 
@@ -92,14 +92,14 @@ func TestUnitDetermineProxyTypeForGoogleInstance(t *testing.T) {
 	dbin := makeGsqlInstance()
 	patchGetOperatorNamespace := monkey.Patch(proxyhelper.GetOperatorNamespace, mockOperatorNamespace)
 	defer patchGetOperatorNamespace.Unpatch()
-	dbProxy, err := proxyhelper.DetermineProxyTypeForInstance(config, &dbin)
+	dbProxy, err := proxyhelper.DetermineProxyTypeForInstance(t.Context(), config, &dbin)
 	assert.NoError(t, err)
 	cloudProxy, ok := dbProxy.(*proxy.CloudProxy)
 	assert.Equal(t, ok, true, "expected true")
 	assert.Equal(t, cloudProxy.AccessSecretName, "cloudsql-readonly-serviceaccount")
 
 	dbin.Spec.Google.ClientSecret.Name = "test-client-secret"
-	dbProxy, err = proxyhelper.DetermineProxyTypeForInstance(config, &dbin)
+	dbProxy, err = proxyhelper.DetermineProxyTypeForInstance(t.Context(), config, &dbin)
 	assert.NoError(t, err)
 	cloudProxy, ok = dbProxy.(*proxy.CloudProxy)
 	assert.Equal(t, ok, true, "expected true")
@@ -109,6 +109,6 @@ func TestUnitDetermineProxyTypeForGoogleInstance(t *testing.T) {
 func TestUnitDetermineProxyTypeForGenericInstance(t *testing.T) {
 	config := &config.Config{}
 	dbin := makeGenericInstance()
-	_, err := proxyhelper.DetermineProxyTypeForInstance(config, &dbin)
+	_, err := proxyhelper.DetermineProxyTypeForInstance(t.Context(), config, &dbin)
 	assert.Error(t, err)
 }

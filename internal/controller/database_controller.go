@@ -745,13 +745,13 @@ func (r *DatabaseReconciler) handleProxy(ctx context.Context, dbcr *kindav1beta1
 		return nil
 	}
 
-	proxyInterface, err := proxyhelper.DetermineProxyTypeForDB(r.Conf, dbcr, instance)
+	proxyInterface, err := proxyhelper.DetermineProxyTypeForDB(ctx, r.Conf, dbcr, instance)
 	if err != nil {
 		return err
 	}
 
 	// create proxy configmap
-	cm, err := proxy.BuildConfigmap(proxyInterface)
+	cm, err := proxy.BuildConfigmap(ctx, proxyInterface)
 	if err != nil {
 		return err
 	}
@@ -762,7 +762,7 @@ func (r *DatabaseReconciler) handleProxy(ctx context.Context, dbcr *kindav1beta1
 	}
 
 	// create proxy deployment
-	deploy, err := proxy.BuildDeployment(proxyInterface)
+	deploy, err := proxy.BuildDeployment(ctx, proxyInterface)
 	if err != nil {
 		return err
 	}
@@ -771,7 +771,7 @@ func (r *DatabaseReconciler) handleProxy(ctx context.Context, dbcr *kindav1beta1
 	}
 
 	// create proxy service
-	svc, err := proxy.BuildService(proxyInterface)
+	svc, err := proxy.BuildService(ctx, proxyInterface)
 	if err != nil {
 		return err
 	}
@@ -788,7 +788,7 @@ func (r *DatabaseReconciler) handleProxy(ctx context.Context, dbcr *kindav1beta1
 	isMonitoringEnabled := instance.IsMonitoringEnabled()
 	if isMonitoringEnabled && commonhelper.InCrdList(crdList, "servicemonitors.monitoring.coreos.com") {
 		// create proxy PromServiceMonitor
-		promSvcMon, err := proxy.BuildServiceMonitor(proxyInterface)
+		promSvcMon, err := proxy.BuildServiceMonitor(ctx, proxyInterface)
 		if err != nil {
 			return err
 		}
@@ -884,7 +884,7 @@ func (r *DatabaseReconciler) createTemplatedSecrets(ctx context.Context, dbcr *k
 			return err
 		}
 
-		databaseCred, err := secTemplates.ParseTemplatedSecretsData(dbcr, cred, databaseSecret.Data)
+		databaseCred, err := secTemplates.ParseTemplatedSecretsData(ctx, dbcr, cred, databaseSecret.Data)
 		if err != nil {
 			return err
 		}
@@ -898,13 +898,13 @@ func (r *DatabaseReconciler) createTemplatedSecrets(ctx context.Context, dbcr *k
 			// failed to determine database type
 			return err
 		}
-		dbSecrets, err := secTemplates.GenerateTemplatedSecrets(dbcr, databaseCred, db.GetDatabaseAddress(ctx))
+		dbSecrets, err := secTemplates.GenerateTemplatedSecrets(ctx, dbcr, databaseCred, db.GetDatabaseAddress(ctx))
 		if err != nil {
 			return err
 		}
 		// Adding values
-		newSecretData := secTemplates.AppendTemplatedSecretData(dbcr, databaseSecret.Data, dbSecrets)
-		newSecretData = secTemplates.RemoveObsoleteSecret(dbcr, newSecretData, dbSecrets)
+		newSecretData := secTemplates.AppendTemplatedSecretData(ctx, dbcr, databaseSecret.Data, dbSecrets)
+		newSecretData = secTemplates.RemoveObsoleteSecret(ctx, dbcr, newSecretData, dbSecrets)
 
 		maps.Copy(databaseSecret.Data, newSecretData)
 

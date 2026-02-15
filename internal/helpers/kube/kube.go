@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"github.com/db-operator/db-operator/v2/pkg/consts"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -29,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	dbotypes "github.com/db-operator/db-operator/v2/pkg/types"
 )
@@ -103,15 +103,16 @@ func (kh *KubeHelper) HandleCreateOrUpdate(ctx context.Context, obj client.Objec
 
 func (kh *KubeHelper) Create(ctx context.Context, obj client.Object) (client.Object, error) {
 	err := kh.Cli.Create(ctx, obj)
+	log := log.FromContext(ctx)
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
-		logrus.Errorf("couldn't create %s %s: %s", obj.GetObjectKind().GroupVersionKind().Kind, obj.GetName(), err)
+		log.Error(err, "couldn't create a Kubernetes resource", "kind", obj.GetObjectKind().GroupVersionKind().Kind, "name", obj.GetName())
 		return nil, err
 	}
 	// Return an updated object already
 	// I'm not sure how to make it better
 	refreshedObj := obj.DeepCopyObject().(client.Object)
 	if err := kh.Cli.Get(ctx, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, refreshedObj); err != nil {
-		logrus.Errorf("couldn't get %s %s: %s", obj.GetObjectKind().GroupVersionKind().Kind, obj.GetName(), err)
+		log.Error(err, "сouldn't get a Kubernetes resource", "kind", obj.GetObjectKind().GroupVersionKind().Kind, "name", obj.GetName())
 		return nil, err
 	}
 	return refreshedObj, nil
