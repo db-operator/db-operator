@@ -17,18 +17,15 @@
 package gcloud
 
 import (
-	"context"
 	"os"
 	"testing"
 	// "github.com/stretchr/testify/assert"
 )
 
-func TestUnitGetServiceAccount(ctx context.Context, t *testing.T) {
-	// log := log.FromContext(t.Context())
-
+func TestUnitGetServiceAccount(t *testing.T) {
 	// positive test
 	os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", "./test/serviceaccount.json")
-	serviceaccount := GetServiceAccount(ctx)
+	serviceaccount := GetServiceAccount(t.Context())
 	if serviceaccount.ProjectID != "test-project" {
 		t.Errorf("Unexpected %v", serviceaccount.ProjectID)
 	}

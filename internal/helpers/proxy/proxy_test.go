@@ -17,7 +17,6 @@
 package proxy_test
 
 import (
-	"context"
 	"os"
 	"testing"
 
@@ -68,48 +67,48 @@ func mockOperatorNamespace() (string, error) {
 	return "operator", nil
 }
 
-func TestUnitDetermineProxyTypeForDBGoogleBackend(ctx context.Context, t *testing.T) {
+func TestUnitDetermineProxyTypeForDBGoogleBackend(t *testing.T) {
 	config := &config.Config{}
 	dbin := makeGsqlInstance()
 	db := testutils.NewPostgresTestDbCr(dbin)
-	dbProxy, err := proxyhelper.DetermineProxyTypeForDB(ctx, config, db, &dbin)
+	dbProxy, err := proxyhelper.DetermineProxyTypeForDB(t.Context(), config, db, &dbin)
 	assert.NoError(t, err)
 	cloudProxy, ok := dbProxy.(*proxy.CloudProxy)
 	assert.Equal(t, ok, true, "expected true")
 	assert.Equal(t, cloudProxy.AccessSecretName, db.InstanceAccessSecretName())
 }
 
-func TestUnitDetermineProxyTypeForDBGenericBackend(ctx context.Context, t *testing.T) {
+func TestUnitDetermineProxyTypeForDBGenericBackend(t *testing.T) {
 	config := &config.Config{}
 	dbin := makeGenericInstance()
 	db := testutils.NewPostgresTestDbCr(dbin)
-	_, err := proxyhelper.DetermineProxyTypeForDB(ctx, config, db, &dbin)
+	_, err := proxyhelper.DetermineProxyTypeForDB(t.Context(), config, db, &dbin)
 	assert.Error(t, err)
 }
 
-func TestUnitDetermineProxyTypeForGoogleInstance(ctx context.Context, t *testing.T) {
+func TestUnitDetermineProxyTypeForGoogleInstance(t *testing.T) {
 	os.Setenv("CONFIG_PATH", "../../../pkg/config/test/config_ok.yaml")
 	config, _ := config.LoadConfig()
 	dbin := makeGsqlInstance()
 	patchGetOperatorNamespace := monkey.Patch(proxyhelper.GetOperatorNamespace, mockOperatorNamespace)
 	defer patchGetOperatorNamespace.Unpatch()
-	dbProxy, err := proxyhelper.DetermineProxyTypeForInstance(ctx, config, &dbin)
+	dbProxy, err := proxyhelper.DetermineProxyTypeForInstance(t.Context(), config, &dbin)
 	assert.NoError(t, err)
 	cloudProxy, ok := dbProxy.(*proxy.CloudProxy)
 	assert.Equal(t, ok, true, "expected true")
 	assert.Equal(t, cloudProxy.AccessSecretName, "cloudsql-readonly-serviceaccount")
 
 	dbin.Spec.Google.ClientSecret.Name = "test-client-secret"
-	dbProxy, err = proxyhelper.DetermineProxyTypeForInstance(ctx, config, &dbin)
+	dbProxy, err = proxyhelper.DetermineProxyTypeForInstance(t.Context(), config, &dbin)
 	assert.NoError(t, err)
 	cloudProxy, ok = dbProxy.(*proxy.CloudProxy)
 	assert.Equal(t, ok, true, "expected true")
 	assert.Equal(t, cloudProxy.AccessSecretName, "test-client-secret")
 }
 
-func TestUnitDetermineProxyTypeForGenericInstance(ctx context.Context, t *testing.T) {
+func TestUnitDetermineProxyTypeForGenericInstance(t *testing.T) {
 	config := &config.Config{}
 	dbin := makeGenericInstance()
-	_, err := proxyhelper.DetermineProxyTypeForInstance(ctx, config, &dbin)
+	_, err := proxyhelper.DetermineProxyTypeForInstance(t.Context(), config, &dbin)
 	assert.Error(t, err)
 }

@@ -105,14 +105,14 @@ func (kh *KubeHelper) Create(ctx context.Context, obj client.Object) (client.Obj
 	err := kh.Cli.Create(ctx, obj)
 	log := log.FromContext(ctx)
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
-		log.Error(err, "couldn't create", "kind", obj.GetObjectKind().GroupVersionKind().Kind, "name", obj.GetName())
+		log.Error(err, "couldn't create a Kubernetes resource", "kind", obj.GetObjectKind().GroupVersionKind().Kind, "name", obj.GetName())
 		return nil, err
 	}
 	// Return an updated object already
 	// I'm not sure how to make it better
 	refreshedObj := obj.DeepCopyObject().(client.Object)
 	if err := kh.Cli.Get(ctx, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, refreshedObj); err != nil {
-		log.Error(err, "сouldn't get", "kind", obj.GetObjectKind().GroupVersionKind().Kind, "name", obj.GetName())
+		log.Error(err, "сouldn't get a Kubernetes resource", "kind", obj.GetObjectKind().GroupVersionKind().Kind, "name", obj.GetName())
 		return nil, err
 	}
 	return refreshedObj, nil
