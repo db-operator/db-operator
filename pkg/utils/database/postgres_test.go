@@ -19,6 +19,7 @@ package database
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/db-operator/db-operator/v2/pkg/test"
 	"github.com/stretchr/testify/assert"
@@ -727,4 +728,35 @@ func TestPostgresParseAdminCredentials(t *testing.T) {
 	assert.NoErrorf(t, err, "expected no error %v", err)
 	assert.Equal(t, "postgres", cred.Username, "expect same values")
 	assert.Equal(t, string(validData3["postgresql-postgres-password"]), cred.Password, "expect same values")
+}
+
+func TestPostgresPresentConnectionNoForce(t *testing.T) {
+	admin := getPostgresAdmin()
+	p, user := testPostgres()
+	p.Database = "testactiveconnection1"
+	sleepQuery := "SELECT PG_SLEEP(30.0);"
+
+	p.createDatabase(t.Context(), admin)
+
+	go p.execAsUser(t.Context(), sleepQuery, user)
+
+	time.Sleep(5 * time.Second)
+	err := p.deleteDatabase(t.Context(), admin)
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "is being accessed by other users")
+}
+
+func TestPostgresPresentConnectionForce(t *testing.T) {
+	admin := getPostgresAdmin()
+	p, user := testPostgres()
+	p.Database = "testactiveconnection2"
+	p.ForceDelete = true
+	sleepQuery := "SELECT PG_SLEEP(20.0);"
+
+	p.createDatabase(t.Context(), admin)
+
+	go p.execAsUser(t.Context(), sleepQuery, user)
+	time.Sleep(5 * time.Second)
+	err := p.deleteDatabase(t.Context(), admin)
+	assert.NoError(t, err)
 }

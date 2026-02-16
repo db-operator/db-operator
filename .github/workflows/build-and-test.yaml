@@ -187,13 +187,11 @@ jobs:
     strategy:
       matrix:
         image:
+          - postgres:18
           - postgres:17
           - postgres:16
           - postgres:15
           - postgres:14
-          - postgres:13
-          - postgres:12
-          - postgres:11
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -227,8 +225,11 @@ jobs:
       matrix:
         image:
         # -- Trusted extensions were added only in 13, we need them for tests
+          - postgres:18
+          - postgres:17
+          - postgres:16
+          - postgres:15
           - postgres:14
-          - postgres:13
     steps:
       - name: Checkout
         uses: actions/checkout@v6
