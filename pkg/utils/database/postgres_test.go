@@ -18,7 +18,6 @@ package database
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
