@@ -1,32 +1,31 @@
 package dbinstance
 
 import (
-	"errors"
 	"testing"
-	"time"
 
-	// "bou.ke/monkey"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-func (ins *Gsql) mockWaitUntilRunnable(t *testing.T) error {
-	log := log.FromContext(t.Context())
-	log.V(2).Info("waiting gsql instance", ins.Name)
+// tests don't work, and since gsql will be deprecated there is no need for it
 
-	time.Sleep(10 * time.Second)
+// func (ins *Gsql) mockWaitUntilRunnable(t *testing.T) error {
+// 	log := log.FromContext(t.Context())
+// 	log.V(2).Info("waiting gsql instance", ins.Name)
 
-	state, err := ins.state()
-	if err != nil {
-		return err
-	}
-	if state != "RUNNABLE" {
-		return errors.New("gsql instance not ready yet")
-	}
+// 	time.Sleep(10 * time.Second)
 
-	return nil
-}
+// 	state, err := ins.state()
+// 	if err != nil {
+// 		return err
+// 	}
+// 	if state != "RUNNABLE" {
+// 		return errors.New("gsql instance not ready yet")
+// 	}
+
+// 	return nil
+// }
 
 func mockGsqlConfig() string {
 	return `{
@@ -81,6 +80,8 @@ func TestGsqlCreateInvalidInstance(t *testing.T) {
 	assert.Error(t, err)
 }
 
+// tests don't work, and since gsql will be deprecated there is no need for it
+
 // func TestGsqlCreateInstance(t *testing.T) {
 // 	myGsql := myMockGsql()
 
@@ -112,6 +113,8 @@ func TestGsqlCreateExistingInstance(t *testing.T) {
 	err = myGsql.createInstance()
 	assert.Error(t, err)
 }
+
+// tests don't work, and since gsql will be deprecated there is no need for it
 
 // func TestGsqlUpdateInstance(t *testing.T) {
 // 	myGsql := myMockGsql()

@@ -105,9 +105,9 @@ func GenerateTemplatedSecrets(ctx context.Context, dbcr *kindav1beta1.Database, 
 	for key, value := range templates {
 		if slices.Contains(getBlockedTempatedKeys(), key) {
 			log.Info("key can't be used for templating, because it's used for default secret created by operator",
-				"key namespace", dbcr.Namespace,
-				"key name", dbcr.Name,
 				"key", key,
+				"namespace", dbcr.Namespace,
+				"name", dbcr.Name,
 			)
 		} else {
 			tmpl := value
@@ -134,9 +134,9 @@ func AppendTemplatedSecretData(ctx context.Context, dbcr *kindav1beta1.Database,
 	for key, value := range newSecretFields {
 		if slices.Contains(blockedTempatedKeys, key) {
 			log.Info("key can't be used for templating, because it's used for default secret created by operator",
-				"key namespace", dbcr.Namespace,
-				"key name", dbcr.Name,
 				"key", key,
+				"namespace", dbcr.Namespace,
+				"name", dbcr.Name,
 			)
 		} else {
 			secretData[key] = value
