@@ -22,7 +22,7 @@ import (
 	"strconv"
 
 	"github.com/db-operator/db-operator/v2/pkg/utils/database"
-	"github.com/sirupsen/logrus"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // Generic represents database instance which can be connected by address and port
@@ -63,14 +63,14 @@ func makeInterface(in *Generic) (database.Database, error) {
 }
 
 func (ins *Generic) state() (string, error) {
-	logrus.Debug("generic db instance not support a state check")
 	return "NOT_SUPPORTED", nil
 }
 
 func (ins *Generic) exist(ctx context.Context) error {
+	log := log.FromContext(ctx)
 	db, err := makeInterface(ins)
 	if err != nil {
-		logrus.Errorf("can not check if instance exists because of %s", err)
+		log.Error(err, "can not check if instance exists")
 		return err
 	}
 	dbuser := &database.DatabaseUser{
@@ -80,7 +80,7 @@ func (ins *Generic) exist(ctx context.Context) error {
 
 	err = db.CheckStatus(ctx, dbuser)
 	if err != nil {
-		logrus.Error(err)
+		log.Error(err, "can not check db status")
 		return err
 	}
 	return nil // instance exist
@@ -91,7 +91,6 @@ func (ins *Generic) create() error {
 }
 
 func (ins *Generic) update() error {
-	logrus.Debug("updating generic db instance is not yet implimented")
 	return nil
 }
 

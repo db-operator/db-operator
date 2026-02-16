@@ -19,12 +19,13 @@ package templates
 
 import (
 	"bytes"
+	"context"
 	"slices"
 	"text/template"
 
 	kindav1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
 	"github.com/db-operator/db-operator/v2/pkg/utils/database"
-	"github.com/sirupsen/logrus"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -53,7 +54,8 @@ func getBlockedTempatedKeys() []string {
 	return []string{FieldMysqlDB, FieldMysqlPassword, FieldMysqlUser, FieldPostgresDB, FieldPostgresUser, FieldPostgressPassword}
 }
 
-func ParseTemplatedSecretsData(dbcr *kindav1beta1.Database, cred database.Credentials, data map[string][]byte) (database.Credentials, error) {
+func ParseTemplatedSecretsData(ctx context.Context, dbcr *kindav1beta1.Database, cred database.Credentials, data map[string][]byte) (database.Credentials, error) {
+	log := log.FromContext(ctx)
 	cred.TemplatedSecrets = map[string]string{}
 	for key := range dbcr.Spec.SecretsTemplates {
 		// Here we can see if there are obsolete entries in the secret data
@@ -61,10 +63,10 @@ func ParseTemplatedSecretsData(dbcr *kindav1beta1.Database, cred database.Creden
 			delete(data, key)
 			cred.TemplatedSecrets[key] = string(secret)
 		} else {
-			logrus.Infof("DB: namespace=%s, name=%s %s key does not exist in secret data",
-				dbcr.Namespace,
-				dbcr.Name,
-				key,
+			log.Info("key does not exist in secret data",
+				"key", key,
+				"namespace", dbcr.Namespace,
+				"name", dbcr.Name,
 			)
 		}
 	}
@@ -72,7 +74,8 @@ func ParseTemplatedSecretsData(dbcr *kindav1beta1.Database, cred database.Creden
 	return cred, nil
 }
 
-func GenerateTemplatedSecrets(dbcr *kindav1beta1.Database, databaseCred database.Credentials, dbAddress database.DatabaseAddress) (secrets map[string][]byte, err error) {
+func GenerateTemplatedSecrets(ctx context.Context, dbcr *kindav1beta1.Database, databaseCred database.Credentials, dbAddress database.DatabaseAddress) (secrets map[string][]byte, err error) {
+	log := log.FromContext(ctx)
 	secrets = map[string][]byte{}
 	templates := dbcr.Spec.SecretsTemplates
 	// The string that's going to be generated if the default template is used:
@@ -98,13 +101,13 @@ func GenerateTemplatedSecrets(dbcr *kindav1beta1.Database, databaseCred database
 		dbData.Protocol = dbcr.Status.Engine
 	}
 
-	logrus.Infof("DB: namespace=%s, name=%s creating secrets from templates", dbcr.Namespace, dbcr.Name)
+	log.Info("creating secrets from templates", "namespace", dbcr.Namespace, "name", dbcr.Name)
 	for key, value := range templates {
 		if slices.Contains(getBlockedTempatedKeys(), key) {
-			logrus.Warnf("DB: namespace=%s, name=%s %s can't be used for templating, because it's used for default secret created by operator",
-				dbcr.Namespace,
-				dbcr.Name,
-				key,
+			log.Info("key can't be used for templating, because it's used for default secret created by operator",
+				"key", key,
+				"namespace", dbcr.Namespace,
+				"name", dbcr.Name,
 			)
 		} else {
 			tmpl := value
@@ -125,14 +128,15 @@ func GenerateTemplatedSecrets(dbcr *kindav1beta1.Database, databaseCred database
 	return secrets, nil
 }
 
-func AppendTemplatedSecretData(dbcr *kindav1beta1.Database, secretData map[string][]byte, newSecretFields map[string][]byte) map[string][]byte {
+func AppendTemplatedSecretData(ctx context.Context, dbcr *kindav1beta1.Database, secretData map[string][]byte, newSecretFields map[string][]byte) map[string][]byte {
+	log := log.FromContext(ctx)
 	blockedTempatedKeys := getBlockedTempatedKeys()
 	for key, value := range newSecretFields {
 		if slices.Contains(blockedTempatedKeys, key) {
-			logrus.Warnf("DB: namespace=%s, name=%s %s can't be used for templating, because it's used for default secret created by operator",
-				dbcr.Namespace,
-				dbcr.Name,
-				key,
+			log.Info("key can't be used for templating, because it's used for default secret created by operator",
+				"key", key,
+				"namespace", dbcr.Namespace,
+				"name", dbcr.Name,
 			)
 		} else {
 			secretData[key] = value
@@ -141,14 +145,19 @@ func AppendTemplatedSecretData(dbcr *kindav1beta1.Database, secretData map[strin
 	return secretData
 }
 
-func RemoveObsoleteSecret(dbcr *kindav1beta1.Database, secretData map[string][]byte, newSecretFields map[string][]byte) map[string][]byte {
+func RemoveObsoleteSecret(ctx context.Context, dbcr *kindav1beta1.Database, secretData map[string][]byte, newSecretFields map[string][]byte) map[string][]byte {
+	log := log.FromContext(ctx)
 	blockedTempatedKeys := getBlockedTempatedKeys()
 
 	for key := range secretData {
 		if _, ok := newSecretFields[key]; !ok {
 			// Check if is a untemplatead secret, so it's not removed accidentally
 			if !slices.Contains(blockedTempatedKeys, key) {
-				logrus.Infof("DB: namespace=%s, name=%s removing an obsolete field: %s", dbcr.Namespace, dbcr.Name, key)
+				log.Info("removing an obsolete field",
+					"key", key,
+					"namespace", dbcr.Namespace,
+					"name", dbcr.Name,
+				)
 				delete(secretData, key)
 			}
 		}

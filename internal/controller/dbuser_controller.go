@@ -317,8 +317,12 @@ func (r *DbUserReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func isDbUserChanged(dbucr *kindav1beta1.DbUser, userSecret *corev1.Secret) bool {
 	annotations := dbucr.GetAnnotations()
-
-	return annotations["checksum/spec"] != kci.GenerateChecksum(dbucr.Spec) ||
+	hash, err := kci.GenerateChecksum(dbucr.Spec)
+	// just in case
+	if err != nil {
+		return true
+	}
+	return annotations["checksum/spec"] != hash ||
 		annotations["checksum/secret"] != commonhelper.GenerateChecksumSecretValue(userSecret)
 }
 

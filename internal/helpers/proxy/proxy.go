@@ -19,6 +19,7 @@
 package proxy
 
 import (
+	"context"
 	"errors"
 	"os"
 	"strconv"
@@ -28,7 +29,7 @@ import (
 	"github.com/db-operator/db-operator/v2/pkg/config"
 	"github.com/db-operator/db-operator/v2/pkg/utils/kci"
 	proxy "github.com/db-operator/db-operator/v2/pkg/utils/proxy"
-	"github.com/sirupsen/logrus"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
@@ -39,18 +40,19 @@ var (
 	ErrNoProxySupport = errors.New("no proxy supported backend type")
 )
 
-func DetermineProxyTypeForDB(conf *config.Config, dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) (proxy.Proxy, error) {
-	logrus.Debugf("DB: namespace=%s, name=%s - determinProxyType", dbcr.Namespace, dbcr.Name)
+func DetermineProxyTypeForDB(ctx context.Context, conf *config.Config, dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) (proxy.Proxy, error) {
+	log := log.FromContext(ctx)
+	log.V(2).Info("Database determineProxyType", "namespace", dbcr.Namespace, "name", dbcr.Name)
 	backend, err := instance.GetBackendType()
 	if err != nil {
-		logrus.Errorf("could not get backend type %s - %s", dbcr.Name, err)
+		log.Error(err, "could not get backend type", dbcr.Name)
 		return nil, err
 	}
 
 	portString := instance.Status.Info["DB_PORT"]
 	port, err := strconv.ParseUint(portString, 10, 16)
 	if err != nil {
-		logrus.Errorf("can not convert DB_PORT to int - %s", err)
+		log.Error(err, "can not convert DB_PORT to int")
 		return nil, err
 	}
 
@@ -82,8 +84,9 @@ func DetermineProxyTypeForDB(conf *config.Config, dbcr *kindav1beta1.Database, i
 	}
 }
 
-func DetermineProxyTypeForInstance(conf *config.Config, dbin *kindav1beta1.DbInstance) (proxy.Proxy, error) {
-	logrus.Debugf("Instance: name=%s - determinProxyType", dbin.Name)
+func DetermineProxyTypeForInstance(ctx context.Context, conf *config.Config, dbin *kindav1beta1.DbInstance) (proxy.Proxy, error) {
+	log := log.FromContext(ctx)
+	log.V(2).Info("Instance determineProxyType", "name", dbin.Name)
 	operatorNamespace, err := GetOperatorNamespace()
 	if err != nil {
 		// can not get operator namespace
@@ -100,7 +103,7 @@ func DetermineProxyTypeForInstance(conf *config.Config, dbin *kindav1beta1.DbIns
 		portString := dbin.Status.Info["DB_PORT"]
 		port, err := strconv.ParseInt(portString, 10, 32)
 		if err != nil {
-			logrus.Errorf("can not convert DB_PORT to int - %s", err)
+			log.Error(err, "can not convert DB_PORT to int")
 			return nil, err
 		}
 

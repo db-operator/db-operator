@@ -32,7 +32,12 @@ var OperatorVersion string
 func IsDBChanged(dbcr *kindav1beta1.Database, databaseSecret *corev1.Secret) bool {
 	annotations := dbcr.GetAnnotations()
 
-	return annotations["checksum/spec"] != kci.GenerateChecksum(dbcr.Spec) ||
+	hash, err := kci.GenerateChecksum(dbcr.Spec)
+	// just in case
+	if err != nil {
+		return true
+	}
+	return annotations["checksum/spec"] != hash ||
 		annotations["checksum/secret"] != GenerateChecksumSecretValue(databaseSecret)
 }
 
@@ -42,7 +47,7 @@ func AddDBChecksum(dbcr *kindav1beta1.Database, databaseSecret *corev1.Secret) {
 		annotations = make(map[string]string)
 	}
 
-	annotations["checksum/spec"] = kci.GenerateChecksum(dbcr.Spec)
+	annotations["checksum/spec"], _ = kci.GenerateChecksum(dbcr.Spec)
 	annotations["checksum/secret"] = GenerateChecksumSecretValue(databaseSecret)
 	dbcr.SetAnnotations(annotations)
 }
@@ -51,18 +56,30 @@ func GenerateChecksumSecretValue(databaseSecret *corev1.Secret) string {
 	if databaseSecret == nil || databaseSecret.Data == nil {
 		return ""
 	}
-	return kci.GenerateChecksum(databaseSecret.Data)
+	hash, err := kci.GenerateChecksum(databaseSecret.Data)
+	if err != nil {
+		return ""
+	}
+	return hash
 }
 
+// TODO: proper error handling
 func IsDBInstanceSpecChanged(ctx context.Context, dbin *kindav1beta1.DbInstance) bool {
 	checksums := dbin.Status.Checksums
-	if checksums["spec"] != kci.GenerateChecksum(dbin.Spec) {
+	hash, err := kci.GenerateChecksum(dbin.Spec)
+	// just to ensure the state
+	if err != nil {
+		return true
+	}
+
+	if checksums["spec"] != hash {
 		return true
 	}
 
 	if backend, _ := dbin.GetBackendType(); backend == "google" {
 		instanceConfig, _ := kci.GetConfigResource(ctx, dbin.Spec.Google.ConfigmapName.ToKubernetesType())
-		if checksums["config"] != kci.GenerateChecksum(instanceConfig) {
+		hash, _ = kci.GenerateChecksum(instanceConfig)
+		if checksums["config"] != hash {
 			return true
 		}
 	}
@@ -70,16 +87,19 @@ func IsDBInstanceSpecChanged(ctx context.Context, dbin *kindav1beta1.DbInstance)
 	return false
 }
 
+// TODO: proper error handling
 func AddDBInstanceChecksumStatus(ctx context.Context, dbin *kindav1beta1.DbInstance) {
 	checksums := dbin.Status.Checksums
 	if len(checksums) == 0 {
 		checksums = make(map[string]string)
 	}
-	checksums["spec"] = kci.GenerateChecksum(dbin.Spec)
+	hash, _ := kci.GenerateChecksum(dbin.Spec)
+	checksums["spec"] = hash
 
 	if backend, _ := dbin.GetBackendType(); backend == "google" {
 		instanceConfig, _ := kci.GetConfigResource(ctx, dbin.Spec.Google.ConfigmapName.ToKubernetesType())
-		checksums["config"] = kci.GenerateChecksum(instanceConfig)
+		hash, _ = kci.GenerateChecksum(instanceConfig)
+		checksums["config"] = hash
 	}
 
 	dbin.Status.Checksums = checksums
