@@ -22,7 +22,7 @@ require (
 	github.com/prometheus/client_golang v1.23.2
 	github.com/sirupsen/logrus v1.9.4
 	github.com/stretchr/testify v1.11.1
-	golang.org/x/exp v0.0.0-20260209203927-2842357ff358
+	golang.org/x/exp v0.0.0-20260212183809-81e46e3db34a
 	golang.org/x/oauth2 v0.35.0
 	google.golang.org/api v0.265.0
 	gopkg.in/yaml.v2 v2.4.0
