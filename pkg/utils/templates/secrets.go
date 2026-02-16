@@ -64,9 +64,9 @@ func ParseTemplatedSecretsData(ctx context.Context, dbcr *kindav1beta1.Database,
 			cred.TemplatedSecrets[key] = string(secret)
 		} else {
 			log.Info("key does not exist in secret data",
+				"key", key,
 				"namespace", dbcr.Namespace,
 				"name", dbcr.Name,
-				"key", key,
 			)
 		}
 	}
@@ -154,9 +154,9 @@ func RemoveObsoleteSecret(ctx context.Context, dbcr *kindav1beta1.Database, secr
 			// Check if is a untemplatead secret, so it's not removed accidentally
 			if !slices.Contains(blockedTempatedKeys, key) {
 				log.Info("removing an obsolete field",
+					"key", key,
 					"namespace", dbcr.Namespace,
 					"name", dbcr.Name,
-					"key", key,
 				)
 				delete(secretData, key)
 			}
