@@ -744,7 +744,7 @@ func TestPostgresPresentConnectionNoForce(t *testing.T) {
 	time.Sleep(5 * time.Second)
 	err := p.deleteDatabase(t.Context(), admin)
 	assert.Error(t, err)
-	assert.ErrorIs(t, err, errors.New("pq: database \"testactiveconnection1\" is being accessed by other users (55006)"))
+	assert.ErrorContains(t, err, "is being accessed by other users")
 }
 
 func TestPostgresPresentConnectionForce(t *testing.T) {
