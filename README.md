@@ -13,8 +13,8 @@ DB Operator provides following features:
 
 ## Documentation
 * [Get Started](https://db-operator.github.io/documentation/)
-* [Manage databases](https://db-operator.github.io/documentation/database/)
 * [Configure instances](https://db-operator.github.io/documentation/dbinstance/)
+* [Manage databases](https://db-operator.github.io/documentation/database/)
 * [Manage users](https://db-operator.github.io/documentation/dbuser/)
 * [A deeper look at templates](https://db-operator.github.io/documentation/templates/)
 
