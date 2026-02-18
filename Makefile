@@ -79,8 +79,8 @@ lint: ## lint go code
 	echo "desired golangci-lint version is ${GOLANGCI_LINT_VERSION}"
 	@go mod download
 	test -s $(LOCALBIN)/golangci-lint || GOBIN=$(LOCALBIN) go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${GOLANGCI_LINT_VERSION}
-	$(LOCALBIN)/golangci-lint --version
-	$(LOCALBIN)/golangci-lint run ./...  --timeout 240s
+	GOARCH=amd64 $(LOCALBIN)/golangci-lint --version
+	GOARCH=amd64 $(LOCALBIN)/golangci-lint run ./...  --timeout 240s
 
 fmt: ## Format go code
 	@test -s $(LOCALBIN)/gofumpt || GOBIN=$(LOCALBIN) go install mvdan.cc/gofumpt@latest

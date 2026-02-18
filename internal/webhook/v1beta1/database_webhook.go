@@ -19,10 +19,8 @@ import (
 	"errors"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	kindarocksv1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
@@ -39,7 +37,7 @@ const (
 
 // SetupDatabaseWebhookWithManager registers the webhook for Database in the manager.
 func SetupDatabaseWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&kindarocksv1beta1.Database{}).
+	return ctrl.NewWebhookManagedBy(mgr, &kindarocksv1beta1.Database{}).
 		WithValidator(&DatabaseCustomValidator{}).
 		WithDefaulter(&DatabaseCustomDefaulter{}).
 		Complete()
@@ -49,19 +47,11 @@ func SetupDatabaseWebhookWithManager(mgr ctrl.Manager) error {
 
 type DatabaseCustomDefaulter struct{}
 
-var _ webhook.CustomDefaulter = &DatabaseCustomDefaulter{}
+func (d *DatabaseCustomDefaulter) Default(_ context.Context, obj *kindarocksv1beta1.Database) error {
+	databaselog.Info("Defaulting for Database", "name", obj.GetName())
 
-func (d *DatabaseCustomDefaulter) Default(_ context.Context, obj runtime.Object) error {
-	database, ok := obj.(*kindarocksv1beta1.Database)
-
-	if !ok {
-		return fmt.Errorf("expected an Database object but got %T", obj)
-	}
-
-	databaselog.Info("Defaulting for Database", "name", database.GetName())
-
-	if len(database.Spec.SecretsTemplates) == 0 && len(database.Spec.Credentials.Templates) == 0 {
-		database.Spec.Credentials = kindarocksv1beta1.Credentials{
+	if len(obj.Spec.SecretsTemplates) == 0 && len(obj.Spec.Credentials.Templates) == 0 {
+		obj.Spec.Credentials = kindarocksv1beta1.Credentials{
 			Templates: kindarocksv1beta1.Templates{
 				&kindarocksv1beta1.Template{
 					Name:     DEFAULT_TEMPLATE_NAME,
@@ -81,37 +71,31 @@ type DatabaseCustomValidator struct {
 	// TODO(user): Add more fields as needed for validation
 }
 
-var _ webhook.CustomValidator = &DatabaseCustomValidator{}
-
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type Database.
-func (v *DatabaseCustomValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	database, ok := obj.(*kindarocksv1beta1.Database)
-	if !ok {
-		return nil, fmt.Errorf("expected a Database object but got %T", obj)
-	}
-	databaselog.Info("Validation for Database upon creation", "name", database.GetName())
+func (v *DatabaseCustomValidator) ValidateCreate(_ context.Context, obj *kindarocksv1beta1.Database) (admission.Warnings, error) {
+	databaselog.Info("Validation for Database upon creation", "name", obj.GetName())
 
 	var warnings []string
 	// TODO(user): fill in your validation logic upon object creation.
-	if database.Spec.SecretsTemplates != nil && database.Spec.Credentials.Templates != nil {
+	if obj.Spec.SecretsTemplates != nil && obj.Spec.Credentials.Templates != nil {
 		return nil, errors.New("using both: secretsTemplates and templates, is not allowed")
 	}
 
-	if database.Spec.SecretsTemplates != nil {
+	if obj.Spec.SecretsTemplates != nil {
 		warnings = append(warnings, "secretsTemplates are deprecated, it will be removed in the next API version. Please, consider switching to templates")
 		// TODO: Migrate this logic to the webhook package
-		if err := ValidateSecretTemplates(database.Spec.SecretsTemplates); err != nil {
+		if err := ValidateSecretTemplates(obj.Spec.SecretsTemplates); err != nil {
 			return warnings, err
 		}
 	}
 
-	if database.Spec.Credentials.Templates != nil {
-		if err := ValidateTemplates(database.Spec.Credentials.Templates, true); err != nil {
+	if obj.Spec.Credentials.Templates != nil {
+		if err := ValidateTemplates(obj.Spec.Credentials.Templates, true); err != nil {
 			return warnings, err
 		}
 	}
 
-	for _, extraGrant := range database.Spec.ExtraGrants {
+	for _, extraGrant := range obj.Spec.ExtraGrants {
 		if err := kindarocksv1beta1.IsAccessTypeSupported(extraGrant.AccessType); err != nil {
 			return warnings, err
 		}
@@ -121,41 +105,36 @@ func (v *DatabaseCustomValidator) ValidateCreate(_ context.Context, obj runtime.
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type Database.
-func (v *DatabaseCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	database, ok := newObj.(*kindarocksv1beta1.Database)
-	if !ok {
-		return nil, fmt.Errorf("expected a Database object for the newObj but got %T", newObj)
-	}
-	databaselog.Info("Validation for Database upon update", "name", database.GetName())
+func (v *DatabaseCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj *kindarocksv1beta1.Database) (admission.Warnings, error) {
+	databaselog.Info("Validation for Database upon update", "name", newObj.GetName())
 
-	if database.Spec.SecretsTemplates != nil && database.Spec.Credentials.Templates != nil {
+	if newObj.Spec.SecretsTemplates != nil && newObj.Spec.Credentials.Templates != nil {
 		return nil, errors.New("using both: secretsTemplates and templates, is not allowed")
 	}
 
 	var warnings []string
 
-	if database.Spec.SecretsTemplates != nil {
+	if newObj.Spec.SecretsTemplates != nil {
 		warnings = append(warnings, "secretsTemplates are deprecated, it will be removed in the next API version. Please, consider switching to templates")
-		err := ValidateSecretTemplates(database.Spec.SecretsTemplates)
+		err := ValidateSecretTemplates(newObj.Spec.SecretsTemplates)
 		if err != nil {
 			return warnings, err
 		}
 	}
 
-	if database.Spec.Credentials.Templates != nil {
-		if err := ValidateTemplates(database.Spec.Credentials.Templates, true); err != nil {
+	if newObj.Spec.Credentials.Templates != nil {
+		if err := ValidateTemplates(newObj.Spec.Credentials.Templates, true); err != nil {
 			return warnings, err
 		}
 	}
 
 	// Ensure fields are immutable
 	immutableErr := "cannot change %s, the field is immutable"
-	oldDatabase, _ := oldObj.(*kindarocksv1beta1.Database)
-	if database.Spec.Instance != oldDatabase.Spec.Instance {
+	if newObj.Spec.Instance != oldObj.Spec.Instance {
 		return warnings, fmt.Errorf(immutableErr, "spec.instance")
 	}
 
-	if database.Spec.Postgres.Template != oldDatabase.Spec.Postgres.Template {
+	if newObj.Spec.Postgres.Template != oldObj.Spec.Postgres.Template {
 		return warnings, fmt.Errorf(immutableErr, "spec.postgres.template")
 	}
 
@@ -163,12 +142,8 @@ func (v *DatabaseCustomValidator) ValidateUpdate(_ context.Context, oldObj, newO
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type Database.
-func (v *DatabaseCustomValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	database, ok := obj.(*kindarocksv1beta1.Database)
-	if !ok {
-		return nil, fmt.Errorf("expected a Database object but got %T", obj)
-	}
-	databaselog.Info("Validation for Database upon deletion", "name", database.GetName())
+func (v *DatabaseCustomValidator) ValidateDelete(ctx context.Context, obj *kindarocksv1beta1.Database) (admission.Warnings, error) {
+	databaselog.Info("Validation for Database upon deletion", "name", obj.GetName())
 
 	// TODO(user): fill in your validation logic upon object deletion.
 

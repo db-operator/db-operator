@@ -21,10 +21,8 @@ import (
 	"slices"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	kindarocksv1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
@@ -38,7 +36,7 @@ var dbinstancelog = logf.Log.WithName("dbinstance-resource")
 
 // SetupDbInstanceWebhookWithManager registers the webhook for DbInstance in the manager.
 func SetupDbInstanceWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&kindarocksv1beta1.DbInstance{}).
+	return ctrl.NewWebhookManagedBy(mgr, &kindarocksv1beta1.DbInstance{}).
 		WithValidator(&DbInstanceCustomValidator{}).
 		WithDefaulter(&DbInstanceCustomDefaulter{}).
 		Complete()
@@ -55,19 +53,9 @@ type DbInstanceCustomDefaulter struct {
 	// TODO(user): Add more fields as needed for defaulting
 }
 
-var _ webhook.CustomDefaulter = &DbInstanceCustomDefaulter{}
-
 // Default implements webhook.CustomDefaulter so a webhook will be registered for the Kind DbInstance.
-func (d *DbInstanceCustomDefaulter) Default(_ context.Context, obj runtime.Object) error {
-	dbinstance, ok := obj.(*kindarocksv1beta1.DbInstance)
-
-	if !ok {
-		return fmt.Errorf("expected an DbInstance object but got %T", obj)
-	}
-	dbinstancelog.Info("Defaulting for DbInstance", "name", dbinstance.GetName())
-
-	// TODO(user): fill in your defaulting logic.
-
+func (d *DbInstanceCustomDefaulter) Default(_ context.Context, obj *kindarocksv1beta1.DbInstance) error {
+	dbinstancelog.Info("Defaulting for DbInstance", "name", obj.GetName())
 	return nil
 }
 
@@ -85,8 +73,6 @@ type DbInstanceCustomValidator struct {
 	// TODO(user): Add more fields as needed for validation
 }
 
-var _ webhook.CustomValidator = &DbInstanceCustomValidator{}
-
 func TestAllowedPrivileges(privileges []string) error {
 	for _, privilege := range privileges {
 		if strings.ToUpper(privilege) == consts.ALL_PRIVILEGES {
@@ -97,25 +83,21 @@ func TestAllowedPrivileges(privileges []string) error {
 }
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type DbInstance.
-func (v *DbInstanceCustomValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	dbinstance, ok := obj.(*kindarocksv1beta1.DbInstance)
-	if !ok {
-		return nil, fmt.Errorf("expected a DbInstance object but got %T", obj)
-	}
-	dbinstancelog.Info("Validation for DbInstance upon creation", "name", dbinstance.GetName())
+func (v *DbInstanceCustomValidator) ValidateCreate(_ context.Context, obj *kindarocksv1beta1.DbInstance) (admission.Warnings, error) {
+	dbinstancelog.Info("Validation for DbInstance upon creation", "name", obj.GetName())
 
-	if err := TestAllowedPrivileges(dbinstance.Spec.AllowedPrivileges); err != nil {
+	if err := TestAllowedPrivileges(obj.Spec.AllowedPrivileges); err != nil {
 		return nil, err
 	}
 
-	if dbinstance.Spec.Google != nil {
+	if obj.Spec.Google != nil {
 		dbinstancelog.Info("Google instances are deprecated, and will be removed in v1beta2")
 	}
 
-	if err := ValidateConfigVsConfigFrom(dbinstance.Spec.Generic); err != nil {
+	if err := ValidateConfigVsConfigFrom(obj.Spec.Generic); err != nil {
 		return nil, err
 	}
-	if err := ValidateEngine(dbinstance.Spec.Engine); err != nil {
+	if err := ValidateEngine(obj.Spec.Engine); err != nil {
 		return nil, err
 	}
 
@@ -123,39 +105,31 @@ func (v *DbInstanceCustomValidator) ValidateCreate(_ context.Context, obj runtim
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type DbInstance.
-func (v *DbInstanceCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	dbinstance, ok := newObj.(*kindarocksv1beta1.DbInstance)
-	if !ok {
-		return nil, fmt.Errorf("expected a DbInstance object for the newObj but got %T", newObj)
-	}
-	dbinstancelog.Info("Validation for DbInstance upon update", "name", dbinstance.GetName())
+func (v *DbInstanceCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj *kindarocksv1beta1.DbInstance) (admission.Warnings, error) {
+	dbinstancelog.Info("Validation for DbInstance upon update", "name", newObj.GetName())
 
-	if err := TestAllowedPrivileges(dbinstance.Spec.AllowedPrivileges); err != nil {
+	if err := TestAllowedPrivileges(newObj.Spec.AllowedPrivileges); err != nil {
 		return nil, err
 	}
 
-	if dbinstance.Spec.Google != nil {
+	if newObj.Spec.Google != nil {
 		dbinstancelog.Info("Google instances are deprecated, and will be removed in v1beta2")
 	}
 
-	if err := ValidateConfigVsConfigFrom(dbinstance.Spec.Generic); err != nil {
+	if err := ValidateConfigVsConfigFrom(newObj.Spec.Generic); err != nil {
 		return nil, err
 	}
 
 	immutableErr := "cannot change %s, the field is immutable"
-	if dbinstance.Spec.Engine != oldObj.(*kindarocksv1beta1.DbInstance).Spec.Engine {
+	if newObj.Spec.Engine != oldObj.Spec.Engine {
 		return nil, fmt.Errorf(immutableErr, "engine")
 	}
 	return nil, nil
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type DbInstance.
-func (v *DbInstanceCustomValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	dbinstance, ok := obj.(*kindarocksv1beta1.DbInstance)
-	if !ok {
-		return nil, fmt.Errorf("expected a DbInstance object but got %T", obj)
-	}
-	dbinstancelog.Info("Validation for DbInstance upon deletion", "name", dbinstance.GetName())
+func (v *DbInstanceCustomValidator) ValidateDelete(ctx context.Context, obj *kindarocksv1beta1.DbInstance) (admission.Warnings, error) {
+	dbinstancelog.Info("Validation for DbInstance upon deletion", "name", obj.GetName())
 
 	return nil, nil
 }

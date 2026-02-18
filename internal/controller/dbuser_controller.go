@@ -36,7 +36,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -48,7 +48,7 @@ type DbUserReconciler struct {
 	client.Client
 	Scheme       *runtime.Scheme
 	Interval     time.Duration
-	Recorder     record.EventRecorder
+	Recorder     events.EventRecorder
 	CheckChanges bool
 	kubeHelper   *kubehelper.KubeHelper
 }
@@ -347,7 +347,7 @@ func (r *DbUserReconciler) manageError(ctx context.Context, dbucr *kindav1beta1.
 
 	retryInterval := 60 * time.Second
 
-	r.Recorder.Event(dbucr, "Warning", "Failed", issue.Error())
+	r.Recorder.Eventf(dbucr, nil, corev1.EventTypeWarning, "Reconcile error", "Can't reconcile", issue.Error())
 	err := r.Status().Update(ctx, dbucr)
 	if err != nil {
 		log.Error(err, "unable to update status")

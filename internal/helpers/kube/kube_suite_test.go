@@ -35,7 +35,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/kubectl/pkg/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -98,7 +98,7 @@ var _ = Describe("KubeHelpers test", func() {
 			databaseName := "suite-1-case-1"
 			databaseCopy := database.DeepCopy()
 			databaseCopy.SetName(databaseName)
-			rec := record.NewFakeRecorder(1)
+			rec := events.NewFakeRecorder(1)
 			kh := kube.NewKubeHelper(k8sClient, rec, databaseCopy)
 			err := kh.Cli.Create(ctx, databaseCopy)
 			Expect(err).NotTo(HaveOccurred())
@@ -109,7 +109,7 @@ var _ = Describe("KubeHelpers test", func() {
 			secretName := "suite-2-test-1"
 			secretCopy := secret.DeepCopy()
 			secretCopy.SetName(secretName)
-			rec := record.NewFakeRecorder(1)
+			rec := events.NewFakeRecorder(1)
 			kh := kube.NewKubeHelper(k8sClient, rec, database)
 			res, err := kh.Create(ctx, secretCopy)
 			Expect(err).To(BeNil())
@@ -124,7 +124,7 @@ var _ = Describe("KubeHelpers test", func() {
 			secretName := "suite-2-test-2"
 			secretCopy := secret.DeepCopy()
 			secretCopy.SetName(secretName)
-			rec := record.NewFakeRecorder(1)
+			rec := events.NewFakeRecorder(1)
 			kh := kube.NewKubeHelper(k8sClient, rec, database)
 			err := kh.Cli.Create(ctx, secretCopy.DeepCopy())
 			Expect(err).NotTo(HaveOccurred())
@@ -137,7 +137,7 @@ var _ = Describe("KubeHelpers test", func() {
 			secretName := "suite-2-test-3"
 			secretCopy := secret.DeepCopy()
 			secretCopy.SetName(secretName)
-			rec := record.NewFakeRecorder(1)
+			rec := events.NewFakeRecorder(1)
 			kh := kube.NewKubeHelper(k8sClient, rec, database)
 
 			// Create an object, so it has resourceVersion set.
@@ -155,7 +155,7 @@ var _ = Describe("KubeHelpers test", func() {
 			secretName := "suite-3-test-1"
 			secretCopy := secret.DeepCopy()
 			secretCopy.SetName(secretName)
-			rec := record.NewFakeRecorder(1)
+			rec := events.NewFakeRecorder(1)
 			kh := kube.NewKubeHelper(k8sClient, rec, database)
 			err := kh.Cli.Create(ctx, secretCopy.DeepCopy())
 			Expect(err).NotTo(HaveOccurred())
@@ -180,7 +180,7 @@ var _ = Describe("KubeHelpers test", func() {
 			secretCopy := secret.DeepCopy()
 			secretCopy.SetLabels(usedByLabels)
 			secretCopy.SetName(secretName)
-			rec := record.NewFakeRecorder(1)
+			rec := events.NewFakeRecorder(1)
 			kh := kube.NewKubeHelper(k8sClient, rec, database)
 			err := kh.Cli.Create(ctx, secretCopy.DeepCopy())
 			Expect(err).NotTo(HaveOccurred())
@@ -197,7 +197,7 @@ var _ = Describe("KubeHelpers test", func() {
 			secretCopy.SetName(secretName)
 			databaseCopy := database.DeepCopy()
 			databaseCopy.Spec.Cleanup = true
-			rec := record.NewFakeRecorder(1)
+			rec := events.NewFakeRecorder(1)
 			kh := kube.NewKubeHelper(k8sClient, rec, databaseCopy)
 			err := kh.Cli.Create(ctx, secretCopy.DeepCopy())
 			Expect(err).NotTo(HaveOccurred())
@@ -221,7 +221,7 @@ var _ = Describe("KubeHelpers test", func() {
 			secretCopy.SetName(secretName)
 			databaseCopy := database.DeepCopy()
 			databaseCopy.Spec.Cleanup = true
-			rec := record.NewFakeRecorder(1)
+			rec := events.NewFakeRecorder(1)
 			kh := kube.NewKubeHelper(k8sClient, rec, databaseCopy)
 			err := kh.Cli.Create(ctx, secretCopy.DeepCopy())
 			Expect(err).NotTo(HaveOccurred())
@@ -249,7 +249,7 @@ var _ = Describe("KubeHelpers test", func() {
 			secretCopy := secret.DeepCopy()
 			secretCopy.SetLabels(usedByLabels)
 			secretCopy.SetName(secretName)
-			rec := record.NewFakeRecorder(1)
+			rec := events.NewFakeRecorder(1)
 			kh := kube.NewKubeHelper(k8sClient, rec, database)
 			err := kh.Cli.Create(ctx, secretCopy.DeepCopy())
 			Expect(err).NotTo(HaveOccurred())
@@ -264,7 +264,7 @@ var _ = Describe("KubeHelpers test", func() {
 			secretName := "suite-4-test-1"
 			secretCopy := secret.DeepCopy()
 			secretCopy.SetName(secretName)
-			rec := record.NewFakeRecorder(1)
+			rec := events.NewFakeRecorder(1)
 			kh := kube.NewKubeHelper(k8sClient, rec, database)
 			err := kh.HandleCreateOrUpdate(ctx, secretCopy.DeepCopy())
 			Expect(err).NotTo(HaveOccurred())
@@ -280,7 +280,7 @@ var _ = Describe("KubeHelpers test", func() {
 			secretName := "suite-4-test-2"
 			secretCopy := secret.DeepCopy()
 			secretCopy.SetName(secretName)
-			rec := record.NewFakeRecorder(1)
+			rec := events.NewFakeRecorder(1)
 			kh := kube.NewKubeHelper(k8sClient, rec, database)
 			err := kh.Cli.Create(ctx, secretCopy.DeepCopy())
 			Expect(err).NotTo(HaveOccurred())
@@ -297,7 +297,7 @@ var _ = Describe("KubeHelpers test", func() {
 		It("Fail creation", func() {
 			secretCopy := secret.DeepCopy()
 			secretCopy.SetName("INVALID_NAME_!!@@")
-			rec := record.NewFakeRecorder(1)
+			rec := events.NewFakeRecorder(1)
 			kh := kube.NewKubeHelper(k8sClient, rec, database)
 			err := kh.HandleCreateOrUpdate(ctx, secretCopy.DeepCopy())
 			Expect(err).To(HaveOccurred())
@@ -306,7 +306,7 @@ var _ = Describe("KubeHelpers test", func() {
 			secretName := "suite-4-test-4"
 			secretCopy := secret.DeepCopy()
 			secretCopy.SetName(secretName)
-			rec := record.NewFakeRecorder(1)
+			rec := events.NewFakeRecorder(1)
 			kh := kube.NewKubeHelper(k8sClient, rec, database)
 			err := kh.Cli.Create(ctx, secretCopy.DeepCopy())
 			Expect(err).NotTo(HaveOccurred())
@@ -328,7 +328,7 @@ var _ = Describe("KubeHelpers test", func() {
 			}
 			secretCopy.SetName(secretName)
 			secretCopy.SetLabels(usedByLabels)
-			rec := record.NewFakeRecorder(1)
+			rec := events.NewFakeRecorder(1)
 			kh := kube.NewKubeHelper(k8sClient, rec, database)
 			err := kh.Cli.Create(ctx, secretCopy)
 			Expect(err).NotTo(HaveOccurred())
@@ -344,7 +344,7 @@ var _ = Describe("KubeHelpers test", func() {
 			}
 			secretCopy.SetName(secretName)
 			secretCopy.SetLabels(usedByLabels)
-			rec := record.NewFakeRecorder(1)
+			rec := events.NewFakeRecorder(1)
 			kh := kube.NewKubeHelper(k8sClient, rec, database)
 			err := kh.Cli.Create(ctx, secretCopy)
 			Expect(err).NotTo(HaveOccurred())
@@ -360,7 +360,7 @@ var _ = Describe("KubeHelpers test", func() {
 				consts.USED_BY_NAME_LABEL_KEY: "test",
 			}
 			secretCopy.SetLabels(usedByLabels)
-			rec := record.NewFakeRecorder(1)
+			rec := events.NewFakeRecorder(1)
 			kh := kube.NewKubeHelper(k8sClient, rec, database)
 			err := kh.Cli.Create(ctx, secretCopy)
 			Expect(err).NotTo(HaveOccurred())
@@ -387,7 +387,7 @@ var _ = Describe("KubeHelpers test", func() {
 			}
 
 			secretCopy.SetLabels(usedByLabels)
-			rec := record.NewFakeRecorder(1)
+			rec := events.NewFakeRecorder(1)
 			kh := kube.NewKubeHelper(k8sClient, rec, databaseCopy)
 			err := kh.Cli.Create(ctx, secretCopy.DeepCopy())
 			Expect(err).NotTo(HaveOccurred())
@@ -404,7 +404,7 @@ var _ = Describe("KubeHelpers test", func() {
 				consts.USED_BY_NAME_LABEL_KEY: database.GetName(),
 			}
 
-			rec := record.NewFakeRecorder(1)
+			rec := events.NewFakeRecorder(1)
 			kh := kube.NewKubeHelper(k8sClient, rec, database)
 			err := kh.ModifyObject(ctx, secretCopy)
 			Expect(err).NotTo(HaveOccurred())
@@ -418,7 +418,7 @@ var _ = Describe("KubeHelpers test", func() {
 			secretName := "suite-7-test-1"
 			secretCopy := secret.DeepCopy()
 			secretCopy.SetName(secretName)
-			rec := record.NewFakeRecorder(1)
+			rec := events.NewFakeRecorder(1)
 			kh := kube.NewKubeHelper(k8sClient, rec, database)
 			err := kh.Cli.Create(ctx, secretCopy)
 			Expect(err).NotTo(HaveOccurred())
@@ -436,7 +436,7 @@ var _ = Describe("KubeHelpers test", func() {
 			cmName := "suite-7-test-2"
 			cmCopy := configmap.DeepCopy()
 			cmCopy.SetName(cmName)
-			rec := record.NewFakeRecorder(1)
+			rec := events.NewFakeRecorder(1)
 			kh := kube.NewKubeHelper(k8sClient, rec, database)
 			err := kh.Cli.Create(ctx, cmCopy)
 			Expect(err).NotTo(HaveOccurred())
@@ -454,7 +454,7 @@ var _ = Describe("KubeHelpers test", func() {
 			secretName := "suite-7-test-3"
 			secretCopy := secret.DeepCopy()
 			secretCopy.SetName(secretName)
-			rec := record.NewFakeRecorder(1)
+			rec := events.NewFakeRecorder(1)
 			kh := kube.NewKubeHelper(k8sClient, rec, database)
 			err := kh.Cli.Create(ctx, secretCopy)
 			Expect(err).NotTo(HaveOccurred())
@@ -471,7 +471,7 @@ var _ = Describe("KubeHelpers test", func() {
 			cmName := "suite-7-test-4"
 			cmCopy := configmap.DeepCopy()
 			cmCopy.SetName(cmName)
-			rec := record.NewFakeRecorder(1)
+			rec := events.NewFakeRecorder(1)
 			kh := kube.NewKubeHelper(k8sClient, rec, database)
 			err := kh.Cli.Create(ctx, cmCopy)
 			Expect(err).NotTo(HaveOccurred())
