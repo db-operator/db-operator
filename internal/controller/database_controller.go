@@ -76,7 +76,6 @@ var (
 	dbPhaseConfigMap            = "InfoConfigMapCreating"
 	dbPhaseTemplating           = "Templating"
 	dbPhaseBackupJob            = "BackupJobCreating"
-	dbPhaseFinish               = "Finishing"
 	dbPhaseReady                = "Ready"
 	dbPhaseDelete               = "Deleting"
 )
@@ -348,7 +347,6 @@ func (r *DatabaseReconciler) handleDbCreateOrUpdate(ctx context.Context, dbcr *k
 		return r.manageError(ctx, dbcr, err, true, phase)
 	}
 
-	phase = dbPhaseFinish
 	dbcr.Status.Status = true
 	phase = dbPhaseReady
 
