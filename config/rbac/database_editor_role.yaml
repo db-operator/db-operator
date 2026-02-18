@@ -11,12 +11,12 @@ metadata:
   labels:
     app.kubernetes.io/name: db-operator
     app.kubernetes.io/managed-by: kustomize
-  name: dbuser-editor-role
+  name: database-editor-role
 rules:
 - apiGroups:
   - kinda.rocks
   resources:
-  - dbusers
+  - databases
   verbs:
   - create
   - delete
@@ -28,6 +28,6 @@ rules:
 - apiGroups:
   - kinda.rocks
   resources:
-  - dbusers/status
+  - databases/status
   verbs:
   - get
