@@ -178,9 +178,9 @@ func (m Mysql) CheckStatus(ctx context.Context, user *DatabaseUser) error {
 // GetCredentials returns credentials of the mysql database
 func (m Mysql) GetCredentials(ctx context.Context, user *DatabaseUser) Credentials {
 	return Credentials{
-		Name:     m.Database,
-		Username: user.Username,
-		Password: user.Password,
+		DatabaseName: m.Database,
+		Username:     user.Username,
+		Password:     user.Password,
 	}
 }
 

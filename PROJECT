@@ -6,14 +6,14 @@ domain: kinda.rocks
 layout:
 - go.kubebuilder.io/v4
 projectName: db-operator
-repo: github.com/db-operator/db-operator
+repo: github.com/db-operator/db-operator/v2
 resources:
 - api:
     crdVersion: v1
   controller: true
   domain: kinda.rocks
   kind: DbInstance
-  path: github.com/db-operator/db-operator/v2/api/v1alpha1
+  path: github.com/db-operator/db-operator/api/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
@@ -21,14 +21,14 @@ resources:
   controller: true
   domain: kinda.rocks
   kind: Database
-  path: github.com/db-operator/db-operator/v2/api/v1alpha1
+  path: github.com/db-operator/db-operator/api/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   domain: kinda.rocks
   kind: Database
-  path: github.com/db-operator/db-operator/v2/api/v1beta1
+  path: github.com/db-operator/db-operator/api/v1beta1
   version: v1beta1
   webhooks:
     conversion: true
@@ -39,7 +39,7 @@ resources:
     crdVersion: v1
   domain: kinda.rocks
   kind: DbInstance
-  path: github.com/db-operator/db-operator/v2/api/v1beta1
+  path: github.com/db-operator/db-operator/api/v1beta1
   version: v1beta1
   webhooks:
     conversion: true
@@ -52,9 +52,25 @@ resources:
   controller: true
   domain: kinda.rocks
   kind: DbUser
-  path: github.com/db-operator/db-operator/v2/api/v1beta1
+  path: github.com/db-operator/db-operator/api/v1beta1
   version: v1beta1
   webhooks:
     validation: true
     webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: kinda.rocks
+  kind: DbBackup
+  path: github.com/db-operator/db-operator/api/v1beta1
+  version: v1beta1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: kinda.rocks
+  kind: DbRestore
+  path: github.com/db-operator/db-operator/v2/api/v1beta1
+  version: v1beta1
 version: "3"

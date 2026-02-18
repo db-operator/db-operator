@@ -677,7 +677,7 @@ func (r *DatabaseReconciler) createDatabase(ctx context.Context, dbcr *kindav1be
 	}
 
 	dbcr.Status.OperatorVersion = commonhelper.OperatorVersion
-	dbcr.Status.DatabaseName = databaseCred.Name
+	dbcr.Status.DatabaseName = databaseCred.DatabaseName
 	dbcr.Status.UserName = databaseCred.Username
 	log.Info("successfully created")
 	return nil
@@ -691,8 +691,8 @@ func (r *DatabaseReconciler) deleteDatabase(ctx context.Context, dbcr *kindav1be
 	}
 
 	databaseCred := database.Credentials{
-		Name:     dbcr.Status.DatabaseName,
-		Username: dbcr.Status.UserName,
+		DatabaseName: dbcr.Status.DatabaseName,
+		Username:     dbcr.Status.UserName,
 	}
 
 	instance := &kindav1beta1.DbInstance{}
