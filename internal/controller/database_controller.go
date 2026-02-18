@@ -20,7 +20,6 @@ package controllers
 import (
 	"context"
 	"errors"
-	"fmt"
 	"maps"
 	"os"
 	"strconv"
@@ -48,7 +47,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -60,7 +59,7 @@ type DatabaseReconciler struct {
 	client.Client
 	Log             logr.Logger
 	Scheme          *runtime.Scheme
-	Recorder        record.EventRecorder
+	Recorder        events.EventRecorder
 	Interval        time.Duration
 	Conf            *config.Config
 	WatchNamespaces []string
@@ -114,7 +113,6 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 	}()
 
-	r.Recorder.Event(dbcr, "Normal", phase, "Started reconciling db-operator managed database")
 	promDBsStatus.WithLabelValues(dbcr.Namespace, dbcr.Spec.Instance, dbcr.Name).Set(boolToFloat64(dbcr.Status.Status))
 
 	// Init the kubehelper object
@@ -200,9 +198,7 @@ func (r *DatabaseReconciler) isFullReconcile(ctx context.Context, dbcr *kindav1b
 	// This is the first check, because even if the checkForChanges is false,
 	// the annotation is exptected to be removed
 	if _, ok := dbcr.GetAnnotations()[consts.DATABASE_FORCE_FULL_RECONCILE]; ok {
-		r.Recorder.Event(dbcr, "Normal", fmt.Sprintf("%s annotation was found", consts.DATABASE_FORCE_FULL_RECONCILE),
-			"The full reconciliation cyclce will be executed and the annotation will be removed",
-		)
+		r.Recorder.Eventf(dbcr, nil, corev1.EventTypeNormal, "Reconciling", "Force full reconcile", "Annotations %s was found", consts.DATABASE_FORCE_FULL_RECONCILE)
 
 		annotations := dbcr.GetAnnotations()
 		delete(annotations, consts.DATABASE_FORCE_FULL_RECONCILE)
@@ -251,7 +247,6 @@ func (r *DatabaseReconciler) handleDbCreateOrUpdate(ctx context.Context, dbcr *k
 	var err error
 
 	phase := dbPhaseCreateOrUpdate
-	r.Recorder.Event(dbcr, "Normal", phase, "Starting process to create or update databases")
 
 	reconcilePeriod := r.Interval * time.Second
 	reconcileResult := reconcile.Result{RequeueAfter: reconcilePeriod}
@@ -318,31 +313,26 @@ func (r *DatabaseReconciler) handleDbCreateOrUpdate(ctx context.Context, dbcr *k
 	}
 
 	phase = dbPhaseInstanceAccessSecret
-	r.Recorder.Event(dbcr, "Normal", phase, "Creating secret containing credentials to access the database instance")
 	if err := r.handleInstanceAccessSecret(ctx, dbcr); err != nil {
 		return r.manageError(ctx, dbcr, err, true, phase)
 	}
 	log.Info("instance access secret created")
 
 	phase = dbPhaseProxy
-	r.Recorder.Event(dbcr, "Normal", phase, "Creating proxy")
 	err = r.handleProxy(ctx, dbcr)
 	if err != nil {
 		return r.manageError(ctx, dbcr, err, true, phase)
 	}
 
 	phase = dbPhaseSecretsTemplating
-	r.Recorder.Event(dbcr, "Normal", phase, "Creating templated secrets")
 	if err = r.createTemplatedSecrets(ctx, dbcr); err != nil {
 		return r.manageError(ctx, dbcr, err, true, phase)
 	}
 	phase = dbPhaseConfigMap
-	r.Recorder.Event(dbcr, "Normal", phase, "Creating ConfigMap")
 	if err = r.handleInfoConfigMap(ctx, dbcr); err != nil {
 		return r.manageError(ctx, dbcr, err, true, phase)
 	}
 	phase = dbPhaseTemplating
-	r.Recorder.Event(dbcr, "Normal", phase, "Handle templated credentials")
 
 	// A temporary check that exists to avoid creating templates if secretsTemplates are used.
 	// todo: It should be removed when secretsTemlates are gone
@@ -353,17 +343,14 @@ func (r *DatabaseReconciler) handleDbCreateOrUpdate(ctx context.Context, dbcr *k
 		}
 	}
 	phase = dbPhaseBackupJob
-	r.Recorder.Event(dbcr, "Normal", phase, "Handle BackupJob")
 	err = r.handleBackupJob(ctx, dbcr)
 	if err != nil {
 		return r.manageError(ctx, dbcr, err, true, phase)
 	}
 
 	phase = dbPhaseFinish
-	r.Recorder.Event(dbcr, "Normal", phase, "Finishing reconciliation process")
 	dbcr.Status.Status = true
 	phase = dbPhaseReady
-	r.Recorder.Event(dbcr, "Normal", phase, "Ready")
 
 	err = r.Status().Update(ctx, dbcr)
 	if err != nil {
@@ -377,7 +364,6 @@ func (r *DatabaseReconciler) handleDbCreateOrUpdate(ctx context.Context, dbcr *k
 func (r *DatabaseReconciler) handleDbDelete(ctx context.Context, dbcr *kindav1beta1.Database) (reconcile.Result, error) {
 	log := log.FromContext(ctx)
 	phase := dbPhaseDelete
-	r.Recorder.Event(dbcr, "Normal", phase, "Deleting database")
 	reconcilePeriod := r.Interval * time.Second
 	reconcileResult := reconcile.Result{RequeueAfter: reconcilePeriod}
 
@@ -870,7 +856,7 @@ func (r *DatabaseReconciler) handleTemplatedCredentials(ctx context.Context, dbc
 
 func (r *DatabaseReconciler) createTemplatedSecrets(ctx context.Context, dbcr *kindav1beta1.Database) error {
 	if len(dbcr.Spec.SecretsTemplates) > 0 {
-		r.Recorder.Event(dbcr, "Warning", "Deprecation",
+		r.Recorder.Eventf(dbcr, nil, corev1.EventTypeWarning, "Deprecation", "Secrets Templates",
 			"secretsTemplates are deprecated and will be removed in the next API version. Please consider using templates",
 		)
 		// First of all the password should be taken from secret because it's not stored anywhere else
@@ -1028,7 +1014,7 @@ func (r *DatabaseReconciler) manageError(ctx context.Context, dbcr *kindav1beta1
 
 	retryInterval := 60 * time.Second
 
-	r.Recorder.Event(dbcr, "Warning", "Failed"+phase, issue.Error())
+	r.Recorder.Eventf(dbcr, nil, corev1.EventTypeWarning, "Reconcile error", "Can't reconcile", issue.Error())
 	err := r.Status().Update(ctx, dbcr)
 	if err != nil {
 		log.Error(err, "unable to update status")

@@ -35,6 +35,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/kubectl/pkg/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -98,7 +99,7 @@ var _ = Describe("KubeHelpers test", func() {
 			databaseName := "suite-1-case-1"
 			databaseCopy := database.DeepCopy()
 			databaseCopy.SetName(databaseName)
-			rec := record.NewFakeRecorder(1)
+			rec := events.NewFakeRecorder(1)
 			kh := kube.NewKubeHelper(k8sClient, rec, databaseCopy)
 			err := kh.Cli.Create(ctx, databaseCopy)
 			Expect(err).NotTo(HaveOccurred())

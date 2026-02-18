@@ -26,7 +26,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -45,13 +45,13 @@ for an internal resource
 */
 type KubeHelper struct {
 	Cli client.Client
-	Rec record.EventRecorder
+	Rec events.EventRecorder
 	// Caller is a db-operator object that is requesting modifications
 	Caller dbotypes.KindaObject
 }
 
 // Init a Kubehelper struct
-func NewKubeHelper(cli client.Client, rec record.EventRecorder, caller dbotypes.KindaObject) *KubeHelper {
+func NewKubeHelper(cli client.Client, rec events.EventRecorder, caller dbotypes.KindaObject) *KubeHelper {
 	return &KubeHelper{cli, rec, caller}
 }
 

@@ -17,13 +17,10 @@ package v1beta1
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	kindarocksv1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
@@ -36,7 +33,7 @@ var dbuserlog = logf.Log.WithName("dbuser-resource")
 
 // SetupDbUserWebhookWithManager registers the webhook for DbUser in the manager.
 func SetupDbUserWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&kindarocksv1beta1.DbUser{}).
+	return ctrl.NewWebhookManagedBy(mgr, &kindarocksv1beta1.DbUser{}).
 		WithValidator(&DbUserCustomValidator{}).
 		Complete()
 }
@@ -55,26 +52,20 @@ type DbUserCustomValidator struct {
 	// TODO(user): Add more fields as needed for validation
 }
 
-var _ webhook.CustomValidator = &DbUserCustomValidator{}
-
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type DbUser.
-func (v *DbUserCustomValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	dbuser, ok := obj.(*kindarocksv1beta1.DbUser)
-	if !ok {
-		return nil, fmt.Errorf("expected a DbUser object but got %T", obj)
-	}
-	dbuserlog.Info("Validation for DbUser upon creation", "name", dbuser.GetName())
+func (v *DbUserCustomValidator) ValidateCreate(_ context.Context, obj *kindarocksv1beta1.DbUser) (admission.Warnings, error) {
+	dbuserlog.Info("Validation for DbUser upon creation", "name", obj.GetName())
 
 	warnings := []string{}
-	if len(dbuser.Spec.ExtraPrivileges) > 0 {
+	if len(obj.Spec.ExtraPrivileges) > 0 {
 		warnings = append(warnings,
 			"extra privileges is an experimental feature, please use at your own risk and feel free to open GitHub issues.")
 	}
 
-	if err := TestExtraPrivileges(dbuser.Spec.ExtraPrivileges); err != nil {
+	if err := TestExtraPrivileges(obj.Spec.ExtraPrivileges); err != nil {
 		return warnings, err
 	}
-	if err := kindarocksv1beta1.IsAccessTypeSupported(dbuser.Spec.AccessType); err != nil {
+	if err := kindarocksv1beta1.IsAccessTypeSupported(obj.Spec.AccessType); err != nil {
 		return warnings, err
 	}
 
@@ -82,30 +73,22 @@ func (v *DbUserCustomValidator) ValidateCreate(_ context.Context, obj runtime.Ob
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type DbUser.
-func (v *DbUserCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	dbuser, ok := newObj.(*kindarocksv1beta1.DbUser)
-	if !ok {
-		return nil, fmt.Errorf("expected a DbUser object for the newObj but got %T", newObj)
-	}
-	dbuserlog.Info("Validation for DbUser upon update", "name", dbuser.GetName())
+func (v *DbUserCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj *kindarocksv1beta1.DbUser) (admission.Warnings, error) {
+	dbuserlog.Info("Validation for DbUser upon update", "name", newObj.GetName())
 
 	warnings := []string{}
-	if len(dbuser.Spec.ExtraPrivileges) > 0 {
+	if len(newObj.Spec.ExtraPrivileges) > 0 {
 		warnings = append(warnings,
 			"extra privileges is an experimental feature, please use at your own risk and feel free to open GitHub issues.")
 	}
-	if err := TestExtraPrivileges(dbuser.Spec.ExtraPrivileges); err != nil {
+	if err := TestExtraPrivileges(newObj.Spec.ExtraPrivileges); err != nil {
 		return warnings, err
 	}
-	if err := kindarocksv1beta1.IsAccessTypeSupported(dbuser.Spec.AccessType); err != nil {
+	if err := kindarocksv1beta1.IsAccessTypeSupported(newObj.Spec.AccessType); err != nil {
 		return warnings, err
 	}
-	_, ok = oldObj.(*kindarocksv1beta1.DbUser)
-	if !ok {
-		return warnings, fmt.Errorf("couldn't get the previous version of %s", dbuser.GetName())
-	}
-	if dbuser.Spec.Credentials.Templates != nil {
-		if err := ValidateTemplates(dbuser.Spec.Credentials.Templates, false); err != nil {
+	if newObj.Spec.Credentials.Templates != nil {
+		if err := ValidateTemplates(newObj.Spec.Credentials.Templates, false); err != nil {
 			return warnings, err
 		}
 	}
@@ -114,12 +97,8 @@ func (v *DbUserCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type DbUser.
-func (v *DbUserCustomValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	dbuser, ok := obj.(*kindarocksv1beta1.DbUser)
-	if !ok {
-		return nil, fmt.Errorf("expected a DbUser object but got %T", obj)
-	}
-	dbuserlog.Info("Validation for DbUser upon deletion", "name", dbuser.GetName())
+func (v *DbUserCustomValidator) ValidateDelete(ctx context.Context, obj *kindarocksv1beta1.DbUser) (admission.Warnings, error) {
+	dbuserlog.Info("Validation for DbUser upon deletion", "name", obj.GetName())
 
 	// TODO(user): fill in your validation logic upon object deletion.
 

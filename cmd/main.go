@@ -135,7 +135,7 @@ func main() {
 			Log:      ctrl.Log.WithName("controllers").WithName("DbInstance"),
 			Scheme:   mgr.GetScheme(),
 			Interval: time.Duration(i),
-			Recorder: mgr.GetEventRecorderFor("dbinstance-controller"),
+			Recorder: mgr.GetEventRecorder("dbinstance-controller"),
 			Conf:     conf,
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DbInstance")
@@ -150,7 +150,7 @@ func main() {
 			Client:          mgr.GetClient(),
 			Log:             ctrl.Log.WithName("controllers").WithName("Database"),
 			Scheme:          mgr.GetScheme(),
-			Recorder:        mgr.GetEventRecorderFor("database-controller"),
+			Recorder:        mgr.GetEventRecorder("database-controller"),
 			Interval:        time.Duration(i),
 			Conf:            conf,
 			WatchNamespaces: namespaces,
@@ -163,7 +163,7 @@ func main() {
 		if err = (&controllers.DbUserReconciler{
 			Client:       mgr.GetClient(),
 			Scheme:       mgr.GetScheme(),
-			Recorder:     mgr.GetEventRecorderFor("dbuser-controller"),
+			Recorder:     mgr.GetEventRecorder("dbuser-controller"),
 			Interval:     time.Duration(i),
 			CheckChanges: checkForChanges,
 		}).SetupWithManager(mgr); err != nil {
