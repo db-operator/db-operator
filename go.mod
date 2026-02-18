@@ -10,6 +10,7 @@ require (
 	bou.ke/monkey v1.0.2
 	github.com/GoogleCloudPlatform/cloudsql-proxy v1.37.12
 	github.com/db-operator/can-haz-password v0.1.1
+	github.com/db-operator/db-operator v1.17.0
 	github.com/go-logr/logr v1.4.3
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/google/uuid v1.6.0
@@ -46,7 +47,7 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
-	github.com/geozelot/intree v1.0.0 // indirect
+	github.com/geozelot/intree v1.0.1 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-logr/zapr v1.3.0 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect

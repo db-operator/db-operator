@@ -1,0 +1,9 @@
+apiVersion: kinda.rocks/v1beta1
+kind: DbBackup
+metadata:
+  labels:
+    app.kubernetes.io/name: db-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: dbbackup-sample
+spec:
+  # TODO(user): Add fields here

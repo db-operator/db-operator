@@ -5,6 +5,7 @@ resources:
 - bases/kinda.rocks_dbinstances.yaml
 - bases/kinda.rocks_databases.yaml
 - bases/kinda.rocks_dbusers.yaml
+- bases/kinda.rocks_dbbackups.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patches:
