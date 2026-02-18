@@ -195,7 +195,9 @@ func (dbin *DbInstance) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*v1beta1.DbInstance)
 	dst.ObjectMeta = dbin.ObjectMeta
 	dst.Spec.AdminUserSecret = v1beta1.NamespacedName(dbin.Spec.AdminUserSecret)
-	dst.Spec.Backup = v1beta1.DbInstanceBackup(dbin.Spec.Backup)
+	dst.Spec.Backup = v1beta1.DbInstanceBackup{
+		Bucket: dbin.Spec.Backup.Bucket,
+	}
 	if dbin.Spec.DbInstanceSource.Generic != nil {
 		dst.Spec.DbInstanceSource.Generic = &v1beta1.GenericInstance{
 			Host:       dbin.Spec.Generic.Host,
@@ -222,7 +224,9 @@ func (dst *DbInstance) ConvertFrom(srcRaw conversion.Hub) error {
 	dbin := srcRaw.(*v1beta1.DbInstance)
 	dst.ObjectMeta = dbin.ObjectMeta
 	dst.Spec.AdminUserSecret = NamespacedName(dbin.Spec.AdminUserSecret)
-	dst.Spec.Backup = DbInstanceBackup(dbin.Spec.Backup)
+	dst.Spec.Backup = DbInstanceBackup{
+		Bucket: dbin.Spec.Backup.Bucket,
+	}
 	if dbin.Spec.DbInstanceSource.Generic != nil {
 		dst.Spec.DbInstanceSource.Generic = &GenericInstance{
 			Host:       dbin.Spec.Generic.Host,

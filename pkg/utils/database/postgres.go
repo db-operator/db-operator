@@ -287,9 +287,9 @@ func (p Postgres) CheckStatus(ctx context.Context, user *DatabaseUser) error {
 // GetCredentials returns credentials of the postgres database
 func (p Postgres) GetCredentials(ctx context.Context, user *DatabaseUser) Credentials {
 	return Credentials{
-		Name:     p.Database,
-		Username: user.Username,
-		Password: user.Password,
+		DatabaseName: p.Database,
+		Username:     user.Username,
+		Password:     user.Password,
 	}
 }
 

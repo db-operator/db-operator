@@ -22,6 +22,12 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the db-operator itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
+- dbrestore_admin_role.yaml
+- dbrestore_editor_role.yaml
+- dbrestore_viewer_role.yaml
+- dbbackup_admin_role.yaml
+- dbbackup_editor_role.yaml
+- dbbackup_viewer_role.yaml
 - dbuser_admin_role.yaml
 - dbuser_editor_role.yaml
 - dbuser_viewer_role.yaml

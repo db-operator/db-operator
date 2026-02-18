@@ -693,7 +693,7 @@ func TestPostgresGetCredentials(t *testing.T) {
 
 	cred := p.GetCredentials(context.TODO(), dbu)
 	assert.Equal(t, cred.Username, dbu.Username)
-	assert.Equal(t, cred.Name, p.Database)
+	assert.Equal(t, cred.DatabaseName, p.Database)
 	assert.Equal(t, cred.Password, dbu.Password)
 }
 

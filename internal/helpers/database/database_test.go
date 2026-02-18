@@ -32,7 +32,7 @@ import (
 )
 
 var (
-	testDbcred = database.Credentials{Name: "testdb", Username: "testuser", Password: "password"}
+	testDbcred = database.Credentials{DatabaseName: "testdb", Username: "testuser", Password: "password"}
 	ctx        = context.Background()
 )
 
@@ -69,7 +69,7 @@ func TestUnitParsePostgresSecretData(t *testing.T) {
 
 	cred, err := dbhelper.ParseDatabaseSecretData(postgresDbCr, validData)
 	assert.NoErrorf(t, err, "expected no error %v", err)
-	assert.Equal(t, string(validData["POSTGRES_DB"]), cred.Name, "expect same values")
+	assert.Equal(t, string(validData["POSTGRES_DB"]), cred.DatabaseName, "expect same values")
 	assert.Equal(t, string(validData["POSTGRES_USER"]), cred.Username, "expect same values")
 	assert.Equal(t, string(validData["POSTGRES_PASSWORD"]), cred.Password, "expect same values")
 }
@@ -90,7 +90,7 @@ func TestUnitParseMysqlSecretData(t *testing.T) {
 
 	cred, err := dbhelper.ParseDatabaseSecretData(mysqlDbCr, validData)
 	assert.NoErrorf(t, err, "expected no error %v", err)
-	assert.Equal(t, string(validData["DB"]), cred.Name, "expect same values")
+	assert.Equal(t, string(validData["DB"]), cred.DatabaseName, "expect same values")
 	assert.Equal(t, string(validData["USER"]), cred.Username, "expect same values")
 	assert.Equal(t, string(validData["PASSWORD"]), cred.Password, "expect same values")
 }
@@ -136,7 +136,7 @@ func TestUnitPsqlTemplatedSecretGeneratationWithProxy(t *testing.T) {
 		DatabasePort: 5432,
 		UserName:     testDbcred.Username,
 		Password:     testDbcred.Password,
-		DatabaseName: testDbcred.Name,
+		DatabaseName: testDbcred.DatabaseName,
 	}
 
 	postgresDbCr.Status.ProxyStatus.SQLPort = c.DatabasePort
@@ -171,7 +171,7 @@ func TestUnitPsqlCustomSecretGeneratation(t *testing.T) {
 		DatabasePort: 5432,
 		UserName:     testDbcred.Username,
 		Password:     testDbcred.Password,
-		DatabaseName: testDbcred.Name,
+		DatabaseName: testDbcred.DatabaseName,
 	}
 	protocol := "postgresql"
 	expectedData := map[string][]byte{

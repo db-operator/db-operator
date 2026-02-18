@@ -49,7 +49,6 @@ type DatabaseCustomDefaulter struct{}
 
 func (d *DatabaseCustomDefaulter) Default(_ context.Context, obj *kindarocksv1beta1.Database) error {
 	databaselog.Info("Defaulting for Database", "name", obj.GetName())
-
 	if len(obj.Spec.SecretsTemplates) == 0 && len(obj.Spec.Credentials.Templates) == 0 {
 		obj.Spec.Credentials = kindarocksv1beta1.Credentials{
 			Templates: kindarocksv1beta1.Templates{
