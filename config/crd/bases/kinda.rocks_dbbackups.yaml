@@ -14,7 +14,24 @@ spec:
     singular: dbbackup
   scope: Namespaced
   versions:
-  - name: v1beta1
+  - additionalPrinterColumns:
+    - description: If database was backed up.
+      jsonPath: .status.backup.success
+      name: BackupSuccess
+      type: boolean
+    - description: If a backup was uploaded to an external storage.
+      jsonPath: .status.upload.success
+      name: UploadStatus
+      type: boolean
+    - description: db-operator version of last full reconcile
+      jsonPath: .status.operatorVersion
+      name: OperatorVersion
+      type: string
+    - description: time since creation of resource
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1beta1
     schema:
       openAPIV3Schema:
         description: DbBackup is the Schema for the dbbackups API
@@ -39,14 +56,60 @@ spec:
           spec:
             description: spec defines the desired state of DbBackup
             properties:
+              database:
+                type: string
               foo:
                 description: foo is an example field of DbBackup. Edit dbbackup_types.go
                   to remove/update
                 type: string
+              imageTemplate:
+                default: '{{ .ImageRegistry }}/{{ .ImageRepository }}-{{ .Engine }}:{{
+                  .ImageTag }}'
+                type: string
+              retries:
+                default: 3
+                format: int32
+                type: integer
+            required:
+            - database
+            - imageTemplate
+            - retries
             type: object
           status:
             description: status defines the observed state of DbBackup
             properties:
+              backup:
+                description: Status of the backup process
+                properties:
+                  duration:
+                    default: 0
+                    description: How long did it take to back up the database (in
+                      seconds)
+                    format: int32
+                    type: integer
+                  failedRetries:
+                    default: 0
+                    description: |-
+                      How many retries have already failed
+                      Use by the operator to stop retries once .spec.retries amount is reached
+                    format: int32
+                    type: integer
+                  size:
+                    default: 0
+                    description: The size of the backup (in bytes)
+                    format: int64
+                    type: integer
+                  success:
+                    default: false
+                    description: If true, it means that the backup script was executed
+                      without errors
+                    type: boolean
+                required:
+                - duration
+                - failedRetries
+                - size
+                - success
+                type: object
               conditions:
                 description: |-
                   conditions represent the current state of the DbBackup resource.
@@ -116,6 +179,37 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              operatorVersion:
+                description: Which operator version was used to reconcile this object
+                type: string
+              upload:
+                description: Status of the upload process
+                properties:
+                  duration:
+                    default: 0
+                    description: How long did it take to upload the backup of a  database
+                      (in seconds)
+                    format: int32
+                    type: integer
+                  failedRetries:
+                    default: 0
+                    description: |-
+                      How many retries have already failed
+                      Use by the operator to stop retries once .spec.retries amount is reached
+                    type: integer
+                  success:
+                    default: false
+                    description: If true, it means that the upload script was executed
+                      without errors
+                    type: boolean
+                required:
+                - duration
+                - failedRetries
+                - success
+                type: object
+            required:
+            - backup
+            - upload
             type: object
         required:
         - spec

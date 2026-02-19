@@ -81,3 +81,11 @@ const (
 // Privileges
 
 const ALL_PRIVILEGES = "ALL PRIVILEGES"
+
+// Shared Status Conditions
+const (
+	// TYPE_BACKUP_READY represents the status if the backup
+	TYPE_BACKUP_READY = "BackupReady"
+	// TYPE_UPLOAD_READ represents the status if the upload
+	TYPE_UPLOAD_READ = "UploadReady"
+)

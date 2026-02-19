@@ -18,15 +18,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // DbBackupSpec defines the desired state of DbBackup
 type DbBackupSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	// The following markers will use OpenAPI v3 schema to validate the value
-	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
+	// +required
+	// +kubebuilder:default="{{ .ImageRegistry }}/{{ .ImageRepository }}-{{ .Engine }}:{{ .ImageTag }}"
+	ImageTemplate *string `json:"imageTemplate"`
+	// +required
+	// +kubebuilder:default=3
+	Retries *int32 `json:"retries"`
+	// +required
+	Database *string `json:"database"`
 
 	// foo is an example field of DbBackup. Edit dbbackup_types.go to remove/update
 	// +optional
@@ -35,9 +36,12 @@ type DbBackupSpec struct {
 
 // DbBackupStatus defines the observed state of DbBackup.
 type DbBackupStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
+	// Status of the backup process
+	Backup *BackupStatus `json:"backup"`
+	// Status of the upload process
+	Upload *UploadStatus `json:"upload"`
+	// Which operator version was used to reconcile this object
+	OperatorVersion *string `json:"operatorVersion,omitempty"`
 	// For Kubernetes API conventions, see:
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
 
@@ -56,8 +60,41 @@ type DbBackupStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
+type BackupStatus struct {
+	// How many retries have already failed
+	// Use by the operator to stop retries once .spec.retries amount is reached
+	// +kubebuilder:default=0
+	FailedRetries *int32 `json:"failedRetries"`
+	// If true, it means that the backup script was executed without errors
+	// +kubebuilder:default=false
+	Success *bool `json:"success"`
+	// How long did it take to back up the database (in seconds)
+	// +kubebuilder:default=0
+	Duration *int32 `json:"duration"`
+	// The size of the backup (in bytes)
+	// +kubebuilder:default=0
+	Size *int64 `json:"size"`
+}
+
+type UploadStatus struct {
+	// How many retries have already failed
+	// Use by the operator to stop retries once .spec.retries amount is reached
+	// +kubebuilder:default=0
+	FailedRetries *int `json:"failedRetries"`
+	// If true, it means that the upload script was executed without errors
+	// +kubebuilder:default=false
+	Success *bool `json:"success"`
+	// How long did it take to upload the backup of a  database (in seconds)
+	// +kubebuilder:default=0
+	Duration *int32 `json:"duration"`
+}
+
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="BackupSuccess",type=boolean,JSONPath=`.status.backup.success`,description="If database was backed up."
+// +kubebuilder:printcolumn:name="UploadStatus",type=boolean,JSONPath=`.status.upload.success`,description="If a backup was uploaded to an external storage."
+// +kubebuilder:printcolumn:name="OperatorVersion",type=string,JSONPath=`.status.operatorVersion`,description="db-operator version of last full reconcile"
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`,description="time since creation of resource"
 
 // DbBackup is the Schema for the dbbackups API
 type DbBackup struct {

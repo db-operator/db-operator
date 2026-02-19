@@ -16,7 +16,6 @@ rules:
   - kinda.rocks
   resources:
   - databases
-  - dbbackups
   - dbinstances
   - dbusers
   verbs:
@@ -31,7 +30,6 @@ rules:
   - kinda.rocks
   resources:
   - databases/finalizers
-  - dbbackups/finalizers
   - dbinstances/finalizers
   - dbusers/finalizers
   verbs:
@@ -40,7 +38,6 @@ rules:
   - kinda.rocks
   resources:
   - databases/status
-  - dbbackups/status
   - dbinstances/status
   - dbusers/status
   verbs:
