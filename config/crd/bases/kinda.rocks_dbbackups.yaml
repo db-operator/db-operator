@@ -61,7 +61,10 @@ spec:
                   namespace
                 type: string
               image:
-                default: {}
+                default:
+                  registry: ghcr.io
+                  repository: db-operator/db-backup-tools
+                  tag: latest
                 description: Which image should be used
                 properties:
                   registry:
@@ -87,6 +90,7 @@ spec:
                 type: integer
             required:
             - database
+            - image
             - retries
             type: object
           status:

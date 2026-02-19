@@ -21,8 +21,8 @@ import (
 // DbBackupSpec defines the desired state of DbBackup
 type DbBackupSpec struct {
 	// Which image should be used
-	// +kubebuilder:default={}
-	// +optional
+	// +kubebuilder:default={registry:"ghcr.io", repository:"db-operator/db-backup-tools", tag:"latest"}
+	// +required
 	Image *DbBackupImage `json:"image"`
 	// +required
 	// +kubebuilder:default=3
