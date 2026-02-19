@@ -26,6 +26,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	kindarocksv1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
+	"github.com/db-operator/db-operator/v2/internal/helpers/tplrender"
 	"github.com/db-operator/db-operator/v2/pkg/consts"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
@@ -34,10 +35,14 @@ import (
 type DbBackupReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	Opts   *DbBackupReconcilerOpts
 }
 
 // Options for the DbBackupReconciler
-type DbBackupReconcilerOpts struct{}
+type DbBackupReconcilerOpts struct {
+	// A path to a directory with manifests templates
+	TemplatesDir string
+}
 
 // Definitions to manage status conditions
 const (
@@ -104,10 +109,12 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if *dbbackupcr.Status.Backup.FailedRetries >= *dbbackupcr.Spec.Retries {
 			err := errors.New("failed retries amount is reached")
 			log.Error(err, "The amount of  failed retries is reached, CR is marked as failed", "retry", dbbackupcr.Status.Backup.FailedRetries, "op", "backup")
+
 			meta.SetStatusCondition(
 				&dbbackupcr.Status.Conditions,
 				metav1.Condition{Type: typeObjectStatus, Status: metav1.ConditionFalse, Reason: "Failed", Message: "Unable to perform a backup"},
 			)
+
 			if err = r.Status().Update(ctx, dbbackupcr); err != nil {
 				log.Error(err, "Failed to update DbBackup status")
 				return ctrl.Result{}, err
@@ -115,6 +122,13 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			return ctrl.Result{}, nil
 		}
 		log.Info("Executing the backup logic", "retry", dbbackupcr.Status.Backup.FailedRetries)
+
+		roleTplRaw, err := tplrender.ReadFile(r.Opts.TemplatesDir, "role.gotmpl")
+		if err != nil {
+			log.Error(err, "Couldn't read a template", "template", "role.gotmpl")
+			return ctrl.Result{}, err
+		}
+		roleTpl, err := tplrender.BuildTpl(roleTemplatePath)
 		// Create a Role and a RoleBinding from template
 		// Create a ServiceAccount from a template
 		// Create a Pod from template

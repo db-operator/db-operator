@@ -89,3 +89,7 @@ const (
 	// TYPE_UPLOAD_READ represents the status if the upload
 	TYPE_UPLOAD_READ = "UploadReady"
 )
+
+const (
+	DEFAULT_TEMPLATES_DIR = "/templates"
+)

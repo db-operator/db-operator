@@ -65,6 +65,8 @@ func main() {
 	var enableLeaderElection bool
 	var checkForChanges bool
 	var isWebhook bool
+	var templatesDir string
+
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":60000", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&checkForChanges, "check-for-changes", false,
@@ -73,6 +75,8 @@ func main() {
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.BoolVar(&isWebhook, "webhook", false, "Starts the webhook server when set.")
+	flag.StringVar(&templatesDir, "templates-dir", "", "A path to a directory with manifests templates.")
+
 	opts := zap.Options{
 		Development: true,
 	}
@@ -173,7 +177,11 @@ func main() {
 		}
 	}
 
+	dbBackupOpts := &controllers.DbBackupReconcilerOpts{
+		TemplatesDir: templatesDir,
+	}
 	if err := (&controller.DbBackupReconciler{
+		Opts:   dbBackupOpts,
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
