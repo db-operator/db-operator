@@ -61,6 +61,7 @@ spec:
                   namespace
                 type: string
               image:
+                default: {}
                 description: Which image should be used
                 properties:
                   registry:
@@ -173,6 +174,12 @@ spec:
                   Use by the operator to stop retries once .spec.retries amount is reached
                 format: int32
                 type: integer
+              lockedByBackupPod:
+                description: |-
+                  If true, operaror will not reconcile the object
+                  Is needed to allow the backup pod to change the status of the CR
+                  without triggering a full reconcile loop again
+                type: boolean
               operatorVersion:
                 type: string
               size:
@@ -188,6 +195,7 @@ spec:
             required:
             - dumpDuration
             - failedRetries
+            - lockedByBackupPod
             - size
             - uploadDuration
             type: object

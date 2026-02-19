@@ -21,6 +21,7 @@ import (
 // DbBackupSpec defines the desired state of DbBackup
 type DbBackupSpec struct {
 	// Which image should be used
+	// +kubebuilder:default={}
 	// +required
 	Image *DbBackupImage `json:"image"`
 	// +required
