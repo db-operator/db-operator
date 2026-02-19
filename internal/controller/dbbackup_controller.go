@@ -80,7 +80,8 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			&dbbackupcr.Status.Conditions,
 			metav1.Condition{Type: consts.TYPE_BACKUP_STATUS, Status: metav1.ConditionUnknown, Reason: "Reconciling", Message: "Starting reconciliation"},
 		)
-
+		lockedByBackupPod := false
+		dbbackupcr.Status.LockedByBackupPod = &lockedByBackupPod
 		if err = r.Status().Update(ctx, dbbackupcr); err != nil {
 			log.Error(err, "Failed to update DbBackup status")
 			return ctrl.Result{}, err
