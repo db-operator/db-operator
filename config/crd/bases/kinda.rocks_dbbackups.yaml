@@ -87,7 +87,6 @@ spec:
                 type: integer
             required:
             - database
-            - image
             - retries
             type: object
           status:
