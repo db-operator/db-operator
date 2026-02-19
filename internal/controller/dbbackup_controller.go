@@ -115,6 +115,9 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			return ctrl.Result{}, nil
 		}
 		log.Info("Executing the backup logic", "retry", dbbackupcr.Status.Backup.FailedRetries)
+		// Create a Role and a RoleBinding from template
+		// Create a ServiceAccount from a template
+		// Create a Pod from template
 		// Create a backup pod and quit.
 		// The backup pod should change the status of the DbBackup object and trigger a new reconciliaion
 		return ctrl.Result{}, nil
