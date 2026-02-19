@@ -20,27 +20,51 @@ import (
 
 // DbBackupSpec defines the desired state of DbBackup
 type DbBackupSpec struct {
+	// Which image should be used
 	// +required
-	// +kubebuilder:default="{{ .ImageRegistry }}/{{ .ImageRepository }}-{{ .Engine }}:{{ .ImageTag }}"
-	ImageTemplate *string `json:"imageTemplate"`
+	Image *DbBackupImage `json:"image"`
 	// +required
 	// +kubebuilder:default=3
 	Retries *int32 `json:"retries"`
+	// A name of a database to back up. Must be in the same namespace
 	// +required
 	Database *string `json:"database"`
+}
 
-	// foo is an example field of DbBackup. Edit dbbackup_types.go to remove/update
-	// +optional
-	Foo *string `json:"foo,omitempty"`
+type DbBackupImage struct {
+	// For example docker.io or ghcr.io
+	// +kubebuilder:default="ghcr.io"
+	// +required
+	Registry *string `json:"registry"`
+	// For example db-operator/postgresql-backup
+	// +kubebuilder:default="db-operator/db-backup-tools"
+	// +required
+	Repository *string `json:"repository"`
+	// For example latest
+	// +kubebuilder:default="latest"
+	// +required
+	Tag *string `json:"tag"`
 }
 
 // DbBackupStatus defines the observed state of DbBackup.
 type DbBackupStatus struct {
-	// Status of the backup process
-	Backup *BackupStatus `json:"backup"`
-	// Status of the upload process
-	Upload *UploadStatus `json:"upload"`
-	// Which operator version was used to reconcile this object
+	// If true, operaror will not reconcile the object
+	// Is needed to allow the backup pod to change the status of the CR
+	// without triggering a full reconcile loop again
+	LockedByBackupPod *bool `json:"lockedByBackupPod"`
+	// How many retries have already failed
+	// Use by the operator to stop retries once .spec.retries amount is reached
+	// +kubebuilder:default=0
+	FailedRetries *int32 `json:"failedRetries"`
+	// How long did it take to back up the database (in seconds)
+	// +kubebuilder:default=0
+	DumpDuration *int32 `json:"dumpDuration"`
+	// How long did it take to upload a backup (in seconds)
+	// +kubebuilder:default=0
+	UploadDuration *int32 `json:"uploadDuration"`
+	// The size of the backup (in bytes)
+	// +kubebuilder:default=0
+	Size            *int64  `json:"size"`
 	OperatorVersion *string `json:"operatorVersion,omitempty"`
 	// For Kubernetes API conventions, see:
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
@@ -58,35 +82,6 @@ type DbBackupStatus struct {
 	// +listMapKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
-}
-
-type BackupStatus struct {
-	// How many retries have already failed
-	// Use by the operator to stop retries once .spec.retries amount is reached
-	// +kubebuilder:default=0
-	FailedRetries *int32 `json:"failedRetries"`
-	// If true, it means that the backup script was executed without errors
-	// +kubebuilder:default=false
-	Success *bool `json:"success"`
-	// How long did it take to back up the database (in seconds)
-	// +kubebuilder:default=0
-	Duration *int32 `json:"duration"`
-	// The size of the backup (in bytes)
-	// +kubebuilder:default=0
-	Size *int64 `json:"size"`
-}
-
-type UploadStatus struct {
-	// How many retries have already failed
-	// Use by the operator to stop retries once .spec.retries amount is reached
-	// +kubebuilder:default=0
-	FailedRetries *int `json:"failedRetries"`
-	// If true, it means that the upload script was executed without errors
-	// +kubebuilder:default=false
-	Success *bool `json:"success"`
-	// How long did it take to upload the backup of a  database (in seconds)
-	// +kubebuilder:default=0
-	Duration *int32 `json:"duration"`
 }
 
 // +kubebuilder:object:root=true

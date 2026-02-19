@@ -57,59 +57,41 @@ spec:
             description: spec defines the desired state of DbBackup
             properties:
               database:
+                description: A name of a database to back up. Must be in the same
+                  namespace
                 type: string
-              foo:
-                description: foo is an example field of DbBackup. Edit dbbackup_types.go
-                  to remove/update
-                type: string
-              imageTemplate:
-                default: '{{ .ImageRegistry }}/{{ .ImageRepository }}-{{ .Engine }}:{{
-                  .ImageTag }}'
-                type: string
+              image:
+                description: Which image should be used
+                properties:
+                  registry:
+                    default: ghcr.io
+                    description: For example docker.io or ghcr.io
+                    type: string
+                  repository:
+                    default: db-operator/db-backup-tools
+                    description: For example db-operator/postgresql-backup
+                    type: string
+                  tag:
+                    default: latest
+                    description: For example latest
+                    type: string
+                required:
+                - registry
+                - repository
+                - tag
+                type: object
               retries:
                 default: 3
                 format: int32
                 type: integer
             required:
             - database
-            - imageTemplate
+            - image
             - retries
             type: object
           status:
             description: status defines the observed state of DbBackup
             properties:
-              backup:
-                description: Status of the backup process
-                properties:
-                  duration:
-                    default: 0
-                    description: How long did it take to back up the database (in
-                      seconds)
-                    format: int32
-                    type: integer
-                  failedRetries:
-                    default: 0
-                    description: |-
-                      How many retries have already failed
-                      Use by the operator to stop retries once .spec.retries amount is reached
-                    format: int32
-                    type: integer
-                  size:
-                    default: 0
-                    description: The size of the backup (in bytes)
-                    format: int64
-                    type: integer
-                  success:
-                    default: false
-                    description: If true, it means that the backup script was executed
-                      without errors
-                    type: boolean
-                required:
-                - duration
-                - failedRetries
-                - size
-                - success
-                type: object
               conditions:
                 description: |-
                   conditions represent the current state of the DbBackup resource.
@@ -179,37 +161,35 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              dumpDuration:
+                default: 0
+                description: How long did it take to back up the database (in seconds)
+                format: int32
+                type: integer
+              failedRetries:
+                default: 0
+                description: |-
+                  How many retries have already failed
+                  Use by the operator to stop retries once .spec.retries amount is reached
+                format: int32
+                type: integer
               operatorVersion:
-                description: Which operator version was used to reconcile this object
                 type: string
-              upload:
-                description: Status of the upload process
-                properties:
-                  duration:
-                    default: 0
-                    description: How long did it take to upload the backup of a  database
-                      (in seconds)
-                    format: int32
-                    type: integer
-                  failedRetries:
-                    default: 0
-                    description: |-
-                      How many retries have already failed
-                      Use by the operator to stop retries once .spec.retries amount is reached
-                    type: integer
-                  success:
-                    default: false
-                    description: If true, it means that the upload script was executed
-                      without errors
-                    type: boolean
-                required:
-                - duration
-                - failedRetries
-                - success
-                type: object
+              size:
+                default: 0
+                description: The size of the backup (in bytes)
+                format: int64
+                type: integer
+              uploadDuration:
+                default: 0
+                description: How long did it take to upload a backup (in seconds)
+                format: int32
+                type: integer
             required:
-            - backup
-            - upload
+            - dumpDuration
+            - failedRetries
+            - size
+            - uploadDuration
             type: object
         required:
         - spec
