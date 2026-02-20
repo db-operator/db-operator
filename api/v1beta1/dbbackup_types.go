@@ -109,6 +109,22 @@ type DbBackup struct {
 	Status DbBackupStatus `json:"status,omitzero"`
 }
 
+// GetSecretName implements [types.KindaObject].
+func (in *DbBackup) GetSecretName() string {
+	// Dummy
+	return ""
+}
+
+// IsCleanup implements [types.KindaObject].
+func (in *DbBackup) IsCleanup() bool {
+	return true
+}
+
+// IsDeleted implements [types.KindaObject].
+func (in *DbBackup) IsDeleted() bool {
+	return in.GetDeletionTimestamp() != nil
+}
+
 // +kubebuilder:object:root=true
 
 // DbBackupList contains a list of DbBackup

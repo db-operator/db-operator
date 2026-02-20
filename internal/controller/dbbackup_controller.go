@@ -54,14 +54,16 @@ type DbBackupReconcilerOpts struct {
 // +kubebuilder:rbac:groups=kinda.rocks,resources=dbbackups,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=kinda.rocks,resources=dbbackups/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=kinda.rocks,resources=dbbackups/finalizers,verbs=update
-// +kubebuilder:rbac:groups="",resources=secrets,configmaps,verbs=get
+// +kubebuilder:rbac:groups="",resources=secrets;configmaps,verbs=get
+// +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=create;patch;get;delete
 // +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=create;patch;get;delete
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var err error
 	log := logf.FromContext(ctx)
-
+	log.Info("Started a reconciliation")
 	dbbackupcr := &kindarocksv1beta1.DbBackup{}
 	if err = r.Get(ctx, req.NamespacedName, dbbackupcr); err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -76,6 +78,7 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	// If status conditions are not set, it probably means that the CR was just created.
 	// Set the status conditions and return to let the next reconcile loop continue the logic
 	if len(dbbackupcr.Status.Conditions) == 0 {
+		log.Info("Initializing an object")
 		meta.SetStatusCondition(
 			&dbbackupcr.Status.Conditions,
 			metav1.Condition{Type: consts.TYPE_BACKUP_STATUS, Status: metav1.ConditionUnknown, Reason: "Reconciling", Message: "Starting reconciliation"},
@@ -117,7 +120,7 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	// TODO: Add support for PVC to handle big backups
 
 	// If not backup.success, create a backup pod
-	if !meta.IsStatusConditionPresentAndEqual(dbbackupcr.Status.Conditions, consts.TYPE_BACKUP_STATUS, metav1.ConditionUnknown) {
+	if meta.IsStatusConditionPresentAndEqual(dbbackupcr.Status.Conditions, consts.TYPE_BACKUP_STATUS, metav1.ConditionUnknown) {
 		// Check if db-operator has reached the possible amount of retries
 		// If yes, give up and set status to false
 		if *dbbackupcr.Status.FailedRetries >= *dbbackupcr.Spec.Retries {
@@ -140,7 +143,7 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		log.Info("Executing the backup logic", "retry", *dbbackupcr.Status.FailedRetries+1)
 
 		// Init the kubehelper object
-		r.Opts.kubeHelper = kubehelper.NewKubeHelper(r.Client, r.Recorder, dbcr)
+		r.Opts.kubeHelper = kubehelper.NewKubeHelper(r.Client, r.Recorder, dbbackupcr)
 
 		tplData := &tplrender.TplData{
 			Engine:          dbcr.Status.Engine,
@@ -170,8 +173,7 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 
 		role := obj.(*rbacv1.Role)
-
-		role.Name = dbbackupcr.Name
+		role.GenerateName = dbbackupcr.Name
 		role.Namespace = dbbackupcr.Namespace
 		role.Labels = dbbackupcr.Labels
 		role.Annotations = dbbackupcr.Annotations
@@ -195,8 +197,7 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			role.Rules = []rbacv1.PolicyRule{}
 		}
 		role.Rules = append(role.Rules, requiredRules...)
-		_, err = r.Opts.kubeHelper.Create(ctx, role)
-		if err != nil {
+		if err := r.Opts.kubeHelper.HandleCreateOrUpdate(ctx, role); err != nil {
 			log.Error(err, "Couldn't create a role")
 			return ctrl.Result{}, nil
 		}
