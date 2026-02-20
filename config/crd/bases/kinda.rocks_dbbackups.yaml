@@ -62,11 +62,16 @@ spec:
                 type: string
               image:
                 default:
+                  pullPolicy: IfNotPresent
                   registry: ghcr.io
                   repository: db-operator/db-backup-tools
                   tag: latest
                 description: Which image should be used
                 properties:
+                  pullPolicy:
+                    default: IfNotPresent
+                    description: For example Never
+                    type: string
                   registry:
                     default: ghcr.io
                     description: For example docker.io or ghcr.io
@@ -80,6 +85,7 @@ spec:
                     description: For example latest
                     type: string
                 required:
+                - pullPolicy
                 - registry
                 - repository
                 - tag

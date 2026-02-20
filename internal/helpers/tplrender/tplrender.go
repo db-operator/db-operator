@@ -14,6 +14,8 @@ type TplData struct {
 	ImageRegistry   string
 	ImageRepository string
 	ImageTag        string
+	ImagePullPolicy string
+	DatabaseName    string
 }
 
 func Render(tpl string, data *TplData) ([]byte, error) {

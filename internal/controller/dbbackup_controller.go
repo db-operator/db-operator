@@ -18,12 +18,13 @@ import (
 	"context"
 	"errors"
 
+	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -150,30 +151,28 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			ImageRegistry:   *dbbackupcr.Spec.Image.Registry,
 			ImageRepository: *dbbackupcr.Spec.Image.Repository,
 			ImageTag:        *dbbackupcr.Spec.Image.Tag,
+			DatabaseName:    dbcr.Name,
 		}
 
-		// Prepare a Role
-		roleTplRaw, err := tplrender.ReadFile(r.Opts.TemplatesDir, "role.gotmpl")
+		var template string
+		template = "role.gotmpl"
+
+		codecs := serializer.NewCodecFactory(r.Scheme)
+		decoder := codecs.UniversalDeserializer()
+
+		roleManifest, err := r.buildObjFromTemplate(template, tplData)
 		if err != nil {
-			log.Error(err, "Couldn't read a template", "template", "role.gotmpl")
+			log.Error(err, "Couldn't render a template", "template", template)
+			return ctrl.Result{}, nil
+		}
+
+		role := &rbacv1.Role{}
+		_, _, err = decoder.Decode(roleManifest, nil, role)
+		if err != nil {
 			return ctrl.Result{}, err
 		}
-		roleTpl, err := tplrender.Render(roleTplRaw, tplData)
-		if err != nil {
-			log.Error(err, "Couldn't render a template", "template", "role.gotmpl")
-			return ctrl.Result{}, err
-		}
 
-		decode := scheme.Codecs.UniversalDeserializer().Decode
-
-		obj, _, err := decode([]byte(roleTpl), nil, nil)
-		if err != nil {
-			log.Error(err, "Couldn't decode a template into a Kuberntes object", "template", "role.gotmpl")
-			return ctrl.Result{}, err
-		}
-
-		role := obj.(*rbacv1.Role)
-		role.GenerateName = dbbackupcr.Name
+		role.Name = dbbackupcr.Name
 		role.Namespace = dbbackupcr.Namespace
 		role.Labels = dbbackupcr.Labels
 		role.Annotations = dbbackupcr.Annotations
@@ -196,16 +195,85 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if len(role.Rules) == 0 {
 			role.Rules = []rbacv1.PolicyRule{}
 		}
+
 		role.Rules = append(role.Rules, requiredRules...)
+
 		if err := r.Opts.kubeHelper.HandleCreateOrUpdate(ctx, role); err != nil {
 			log.Error(err, "Couldn't create a role")
 			return ctrl.Result{}, nil
 		}
-		// Create a Role and a RoleBinding from template
-		// Create a ServiceAccount from a template
-		// Create a Pod from template
-		// Create a backup pod and quit.
-		// The backup pod should change the status of the DbBackup object and trigger a new reconciliaion
+
+		template = "service_account.gotmpl"
+
+		saManifest, err := r.buildObjFromTemplate(template, tplData)
+		if err != nil {
+			log.Error(err, "Couldn't render a template", "template", template)
+			return ctrl.Result{}, nil
+		}
+
+		sa := &v1.ServiceAccount{}
+		_, _, err = decoder.Decode(saManifest, nil, sa)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		sa.Name = dbbackupcr.Name
+		sa.Namespace = dbbackupcr.Namespace
+		sa.Labels = dbbackupcr.Labels
+		sa.Annotations = dbbackupcr.Annotations
+
+		if err := r.Opts.kubeHelper.HandleCreateOrUpdate(ctx, sa); err != nil {
+			log.Error(err, "Couldn't create a role")
+			return ctrl.Result{}, nil
+		}
+
+		template = "role_binding.gotmpl"
+		rbManifest, err := r.buildObjFromTemplate(template, tplData)
+		if err != nil {
+			log.Error(err, "Couldn't render a template", "template", template)
+			return ctrl.Result{}, nil
+		}
+
+		rb := &rbacv1.RoleBinding{}
+		_, _, err = decoder.Decode(rbManifest, nil, rb)
+		rb.Name = dbbackupcr.Name
+		rb.Namespace = dbbackupcr.Namespace
+		rb.Labels = dbbackupcr.Labels
+		rb.Annotations = dbbackupcr.Annotations
+
+		rb.RoleRef = rbacv1.RoleRef{
+			APIGroup: role.GroupVersionKind().Group,
+			Kind:     "Role",
+			Name:     role.GetName(),
+		}
+		rb.Subjects = []rbacv1.Subject{{
+			Kind:      "ServiceAccount",
+			APIGroup:  sa.GroupVersionKind().Group,
+			Name:      sa.GetName(),
+			Namespace: sa.GetNamespace(),
+		}}
+		if err := r.Opts.kubeHelper.HandleCreateOrUpdate(ctx, rb); err != nil {
+			log.Error(err, "Couldn't create a role")
+			return ctrl.Result{}, nil
+		}
+
+		template = "pod.gotmpl"
+		podManifest, err := r.buildObjFromTemplate(template, tplData)
+		if err != nil {
+			log.Error(err, "Couldn't render a template", "template", template)
+			return ctrl.Result{}, nil
+		}
+		pod := &v1.Pod{}
+		_, _, err = decoder.Decode(podManifest, nil, pod)
+		pod.Name = dbbackupcr.Name
+		pod.Namespace = dbbackupcr.Namespace
+		pod.Labels = dbbackupcr.Labels
+		pod.Annotations = dbbackupcr.Annotations
+
+		if err := r.Opts.kubeHelper.HandleCreateOrUpdate(ctx, pod); err != nil {
+			log.Error(err, "Couldn't create a role")
+			return ctrl.Result{}, nil
+		}
+
 		return ctrl.Result{}, nil
 	}
 
@@ -218,4 +286,18 @@ func (r *DbBackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&kindarocksv1beta1.DbBackup{}).
 		Named("dbbackup").
 		Complete(r)
+}
+
+// Build a runtime object from a template
+func (r *DbBackupReconciler) buildObjFromTemplate(template string, data *tplrender.TplData) ([]byte, error) {
+	tplRaw, err := tplrender.ReadFile(r.Opts.TemplatesDir, template)
+	if err != nil {
+		return nil, err
+	}
+	tpl, err := tplrender.Render(tplRaw, data)
+	if err != nil {
+		return nil, err
+	}
+
+	return tpl, nil
 }

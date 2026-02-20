@@ -21,7 +21,7 @@ import (
 // DbBackupSpec defines the desired state of DbBackup
 type DbBackupSpec struct {
 	// Which image should be used
-	// +kubebuilder:default={registry:"ghcr.io", repository:"db-operator/db-backup-tools", tag:"latest"}
+	// +kubebuilder:default={registry:"ghcr.io", repository:"db-operator/db-backup-tools", tag:"latest", pullPolicy:"IfNotPresent"}
 	// +required
 	Image *DbBackupImage `json:"image"`
 	// +required
@@ -45,6 +45,10 @@ type DbBackupImage struct {
 	// +kubebuilder:default="latest"
 	// +required
 	Tag *string `json:"tag"`
+	// For example Never
+	// +kubebuilder:default="IfNotPresent"
+	// +required
+	PullPolicy *string `json:"pullPolicy"`
 }
 
 // DbBackupStatus defines the observed state of DbBackup.
