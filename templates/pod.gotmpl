@@ -11,8 +11,11 @@ spec:
       image: {{ .ImageRegistry }}/{{ .ImageRepository }}:{{ .ImageTag }}
       imagePullPolicy: {{ .ImagePullPolicy }}
       args:
-        - backup 
+        - backup
+        - --database-name
         - {{ .DatabaseName }}
+        - --namespace
+        - {{ .Namespace }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
@@ -32,6 +35,8 @@ spec:
       imagePullPolicy: {{ .ImagePullPolicy }}
       args:
         - upload
+        - --namespace
+        - {{ .Namespace }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001

@@ -11,6 +11,7 @@ import (
 
 type TplData struct {
 	Engine          string
+	Namespace       string
 	ImageRegistry   string
 	ImageRepository string
 	ImageTag        string

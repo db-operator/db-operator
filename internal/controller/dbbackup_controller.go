@@ -147,10 +147,12 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		r.Opts.kubeHelper = kubehelper.NewKubeHelper(r.Client, r.Recorder, dbbackupcr)
 
 		tplData := &tplrender.TplData{
+			Namespace:       dbbackupcr.Namespace,
 			Engine:          dbcr.Status.Engine,
 			ImageRegistry:   *dbbackupcr.Spec.Image.Registry,
 			ImageRepository: *dbbackupcr.Spec.Image.Repository,
 			ImageTag:        *dbbackupcr.Spec.Image.Tag,
+			ImagePullPolicy: *dbbackupcr.Spec.Image.PullPolicy,
 			DatabaseName:    dbcr.Name,
 		}
 
@@ -183,6 +185,12 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				APIGroups:     []string{""},
 				Resources:     []string{"secrets", "configmaps"},
 				ResourceNames: []string{dbcr.Spec.SecretName},
+			},
+			{
+				Verbs:         []string{"get"},
+				APIGroups:     []string{dbcr.GroupVersionKind().Group},
+				Resources:     []string{"databases", "dbbackups"},
+				ResourceNames: []string{dbcr.Name},
 			},
 			{
 				Verbs:         []string{"get", "update", "patch"},
@@ -268,7 +276,7 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		pod.Namespace = dbbackupcr.Namespace
 		pod.Labels = dbbackupcr.Labels
 		pod.Annotations = dbbackupcr.Annotations
-
+		pod.Spec.ServiceAccountName = sa.Name
 		if err := r.Opts.kubeHelper.HandleCreateOrUpdate(ctx, pod); err != nil {
 			log.Error(err, "Couldn't create a role")
 			return ctrl.Result{}, nil
