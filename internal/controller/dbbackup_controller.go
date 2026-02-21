@@ -17,16 +17,15 @@ package controller
 import (
 	"context"
 	"errors"
+	"fmt"
+	"slices"
 	"strconv"
 
 	dbhelper "github.com/db-operator/db-operator/v2/internal/helpers/database"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -57,6 +56,10 @@ type DbBackupReconcilerOpts struct {
 	Namespace    string
 }
 
+const (
+	finResourceHolder string = "kinda.rocks/resource-hodler"
+)
+
 // +kubebuilder:rbac:groups=kinda.rocks,resources=dbbackups,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=kinda.rocks,resources=dbbackups/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=kinda.rocks,resources=dbbackups/finalizers,verbs=update
@@ -67,9 +70,11 @@ type DbBackupReconcilerOpts struct {
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	// Prepare required resources
 	var err error
 	log := logf.FromContext(ctx)
 	log.Info("Started a reconciliation")
+
 	dbbackupcr := &kindarocksv1beta1.DbBackup{}
 	if err = r.Get(ctx, req.NamespacedName, dbbackupcr); err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -81,28 +86,67 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	// If status conditions are not set, it probably means that the CR was just created.
-	// Set the status conditions and return to let the next reconcile loop continue the logic
-	if len(dbbackupcr.Status.Conditions) == 0 {
-		log.Info("Initializing an object")
-		meta.SetStatusCondition(
-			&dbbackupcr.Status.Conditions,
-			metav1.Condition{Type: consts.TYPE_BACKUP_STATUS, Status: metav1.ConditionUnknown, Reason: "Reconciling", Message: "Starting reconciliation"},
-		)
-		lockedByBackupPod := false
-		dbbackupcr.Status.LockedByBackupPod = &lockedByBackupPod
-		if err = r.Status().Update(ctx, dbbackupcr); err != nil {
-			log.Error(err, "Failed to update DbBackup status")
-			return ctrl.Result{}, err
-		}
-		// No need for retry, since the status was updated
-		return ctrl.Result{}, err
+	if r.isSuccess(dbbackupcr) {
+		log.Info("Backup is already processed successfully")
+		return ctrl.Result{}, nil
 	}
 
 	// If object status is false, do not retry
-	if meta.IsStatusConditionFalse(dbbackupcr.Status.Conditions, consts.TYPE_BACKUP_STATUS) {
+	if r.isFailed(dbbackupcr) {
 		log.Info("The object status is false, not retrying")
 		return ctrl.Result{}, nil
+	}
+
+	immutableResHolder := true
+
+	// Since owner references must be set to resources in the same namespace,
+	// we are creating an additional ConfigMap that will be a holder
+	// for all resources required for a backup, to make cleanup easier
+	resourceHolder := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        dbbackupcr.Name + "holder",
+			Namespace:   r.Opts.Namespace,
+			Labels:      dbbackupcr.Labels,
+			Annotations: dbbackupcr.Annotations,
+		},
+		Immutable: &immutableResHolder,
+		Data: map[string]string{
+			"Descrpiption": "This resource is needed to set owner references",
+		},
+	}
+
+	// If object is removed, run the cleanup
+	if dbbackupcr.IsDeleted() {
+		if err := r.cleanup(ctx, dbbackupcr, resourceHolder); err != nil {
+			log.Error(err, "Couldn't execute the cleanup logic")
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
+	}
+
+	r.Opts.kubeHelper = kubehelper.NewKubeHelper(r.Client, r.Recorder, dbbackupcr)
+
+	// If status conditions are not set, it probably means that the CR was just created.
+	// Set the status conditions and return to let the next reconcile loop continue the logic
+	if len(dbbackupcr.Status.Conditions) == 0 {
+		if err := r.initDbBackupCR(ctx, dbbackupcr); err != nil {
+			log.Error(err, "Couldn't initialize a DbBackup object")
+			return ctrl.Result{}, err
+		}
+	}
+
+	// Create a resource holder and add a finalizer to DbBackup
+	if !slices.Contains(dbbackupcr.Finalizers, finResourceHolder) {
+		_, err := r.Opts.kubeHelper.Create(ctx, resourceHolder)
+		if err != nil {
+			log.Error(err, "Couldn't create a resource hodler", "name", resourceHolder.Name)
+			return ctrl.Result{}, err
+		}
+		dbbackupcr.Finalizers = append(dbbackupcr.Finalizers, finResourceHolder)
+		if err := r.Update(ctx, dbbackupcr); err != nil {
+			log.Error(err, "Couldn't add a finalizer")
+			return ctrl.Result{}, err
+		}
 	}
 
 	// Try to get the database for a backup
@@ -132,238 +176,45 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	// TODO: Add support for PVC to handle big backups
 
 	// If not backup.success, create a backup pod
-	if meta.IsStatusConditionPresentAndEqual(dbbackupcr.Status.Conditions, consts.TYPE_BACKUP_STATUS, metav1.ConditionUnknown) {
-		// Check if db-operator has reached the possible amount of retries
-		// If yes, give up and set status to false
-		if *dbbackupcr.Status.FailedRetries >= *dbbackupcr.Spec.Retries {
-			err := errors.New("failed retries amount is reached")
-			log.Error(err, "The amount of  failed retries is reached, CR is marked as failed", "retry", dbbackupcr.Status.FailedRetries)
+	// Check if db-operator has reached the possible amount of retries
+	// If yes, give up and set status to false
+	if *dbbackupcr.Status.FailedRetries >= *dbbackupcr.Spec.Retries {
+		err := errors.New("failed retries amount is reached")
+		log.Error(err, "The amount of  failed retries is reached, CR is marked as failed", "retry", dbbackupcr.Status.FailedRetries)
 
-			meta.SetStatusCondition(
-				&dbbackupcr.Status.Conditions,
-				metav1.Condition{Type: consts.TYPE_BACKUP_STATUS, Status: metav1.ConditionFalse, Reason: "Failed", Message: "Reached the amount of possible failed retries"},
-			)
+		meta.SetStatusCondition(
+			&dbbackupcr.Status.Conditions,
+			metav1.Condition{Type: consts.TYPE_BACKUP_STATUS, Status: metav1.ConditionFalse, Reason: "Failed", Message: "Reached the amount of possible failed retries"},
+		)
 
-			if err = r.Status().Update(ctx, dbbackupcr); err != nil {
-				log.Error(err, "Failed to update DbBackup status")
-				return ctrl.Result{}, err
-			}
-
-			return ctrl.Result{}, nil
-		}
-
-		log.Info("Executing the backup logic", "retry", *dbbackupcr.Status.FailedRetries+1)
-
-		// Init the kubehelper object
-		r.Opts.kubeHelper = kubehelper.NewKubeHelper(r.Client, r.Recorder, dbbackupcr)
-
-		tplData := &tplrender.TplData{
-			Namespace:       r.Opts.Namespace,
-			Engine:          dbcr.Status.Engine,
-			ImageRegistry:   *dbbackupcr.Spec.Image.Registry,
-			ImageRepository: *dbbackupcr.Spec.Image.Repository,
-			ImageTag:        *dbbackupcr.Spec.Image.Tag,
-			ImagePullPolicy: *dbbackupcr.Spec.Image.PullPolicy,
-			DatabaseName:    dbcr.Name,
-		}
-
-		var template string
-		template = "role.gotmpl"
-
-		codecs := serializer.NewCodecFactory(r.Scheme)
-		decoder := codecs.UniversalDeserializer()
-
-		roleManifest, err := r.buildObjFromTemplate(template, tplData)
-		if err != nil {
-			log.Error(err, "Couldn't render a template", "template", template)
-			return ctrl.Result{}, nil
-		}
-
-		role := &rbacv1.Role{}
-		_, _, err = decoder.Decode(roleManifest, nil, role)
-		if err != nil {
+		if err = r.Status().Update(ctx, dbbackupcr); err != nil {
+			log.Error(err, "Failed to update DbBackup status")
 			return ctrl.Result{}, err
-		}
-
-		role.Name = dbbackupcr.Name
-		role.Namespace = r.Opts.Namespace
-		role.Labels = dbbackupcr.Labels
-		role.Annotations = dbbackupcr.Annotations
-
-		requiredRules := []rbacv1.PolicyRule{
-			{
-				Verbs:         []string{"get"},
-				APIGroups:     []string{""},
-				Resources:     []string{"secrets", "configmaps"},
-				ResourceNames: []string{dbcr.Spec.SecretName},
-			},
-			{
-				Verbs:         []string{"get"},
-				APIGroups:     []string{dbcr.GroupVersionKind().Group},
-				Resources:     []string{"databases", "dbbackups"},
-				ResourceNames: []string{dbcr.Name},
-			},
-			{
-				Verbs:         []string{"get", "update", "patch"},
-				APIGroups:     []string{dbbackupcr.GroupVersionKind().Group},
-				Resources:     []string{"dbbackups/status"},
-				ResourceNames: []string{dbbackupcr.Name},
-			},
-		}
-
-		if len(role.Rules) == 0 {
-			role.Rules = []rbacv1.PolicyRule{}
-		}
-
-		role.Rules = append(role.Rules, requiredRules...)
-
-		if err := r.Opts.kubeHelper.HandleCreateOrUpdate(ctx, role); err != nil {
-			log.Error(err, "Couldn't create a role")
-			return ctrl.Result{}, nil
-		}
-
-		template = "service_account.gotmpl"
-
-		saManifest, err := r.buildObjFromTemplate(template, tplData)
-		if err != nil {
-			log.Error(err, "Couldn't render a template", "template", template)
-			return ctrl.Result{}, nil
-		}
-
-		sa := &v1.ServiceAccount{}
-		_, _, err = decoder.Decode(saManifest, nil, sa)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		sa.Name = dbbackupcr.Name
-		sa.Namespace = r.Opts.Namespace
-		sa.Labels = dbbackupcr.Labels
-		sa.Annotations = dbbackupcr.Annotations
-
-		if err := r.Opts.kubeHelper.HandleCreateOrUpdate(ctx, sa); err != nil {
-			log.Error(err, "Couldn't create a role")
-			return ctrl.Result{}, nil
-		}
-
-		template = "role_binding.gotmpl"
-		rbManifest, err := r.buildObjFromTemplate(template, tplData)
-		if err != nil {
-			log.Error(err, "Couldn't render a template", "template", template)
-			return ctrl.Result{}, nil
-		}
-
-		rb := &rbacv1.RoleBinding{}
-		_, _, err = decoder.Decode(rbManifest, nil, rb)
-		rb.Name = dbbackupcr.Name
-		rb.Namespace = r.Opts.Namespace
-		rb.Labels = dbbackupcr.Labels
-		rb.Annotations = dbbackupcr.Annotations
-
-		rb.RoleRef = rbacv1.RoleRef{
-			APIGroup: role.GroupVersionKind().Group,
-			Kind:     "Role",
-			Name:     role.GetName(),
-		}
-		rb.Subjects = []rbacv1.Subject{{
-			Kind:      "ServiceAccount",
-			APIGroup:  sa.GroupVersionKind().Group,
-			Name:      sa.GetName(),
-			Namespace: sa.GetNamespace(),
-		}}
-		if err := r.Opts.kubeHelper.HandleCreateOrUpdate(ctx, rb); err != nil {
-			log.Error(err, "Couldn't create a role")
-			return ctrl.Result{}, nil
-		}
-
-		template = "secret.gotmpl"
-		secretBackupEnvManifest, err := r.buildObjFromTemplate(template, tplData)
-		if err != nil {
-			log.Error(err, "Couldn't render a template", "template", template)
-			return ctrl.Result{}, nil
-		}
-		secretBackupEnv := &v1.Secret{}
-		_, _, err = decoder.Decode(secretBackupEnvManifest, nil, secretBackupEnv)
-
-		// Getting credentials for performing a backup
-		secret, err := r.getDatabaseSecret(ctx, dbcr)
-		if err != nil {
-			log.Error(err, "Couldn't get a database secret", "namespace", dbcr.Namespace, "name", dbcr.Spec.SecretName)
-			return ctrl.Result{}, err
-		}
-
-		adminSecret, err := r.getAdminSecret(ctx, dbcr)
-		if err != nil {
-			log.Error(err, "Couldn't get the admin secret")
-			return ctrl.Result{}, err
-		}
-		// TODO: All these methods should be somehow more accessible
-		databaseCred, err := dbhelper.ParseDatabaseSecretData(dbcr, secret.Data)
-		if err != nil {
-			// failed to parse database credential from secret
-			return ctrl.Result{}, err
-		}
-		instance := &kindarocksv1beta1.DbInstance{}
-		if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
-			return ctrl.Result{}, err
-		}
-		db, _, err := database.FetchDatabaseData(ctx, dbcr, databaseCred, instance)
-
-		adminCred, err := db.ParseAdminCredentials(ctx, adminSecret.Data)
-		if err != nil {
-			// failed to parse database admin secret
-			return ctrl.Result{}, err
-		}
-		envData := map[string][]byte{}
-		switch dbcr.Status.Engine {
-		case "postgres":
-			envData["PGHOST"] = []byte(db.GetDatabaseAddress(ctx).Host)
-			envData["PGPORT"] = []byte(strconv.FormatUint(uint64(db.GetDatabaseAddress(ctx).Port), 10))
-			envData["PGDATABASE"] = []byte(databaseCred.DatabaseName)
-			envData["PGPASSWORD"] = []byte(adminCred.Password)
-			envData["PGUSER"] = []byte(adminCred.Username)
-		case "mysql":
-			log.Info("Not yet there")
-		default:
-			return ctrl.Result{}, errors.New("not supported engine type")
-		}
-
-		if err := r.Opts.kubeHelper.HandleCreateOrUpdate(ctx, secretBackupEnv); err != nil {
-			log.Error(err, "Couldn't create a secrert")
-			return ctrl.Result{}, err
-		}
-
-		template = "pod.gotmpl"
-		podManifest, err := r.buildObjFromTemplate(template, tplData)
-		if err != nil {
-			log.Error(err, "Couldn't render a template", "template", template)
-			return ctrl.Result{}, nil
-		}
-		pod := &v1.Pod{}
-		_, _, err = decoder.Decode(podManifest, nil, pod)
-		pod.Name = dbbackupcr.Name
-		pod.Namespace = r.Opts.Namespace
-		pod.Labels = dbbackupcr.Labels
-		pod.Annotations = dbbackupcr.Annotations
-		pod.Spec.ServiceAccountName = sa.Name
-
-		for i, container := range pod.Spec.Containers {
-			if container.Name == "backup" {
-				pod.Spec.Containers[i].EnvFrom = []v1.EnvFromSource{{
-					SecretRef: &v1.SecretEnvSource{
-						LocalObjectReference: v1.LocalObjectReference{
-							Name: secretBackupEnv.Name,
-						},
-					},
-				}}
-			}
-		}
-
-		if err := r.Opts.kubeHelper.HandleCreateOrUpdate(ctx, pod); err != nil {
-			log.Error(err, "Couldn't create a pod")
-			return ctrl.Result{}, nil
 		}
 
 		return ctrl.Result{}, nil
+	}
+
+	log.Info("Executing the backup logic", "retry", *dbbackupcr.Status.FailedRetries+1)
+
+	// Init the kubehelper object
+	// Create a service account
+	// Create a DB Secret
+	// Create a POD
+
+	if err := r.createSA(ctx, dbbackupcr); err != nil {
+		log.Error(err, "Couldn't create a service account")
+		return ctrl.Result{}, err
+	}
+
+	if err := r.createDbSecret(ctx, dbbackupcr, dbcr); err != nil {
+		log.Error(err, "Couldn't create a secret with credentials")
+		return ctrl.Result{}, err
+	}
+
+	if err := r.createPod(ctx, dbbackupcr); err != nil {
+		log.Error(err, "Couldn't create a pod")
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
@@ -375,6 +226,45 @@ func (r *DbBackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&kindarocksv1beta1.DbBackup{}).
 		Named("dbbackup").
 		Complete(r)
+}
+
+// Set the initial condition to the DbBackup and updates the status
+func (r *DbBackupReconciler) initDbBackupCR(ctx context.Context, obj *kindarocksv1beta1.DbBackup) error {
+	log := logf.FromContext(ctx)
+	log.Info("Initializing an object")
+	meta.SetStatusCondition(
+		&obj.Status.Conditions,
+		metav1.Condition{Type: consts.TYPE_BACKUP_STATUS, Status: metav1.ConditionUnknown, Reason: "Reconciling", Message: "Starting reconciliation"},
+	)
+	if err := r.Status().Update(ctx, obj); err != nil {
+		log.V(2).Info("Failed to update DbBackup status", "error", err)
+		return err
+	}
+	return nil
+}
+
+// Check if DbBackup is already failed
+func (r *DbBackupReconciler) isFailed(obj *kindarocksv1beta1.DbBackup) bool {
+	return meta.IsStatusConditionFalse(obj.Status.Conditions, consts.TYPE_BACKUP_STATUS)
+}
+
+// Check if DbBackup is already succeded
+func (r *DbBackupReconciler) isSuccess(obj *kindarocksv1beta1.DbBackup) bool {
+	return meta.IsStatusConditionTrue(obj.Status.Conditions, consts.TYPE_BACKUP_STATUS)
+}
+
+// Remove the resource holder and a finalizer from the DbBackup
+func (r *DbBackupReconciler) cleanup(ctx context.Context, obj *kindarocksv1beta1.DbBackup, cm *corev1.ConfigMap) error {
+	if err := r.Delete(ctx, cm); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return err
+		}
+	}
+	obj.Finalizers = slices.DeleteFunc(obj.Finalizers, func(item string) bool {
+		return item == finResourceHolder
+	})
+
+	return nil
 }
 
 // Build a runtime object from a template
@@ -389,6 +279,124 @@ func (r *DbBackupReconciler) buildObjFromTemplate(template string, data *tplrend
 	}
 
 	return tpl, nil
+}
+
+func (r *DbBackupReconciler) createSA(ctx context.Context, obj *kindarocksv1beta1.DbBackup) error {
+	sa := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        fmt.Sprintf("%s-%s", obj.Namespace, obj.Name),
+			Namespace:   r.Opts.Namespace,
+			Labels:      obj.Labels,
+			Annotations: obj.Annotations,
+		},
+	}
+	if err := r.Opts.kubeHelper.HandleCreateOrUpdate(ctx, sa); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *DbBackupReconciler) createDbSecret(ctx context.Context, obj *kindarocksv1beta1.DbBackup, dbcr *kindarocksv1beta1.Database) error {
+	immutable := true
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        fmt.Sprintf("%s-%s", obj.Namespace, obj.Name),
+			Namespace:   r.Opts.Namespace,
+			Labels:      obj.Labels,
+			Annotations: obj.Annotations,
+		},
+		Immutable: &immutable,
+		Data:      map[string][]byte{},
+	}
+
+	// Getting credentials for performing a backup
+	dbSecret, err := r.getDatabaseSecret(ctx, dbcr)
+	if err != nil {
+		return err
+	}
+
+	adminSecret, err := r.getAdminSecret(ctx, dbcr)
+	if err != nil {
+		return err
+	}
+
+	databaseCred, err := dbhelper.ParseDatabaseSecretData(dbcr, dbSecret.Data)
+	if err != nil {
+		return err
+	}
+
+	instance := &kindarocksv1beta1.DbInstance{}
+	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
+		return err
+	}
+
+	db, _, err := database.FetchDatabaseData(ctx, dbcr, databaseCred, instance)
+
+	adminCred, err := db.ParseAdminCredentials(ctx, adminSecret.Data)
+	if err != nil {
+		return err
+	}
+
+	envData := map[string][]byte{}
+	switch dbcr.Status.Engine {
+	case "postgres":
+		envData["PGHOST"] = []byte(db.GetDatabaseAddress(ctx).Host)
+		envData["PGPORT"] = []byte(strconv.FormatUint(uint64(db.GetDatabaseAddress(ctx).Port), 10))
+		envData["PGDATABASE"] = []byte(databaseCred.DatabaseName)
+		envData["PGPASSWORD"] = []byte(adminCred.Password)
+		envData["PGUSER"] = []byte(adminCred.Username)
+	case "mysql":
+		return errors.New("not implemented")
+	default:
+		return errors.New("not supported engine type")
+	}
+
+	secret.Data = envData
+
+	if err := r.Opts.kubeHelper.HandleCreateOrUpdate(ctx, secret); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *DbBackupReconciler) createPod(ctx context.Context, obj *kindarocksv1beta1.DbBackup) error {
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        fmt.Sprintf("%s-%s", obj.Namespace, obj.Name),
+			Namespace:   r.Opts.Namespace,
+			Labels:      obj.Labels,
+			Annotations: obj.Annotations,
+		},
+	}
+	pod.Spec.ServiceAccountName = fmt.Sprintf("%s-%s", obj.Namespace, obj.Name)
+
+	for i, container := range pod.Spec.Containers {
+		if container.Name == "backup" {
+			pod.Spec.Containers[i].EnvFrom = []corev1.EnvFromSource{{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: fmt.Sprintf("%s-%s", obj.Namespace, obj.Name),
+					},
+				},
+			}}
+		}
+		if container.Name == "upload" {
+			pod.Spec.Containers[i].EnvFrom = []corev1.EnvFromSource{{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: *obj.Spec.UploadCredentialsSecret,
+					},
+				},
+			}}
+		}
+	}
+
+	if err := r.Opts.kubeHelper.HandleCreateOrUpdate(ctx, pod); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // TODO: It needs not to be copy-pasted for each controller

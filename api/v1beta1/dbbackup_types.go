@@ -30,6 +30,12 @@ type DbBackupSpec struct {
 	// A name of a database to back up. Must be in the same namespace
 	// +required
 	Database *string `json:"database"`
+	// A name of the secret with credentials for uploading a backup
+	// For example, rclone environment variables
+	// Must be in the namespace where backup pods are created,
+	// will be mounted directly to pods
+	// +optional
+	UploadCredentialsSecret *string `json:"uploadCredentialsSecret,omitzero"`
 }
 
 type DbBackupImage struct {
@@ -53,23 +59,10 @@ type DbBackupImage struct {
 
 // DbBackupStatus defines the observed state of DbBackup.
 type DbBackupStatus struct {
-	// If true, operaror will not reconcile the object
-	// Is needed to allow the backup pod to change the status of the CR
-	// without triggering a full reconcile loop again
-	LockedByBackupPod *bool `json:"lockedByBackupPod"`
 	// How many retries have already failed
 	// Use by the operator to stop retries once .spec.retries amount is reached
 	// +kubebuilder:default=0
-	FailedRetries *int32 `json:"failedRetries"`
-	// How long did it take to back up the database (in seconds)
-	// +kubebuilder:default=0
-	DumpDuration *int32 `json:"dumpDuration"`
-	// How long did it take to upload a backup (in seconds)
-	// +kubebuilder:default=0
-	UploadDuration *int32 `json:"uploadDuration"`
-	// The size of the backup (in bytes)
-	// +kubebuilder:default=0
-	Size            *int64  `json:"size"`
+	FailedRetries   *int32  `json:"failedRetries"`
 	OperatorVersion *string `json:"operatorVersion,omitempty"`
 	// For Kubernetes API conventions, see:
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties

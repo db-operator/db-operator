@@ -94,6 +94,13 @@ spec:
                 default: 3
                 format: int32
                 type: integer
+              uploadCredentialsSecret:
+                description: |-
+                  A name of the secret with credentials for uploading a backup
+                  For example, rclone environment variables
+                  Must be in the namespace where backup pods are created,
+                  will be mounted directly to pods
+                type: string
             required:
             - database
             - image
@@ -171,11 +178,6 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              dumpDuration:
-                default: 0
-                description: How long did it take to back up the database (in seconds)
-                format: int32
-                type: integer
               failedRetries:
                 default: 0
                 description: |-
@@ -183,30 +185,10 @@ spec:
                   Use by the operator to stop retries once .spec.retries amount is reached
                 format: int32
                 type: integer
-              lockedByBackupPod:
-                description: |-
-                  If true, operaror will not reconcile the object
-                  Is needed to allow the backup pod to change the status of the CR
-                  without triggering a full reconcile loop again
-                type: boolean
               operatorVersion:
                 type: string
-              size:
-                default: 0
-                description: The size of the backup (in bytes)
-                format: int64
-                type: integer
-              uploadDuration:
-                default: 0
-                description: How long did it take to upload a backup (in seconds)
-                format: int32
-                type: integer
             required:
-            - dumpDuration
             - failedRetries
-            - lockedByBackupPod
-            - size
-            - uploadDuration
             type: object
         required:
         - spec
