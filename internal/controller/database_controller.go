@@ -617,7 +617,7 @@ func (r *DatabaseReconciler) createDatabase(ctx context.Context, dbcr *kindav1be
 	}
 
 	dbcr.Status.OperatorVersion = commonhelper.OperatorVersion
-	dbcr.Status.DatabaseName = databaseCred.Name
+	dbcr.Status.DatabaseName = databaseCred.DatabaseName
 	dbcr.Status.UserName = databaseCred.Username
 	log.Info("successfully created")
 	return nil
@@ -631,8 +631,8 @@ func (r *DatabaseReconciler) deleteDatabase(ctx context.Context, dbcr *kindav1be
 	}
 
 	databaseCred := database.Credentials{
-		Name:     dbcr.Status.DatabaseName,
-		Username: dbcr.Status.UserName,
+		DatabaseName: dbcr.Status.DatabaseName,
+		Username:     dbcr.Status.UserName,
 	}
 
 	instance := &kindav1beta1.DbInstance{}
@@ -917,6 +917,16 @@ func (r *DatabaseReconciler) handleInfoConfigMap(ctx context.Context, dbcr *kind
 	if proxyStatus.Status {
 		info["DB_HOST"] = proxyStatus.ServiceName
 		info["DB_PORT"] = strconv.FormatInt(int64(proxyStatus.SQLPort), 10)
+		dbcr.Status.Port = proxyStatus.SQLPort
+		dbcr.Status.Host = proxyStatus.ServiceName
+	} else {
+		i, err := strconv.ParseInt(info["DB_PORT"], 10, 32)
+		if err != nil {
+			return err
+		}
+		dbcr.Status.Port = int32(i)
+		dbcr.Status.Host = info["DB_HOST"]
+
 	}
 
 	sslMode, err := dbhelper.GetSSLMode(dbcr, instance)

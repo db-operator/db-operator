@@ -90,4 +90,5 @@ const (
 
 const (
 	DEFAULT_TEMPLATES_DIR = "/templates"
+	ENV_BACKUP_NAMESPACE  = "DB_BACKUP_NAMESPACE"
 )

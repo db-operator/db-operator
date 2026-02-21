@@ -33,6 +33,7 @@ import (
 	controllers "github.com/db-operator/db-operator/v2/internal/controller"
 	webhookv1beta1 "github.com/db-operator/db-operator/v2/internal/webhook/v1beta1"
 	"github.com/db-operator/db-operator/v2/pkg/config"
+	"github.com/db-operator/db-operator/v2/pkg/consts"
 	"github.com/db-operator/db-operator/v2/pkg/utils/thirdpartyapi"
 
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -183,6 +184,7 @@ func main() {
 
 	dbBackupOpts := &controllers.DbBackupReconcilerOpts{
 		TemplatesDir: templatesDir,
+		Namespace:    os.Getenv(consts.ENV_BACKUP_NAMESPACE),
 	}
 	if err := (&controller.DbBackupReconciler{
 		Opts:   dbBackupOpts,

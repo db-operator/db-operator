@@ -1,6 +1,7 @@
 apiVersion: v1
 kind: Pod
-metadata: {}
+metadata:
+  namespace: {{ .Namespace }}
 spec:
   securityContext:
     runAsNonRoot: true

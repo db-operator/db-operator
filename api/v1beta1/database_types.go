@@ -66,6 +66,8 @@ type DatabaseStatus struct {
 	Engine                string              `json:"engine"`
 	OperatorVersion       string              `json:"operatorVersion,omitempty"`
 	ExtraGrants           []*ExtraGrant       `json:"extraGrants,omitempty"`
+	Host                  string              `json:"host,omitempty"`
+	Port                  int32               `json:"port,omitempty"`
 }
 
 // DatabaseProxyStatus defines whether proxy for database is enabled or not

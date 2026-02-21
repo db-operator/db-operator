@@ -17,7 +17,10 @@ package controller
 import (
 	"context"
 	"errors"
+	"strconv"
 
+	dbhelper "github.com/db-operator/db-operator/v2/internal/helpers/database"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -31,6 +34,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	kindarocksv1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
+	"github.com/db-operator/db-operator/v2/internal/helpers/database"
 	kubehelper "github.com/db-operator/db-operator/v2/internal/helpers/kube"
 	"github.com/db-operator/db-operator/v2/internal/helpers/tplrender"
 	"github.com/db-operator/db-operator/v2/pkg/consts"
@@ -50,6 +54,7 @@ type DbBackupReconcilerOpts struct {
 	// A path to a directory with manifests templates
 	TemplatesDir string
 	kubeHelper   *kubehelper.KubeHelper
+	Namespace    string
 }
 
 // +kubebuilder:rbac:groups=kinda.rocks,resources=dbbackups,verbs=get;list;watch;create;update;patch;delete
@@ -117,6 +122,12 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
+	if !dbcr.Status.Status {
+		err := errors.New("database is not ready")
+		log.Error(err, "Database is not ready", "namespace", dbbackupcr.Namespace, "database", *dbbackupcr.Spec.Database)
+		return ctrl.Result{}, err
+	}
+
 	// Prepare required Kubernetes resources: Role, RoleBinding, ServiceAccount, and Pod
 	// TODO: Add support for PVC to handle big backups
 
@@ -147,7 +158,7 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		r.Opts.kubeHelper = kubehelper.NewKubeHelper(r.Client, r.Recorder, dbbackupcr)
 
 		tplData := &tplrender.TplData{
-			Namespace:       dbbackupcr.Namespace,
+			Namespace:       r.Opts.Namespace,
 			Engine:          dbcr.Status.Engine,
 			ImageRegistry:   *dbbackupcr.Spec.Image.Registry,
 			ImageRepository: *dbbackupcr.Spec.Image.Repository,
@@ -175,7 +186,7 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 
 		role.Name = dbbackupcr.Name
-		role.Namespace = dbbackupcr.Namespace
+		role.Namespace = r.Opts.Namespace
 		role.Labels = dbbackupcr.Labels
 		role.Annotations = dbbackupcr.Annotations
 
@@ -225,7 +236,7 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			return ctrl.Result{}, err
 		}
 		sa.Name = dbbackupcr.Name
-		sa.Namespace = dbbackupcr.Namespace
+		sa.Namespace = r.Opts.Namespace
 		sa.Labels = dbbackupcr.Labels
 		sa.Annotations = dbbackupcr.Annotations
 
@@ -244,7 +255,7 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		rb := &rbacv1.RoleBinding{}
 		_, _, err = decoder.Decode(rbManifest, nil, rb)
 		rb.Name = dbbackupcr.Name
-		rb.Namespace = dbbackupcr.Namespace
+		rb.Namespace = r.Opts.Namespace
 		rb.Labels = dbbackupcr.Labels
 		rb.Annotations = dbbackupcr.Annotations
 
@@ -264,6 +275,63 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			return ctrl.Result{}, nil
 		}
 
+		template = "secret.gotmpl"
+		secretBackupEnvManifest, err := r.buildObjFromTemplate(template, tplData)
+		if err != nil {
+			log.Error(err, "Couldn't render a template", "template", template)
+			return ctrl.Result{}, nil
+		}
+		secretBackupEnv := &v1.Secret{}
+		_, _, err = decoder.Decode(secretBackupEnvManifest, nil, secretBackupEnv)
+
+		// Getting credentials for performing a backup
+		secret, err := r.getDatabaseSecret(ctx, dbcr)
+		if err != nil {
+			log.Error(err, "Couldn't get a database secret", "namespace", dbcr.Namespace, "name", dbcr.Spec.SecretName)
+			return ctrl.Result{}, err
+		}
+
+		adminSecret, err := r.getAdminSecret(ctx, dbcr)
+		if err != nil {
+			log.Error(err, "Couldn't get the admin secret")
+			return ctrl.Result{}, err
+		}
+		// TODO: All these methods should be somehow more accessible
+		databaseCred, err := dbhelper.ParseDatabaseSecretData(dbcr, secret.Data)
+		if err != nil {
+			// failed to parse database credential from secret
+			return ctrl.Result{}, err
+		}
+		instance := &kindarocksv1beta1.DbInstance{}
+		if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
+			return ctrl.Result{}, err
+		}
+		db, _, err := database.FetchDatabaseData(ctx, dbcr, databaseCred, instance)
+
+		adminCred, err := db.ParseAdminCredentials(ctx, adminSecret.Data)
+		if err != nil {
+			// failed to parse database admin secret
+			return ctrl.Result{}, err
+		}
+		envData := map[string][]byte{}
+		switch dbcr.Status.Engine {
+		case "postgres":
+			envData["PGHOST"] = []byte(db.GetDatabaseAddress(ctx).Host)
+			envData["PGPORT"] = []byte(strconv.FormatUint(uint64(db.GetDatabaseAddress(ctx).Port), 10))
+			envData["PGDATABASE"] = []byte(databaseCred.DatabaseName)
+			envData["PGPASSWORD"] = []byte(adminCred.Password)
+			envData["PGUSER"] = []byte(adminCred.Username)
+		case "mysql":
+			log.Info("Not yet there")
+		default:
+			return ctrl.Result{}, errors.New("not supported engine type")
+		}
+
+		if err := r.Opts.kubeHelper.HandleCreateOrUpdate(ctx, secretBackupEnv); err != nil {
+			log.Error(err, "Couldn't create a secrert")
+			return ctrl.Result{}, err
+		}
+
 		template = "pod.gotmpl"
 		podManifest, err := r.buildObjFromTemplate(template, tplData)
 		if err != nil {
@@ -273,12 +341,25 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		pod := &v1.Pod{}
 		_, _, err = decoder.Decode(podManifest, nil, pod)
 		pod.Name = dbbackupcr.Name
-		pod.Namespace = dbbackupcr.Namespace
+		pod.Namespace = r.Opts.Namespace
 		pod.Labels = dbbackupcr.Labels
 		pod.Annotations = dbbackupcr.Annotations
 		pod.Spec.ServiceAccountName = sa.Name
+
+		for i, container := range pod.Spec.Containers {
+			if container.Name == "backup" {
+				pod.Spec.Containers[i].EnvFrom = []v1.EnvFromSource{{
+					SecretRef: &v1.SecretEnvSource{
+						LocalObjectReference: v1.LocalObjectReference{
+							Name: secretBackupEnv.Name,
+						},
+					},
+				}}
+			}
+		}
+
 		if err := r.Opts.kubeHelper.HandleCreateOrUpdate(ctx, pod); err != nil {
-			log.Error(err, "Couldn't create a role")
+			log.Error(err, "Couldn't create a pod")
 			return ctrl.Result{}, nil
 		}
 
@@ -308,4 +389,35 @@ func (r *DbBackupReconciler) buildObjFromTemplate(template string, data *tplrend
 	}
 
 	return tpl, nil
+}
+
+// TODO: It needs not to be copy-pasted for each controller
+func (r *DbBackupReconciler) getDatabaseSecret(ctx context.Context, dbcr *kindarocksv1beta1.Database) (*corev1.Secret, error) {
+	secret := &corev1.Secret{}
+	key := types.NamespacedName{
+		Namespace: dbcr.Namespace,
+		Name:      dbcr.Spec.SecretName,
+	}
+	err := r.Get(ctx, key, secret)
+	if err != nil {
+		return nil, err
+	}
+
+	return secret, nil
+}
+
+func (r *DbBackupReconciler) getAdminSecret(ctx context.Context, dbcr *kindarocksv1beta1.Database) (*corev1.Secret, error) {
+	instance := &kindarocksv1beta1.DbInstance{}
+	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
+		return nil, err
+	}
+
+	// get database admin credentials
+	secret := &corev1.Secret{}
+
+	if err := r.Get(ctx, instance.Spec.AdminUserSecret.ToKubernetesType(), secret); err != nil {
+		return nil, err
+	}
+
+	return secret, nil
 }
