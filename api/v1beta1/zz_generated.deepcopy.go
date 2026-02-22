@@ -387,6 +387,11 @@ func (in *DbBackupStatus) DeepCopyInto(out *DbBackupStatus) {
 		*out = new(int32)
 		**out = **in
 	}
+	if in.LockedByBackupJob != nil {
+		in, out := &in.LockedByBackupJob, &out.LockedByBackupJob
+		*out = new(bool)
+		**out = **in
+	}
 	if in.OperatorVersion != nil {
 		in, out := &in.OperatorVersion, &out.OperatorVersion
 		*out = new(string)

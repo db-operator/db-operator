@@ -62,8 +62,10 @@ type DbBackupStatus struct {
 	// How many retries have already failed
 	// Use by the operator to stop retries once .spec.retries amount is reached
 	// +kubebuilder:default=0
-	FailedRetries   *int32  `json:"failedRetries"`
-	OperatorVersion *string `json:"operatorVersion,omitempty"`
+	FailedRetries *int32 `json:"failedRetries"`
+	// +kubebuilder:default=false
+	LockedByBackupJob *bool   `json:"lockedByBackupJob,omitempty"`
+	OperatorVersion   *string `json:"operatorVersion,omitempty"`
 	// For Kubernetes API conventions, see:
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
 

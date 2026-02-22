@@ -185,6 +185,9 @@ spec:
                   Use by the operator to stop retries once .spec.retries amount is reached
                 format: int32
                 type: integer
+              lockedByBackupJob:
+                default: false
+                type: boolean
               operatorVersion:
                 type: string
             required:
