@@ -25,7 +25,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	kindarocksv1beta1 "github.com/db-operator/db-operator/api/v1beta1"
+	kindarocksv1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
 )
 
 var _ = Describe("DbBackup Controller", func() {

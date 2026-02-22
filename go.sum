@@ -22,8 +22,6 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/db-operator/can-haz-password v0.1.1 h1:g0OC+9e4L751aWS9h02p/G4WrAaWgbR9LFjKLLC/hnA=
 github.com/db-operator/can-haz-password v0.1.1/go.mod h1:0iO+taMqfWqNF3ltVhDWfIghD4VkXnnaQf06xiEIX8M=
-github.com/db-operator/db-operator v1.17.0 h1:1DbNKxxcpo0fAd18o4zI8x2WVcmJrUm/YkRci0sLPk8=
-github.com/db-operator/db-operator v1.17.0/go.mod h1:01Tqb+9A7Aon2uhJOP+T8Uy1ODq8uPlSoGQkI7vxJHc=
 github.com/emicklei/go-restful/v3 v3.12.2 h1:DhwDP0vY3k8ZzE0RunuJy8GhNpPL6zqLkDf9B/a0/xU=
 github.com/emicklei/go-restful/v3 v3.12.2/go.mod h1:6n3XBCmQQb25CM2LCACGz8ukIrRry+4bhvbpWn3mrbc=
 github.com/evanphx/json-patch v0.5.2 h1:xVCHIVMUu1wtM/VkR9jVZ45N3FhZfYMMYGorLCR8P3k=

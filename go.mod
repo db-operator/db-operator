@@ -10,7 +10,6 @@ require (
 	bou.ke/monkey v1.0.2
 	github.com/GoogleCloudPlatform/cloudsql-proxy v1.37.12
 	github.com/db-operator/can-haz-password v0.1.1
-	github.com/db-operator/db-operator v1.17.0
 	github.com/go-logr/logr v1.4.3
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/google/uuid v1.6.0

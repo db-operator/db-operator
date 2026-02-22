@@ -22,6 +22,7 @@ import (
 	"strconv"
 
 	dbhelper "github.com/db-operator/db-operator/v2/internal/helpers/database"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,7 +36,6 @@ import (
 	kindarocksv1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
 	"github.com/db-operator/db-operator/v2/internal/helpers/database"
 	kubehelper "github.com/db-operator/db-operator/v2/internal/helpers/kube"
-	"github.com/db-operator/db-operator/v2/internal/helpers/tplrender"
 	"github.com/db-operator/db-operator/v2/pkg/consts"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
@@ -51,9 +51,8 @@ type DbBackupReconciler struct {
 // Options for the DbBackupReconciler
 type DbBackupReconcilerOpts struct {
 	// A path to a directory with manifests templates
-	TemplatesDir string
-	kubeHelper   *kubehelper.KubeHelper
-	Namespace    string
+	kubeHelper *kubehelper.KubeHelper
+	Namespace  string
 }
 
 const (
@@ -212,7 +211,7 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	if err := r.createPod(ctx, dbbackupcr); err != nil {
+	if err := r.createJob(ctx, dbbackupcr); err != nil {
 		log.Error(err, "Couldn't create a pod")
 		return ctrl.Result{}, err
 	}
@@ -265,20 +264,6 @@ func (r *DbBackupReconciler) cleanup(ctx context.Context, obj *kindarocksv1beta1
 	})
 
 	return nil
-}
-
-// Build a runtime object from a template
-func (r *DbBackupReconciler) buildObjFromTemplate(template string, data *tplrender.TplData) ([]byte, error) {
-	tplRaw, err := tplrender.ReadFile(r.Opts.TemplatesDir, template)
-	if err != nil {
-		return nil, err
-	}
-	tpl, err := tplrender.Render(tplRaw, data)
-	if err != nil {
-		return nil, err
-	}
-
-	return tpl, nil
 }
 
 func (r *DbBackupReconciler) createSA(ctx context.Context, obj *kindarocksv1beta1.DbBackup) error {
@@ -360,39 +345,73 @@ func (r *DbBackupReconciler) createDbSecret(ctx context.Context, obj *kindarocks
 	return nil
 }
 
-func (r *DbBackupReconciler) createPod(ctx context.Context, obj *kindarocksv1beta1.DbBackup) error {
-	pod := &corev1.Pod{
+func (r *DbBackupReconciler) createJob(ctx context.Context, obj *kindarocksv1beta1.DbBackup) error {
+	var parallelism int32 = 1
+
+	var selectorLabels map[string]string
+	if len(obj.Labels) > 0 {
+		selectorLabels = obj.DeepCopy().Labels
+	} else {
+		selectorLabels = map[string]string{}
+	}
+	selectorLabels["app.kubernetes.io/created-by"] = "db-operator"
+	selectorLabels["app.kubernetes.io/managed-by"] = obj.Name
+	selectorLabels["app.kubernetes.io/instance"] = obj.Name
+
+	hostUser := false
+	image := fmt.Sprintf("%s/%s:%s", *obj.Spec.Image.Registry, *obj.Spec.Image.Repository, *obj.Spec.Image.Tag)
+	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        fmt.Sprintf("%s-%s", obj.Namespace, obj.Name),
 			Namespace:   r.Opts.Namespace,
 			Labels:      obj.Labels,
 			Annotations: obj.Annotations,
 		},
-	}
-	pod.Spec.ServiceAccountName = fmt.Sprintf("%s-%s", obj.Namespace, obj.Name)
-
-	for i, container := range pod.Spec.Containers {
-		if container.Name == "backup" {
-			pod.Spec.Containers[i].EnvFrom = []corev1.EnvFromSource{{
-				SecretRef: &corev1.SecretEnvSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: fmt.Sprintf("%s-%s", obj.Namespace, obj.Name),
-					},
+		Spec: batchv1.JobSpec{
+			Parallelism:  &parallelism,
+			BackoffLimit: obj.Spec.Retries,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: selectorLabels,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels:      selectorLabels,
+					Annotations: obj.Annotations,
 				},
-			}}
-		}
-		if container.Name == "upload" {
-			pod.Spec.Containers[i].EnvFrom = []corev1.EnvFromSource{{
-				SecretRef: &corev1.SecretEnvSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: *obj.Spec.UploadCredentialsSecret,
-					},
+				Spec: corev1.PodSpec{
+					Volumes: []corev1.Volume{{
+						Name: "backup",
+						VolumeSource: corev1.VolumeSource{
+							EmptyDir: &corev1.EmptyDirVolumeSource{},
+						},
+					}},
+					Containers: []corev1.Container{{
+						Name:  "backup",
+						Image: image,
+						Args:  []string{"backup"},
+						EnvFrom: []corev1.EnvFromSource{{
+							SecretRef: &corev1.SecretEnvSource{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: fmt.Sprintf("%s-%s", obj.Namespace, obj.Name),
+								},
+							},
+						}},
+						VolumeMounts: []corev1.VolumeMount{{
+							Name:      "backup",
+							MountPath: "/backup",
+						}},
+						ImagePullPolicy: corev1.PullPolicy(*obj.Spec.Image.PullPolicy),
+					}, {}},
+					ServiceAccountName: fmt.Sprintf("%s-%s", obj.Namespace, obj.Name),
+					SecurityContext:    &corev1.PodSecurityContext{},
+					RuntimeClassName:   new(string),
+					HostUsers:          &hostUser,
 				},
-			}}
-		}
+			},
+		},
 	}
 
-	if err := r.Opts.kubeHelper.HandleCreateOrUpdate(ctx, pod); err != nil {
+	if err := r.Opts.kubeHelper.HandleCreateOrUpdate(ctx, job); err != nil {
 		return err
 	}
 
