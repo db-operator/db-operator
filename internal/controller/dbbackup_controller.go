@@ -24,6 +24,7 @@ import (
 	dbhelper "github.com/db-operator/db-operator/v2/internal/helpers/database"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -85,8 +86,8 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	if r.isSuccess(dbbackupcr) {
-		log.Info("Backup is already processed successfully")
+	if *dbbackupcr.Status.LockedByBackupJob {
+		log.Info("Locked by a backup job, skipping ...")
 		return ctrl.Result{}, nil
 	}
 
@@ -104,7 +105,7 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	resourceHolder := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        dbbackupcr.Name + "holder",
-			Namespace:   r.Opts.Namespace,
+			Namespace:   dbbackupcr.Namespace,
 			Labels:      dbbackupcr.Labels,
 			Annotations: dbbackupcr.Annotations,
 		},
@@ -120,6 +121,15 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			log.Error(err, "Couldn't execute the cleanup logic")
 			return ctrl.Result{}, err
 		}
+		return ctrl.Result{}, nil
+	}
+
+	if r.isSuccess(dbbackupcr) {
+		if err := r.cleanup(ctx, dbbackupcr, resourceHolder); err != nil {
+			log.Error(err, "Couldn't execute the cleanup logic")
+			return ctrl.Result{}, err
+		}
+		log.Info("Backup is already processed successfully")
 		return ctrl.Result{}, nil
 	}
 
@@ -211,6 +221,16 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
+	if err := r.createRole(ctx, dbbackupcr); err != nil {
+		log.Error(err, "Couldn't create a secret with credentials")
+		return ctrl.Result{}, err
+	}
+
+	if err := r.createRoleBinding(ctx, dbbackupcr); err != nil {
+		log.Error(err, "Couldn't create a secret with credentials")
+		return ctrl.Result{}, err
+	}
+
 	if err := r.createJob(ctx, dbbackupcr); err != nil {
 		log.Error(err, "Couldn't create a pod")
 		return ctrl.Result{}, err
@@ -269,8 +289,8 @@ func (r *DbBackupReconciler) cleanup(ctx context.Context, obj *kindarocksv1beta1
 func (r *DbBackupReconciler) createSA(ctx context.Context, obj *kindarocksv1beta1.DbBackup) error {
 	sa := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        fmt.Sprintf("%s-%s", obj.Namespace, obj.Name),
-			Namespace:   r.Opts.Namespace,
+			Name:        obj.Name,
+			Namespace:   obj.Namespace,
 			Labels:      obj.Labels,
 			Annotations: obj.Annotations,
 		},
@@ -281,12 +301,67 @@ func (r *DbBackupReconciler) createSA(ctx context.Context, obj *kindarocksv1beta
 	return nil
 }
 
+func (r *DbBackupReconciler) createRole(ctx context.Context, obj *kindarocksv1beta1.DbBackup) error {
+	role := &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        obj.Name,
+			Namespace:   obj.Namespace,
+			Labels:      obj.Labels,
+			Annotations: obj.Annotations,
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				Verbs:         []string{"get"},
+				APIGroups:     []string{"kinda.rocks"},
+				Resources:     []string{"dbbackups"},
+				ResourceNames: []string{obj.Name},
+			},
+			{
+				Verbs:         []string{"get", "patch", "update"},
+				APIGroups:     []string{"kinda.rocks"},
+				Resources:     []string{"dbbackups/status"},
+				ResourceNames: []string{obj.Name},
+			},
+		},
+	}
+	if err := r.Opts.kubeHelper.HandleCreateOrUpdate(ctx, role); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *DbBackupReconciler) createRoleBinding(ctx context.Context, obj *kindarocksv1beta1.DbBackup) error {
+	role := &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        obj.Name,
+			Namespace:   obj.Namespace,
+			Labels:      obj.Labels,
+			Annotations: obj.Annotations,
+		},
+		Subjects: []rbacv1.Subject{{
+			Kind:      "ServiceAccount",
+			APIGroup:  "",
+			Name:      obj.Name,
+			Namespace: obj.Namespace,
+		}},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "Role",
+			Name:     obj.Name,
+		},
+	}
+	if err := r.Opts.kubeHelper.HandleCreateOrUpdate(ctx, role); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (r *DbBackupReconciler) createDbSecret(ctx context.Context, obj *kindarocksv1beta1.DbBackup, dbcr *kindarocksv1beta1.Database) error {
 	immutable := true
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        fmt.Sprintf("%s-%s", obj.Namespace, obj.Name),
-			Namespace:   r.Opts.Namespace,
+			Name:        obj.Name,
+			Namespace:   obj.Namespace,
 			Labels:      obj.Labels,
 			Annotations: obj.Annotations,
 		},
@@ -362,8 +437,8 @@ func (r *DbBackupReconciler) createJob(ctx context.Context, obj *kindarocksv1bet
 	image := fmt.Sprintf("%s/%s:%s", *obj.Spec.Image.Registry, *obj.Spec.Image.Repository, *obj.Spec.Image.Tag)
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        fmt.Sprintf("%s-%s", obj.Namespace, obj.Name),
-			Namespace:   r.Opts.Namespace,
+			Name:        obj.Name,
+			Namespace:   obj.Namespace,
 			Labels:      obj.Labels,
 			Annotations: obj.Annotations,
 		},
