@@ -30,6 +30,8 @@ ENV USER_NAME=db-operator
 # # install operator binary
 COPY --from=builder /usr/local/bin/db-operator /usr/local/bin/db-operator
 COPY ./build/bin /usr/local/bin
+COPY ./templates /templates
+
 RUN /usr/local/bin/user_setup
 
 ENTRYPOINT ["/usr/local/bin/entrypoint"]

@@ -81,3 +81,14 @@ const (
 // Privileges
 
 const ALL_PRIVILEGES = "ALL PRIVILEGES"
+
+// Shared Status Conditions
+const (
+	// TYPE_BACKUP_STATUS represents the status of the backup
+	TYPE_BACKUP_STATUS = "BackupStatus"
+)
+
+const (
+	DEFAULT_TEMPLATES_DIR = "/templates"
+	ENV_BACKUP_NAMESPACE  = "DB_BACKUP_NAMESPACE"
+)

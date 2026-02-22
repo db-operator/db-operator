@@ -501,10 +501,15 @@ spec:
                   - user
                   type: object
                 type: array
+              host:
+                type: string
               monitorUserSecret:
                 type: string
               operatorVersion:
                 type: string
+              port:
+                format: int32
+                type: integer
               proxyStatus:
                 description: |-
                   DatabaseProxyStatus defines whether proxy for database is enabled or not
