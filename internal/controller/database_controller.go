@@ -149,8 +149,17 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return r.handleDbCreateOrUpdate(ctx, dbcr, mustReconile)
 }
 
-// Move it to helpers and start testing it
 func (r *DatabaseReconciler) healthCheck(ctx context.Context, dbcr *kindav1beta1.Database) error {
+	log := log.FromContext(ctx)
+	if len(dbcr.Spec.ExistingUser) > 0 {
+		log.Info("An existing user is used, running health check as admin")
+		return r.healthCheckAdmin(ctx, dbcr)
+	}
+	return r.healthCheckUser(ctx, dbcr)
+}
+
+// Move it to helpers and start testing it
+func (r *DatabaseReconciler) healthCheckUser(ctx context.Context, dbcr *kindav1beta1.Database) error {
 	var dbSecret *corev1.Secret
 	dbSecret, err := r.getDatabaseSecret(ctx, dbcr)
 	if err != nil {
@@ -175,6 +184,53 @@ func (r *DatabaseReconciler) healthCheck(ctx context.Context, dbcr *kindav1beta1
 	}
 
 	if err := db.CheckStatus(ctx, dbuser); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Move it to helpers and start testing it
+func (r *DatabaseReconciler) healthCheckAdmin(ctx context.Context, dbcr *kindav1beta1.Database) error {
+	var dbSecret *corev1.Secret
+	dbSecret, err := r.getDatabaseSecret(ctx, dbcr)
+	if err != nil {
+		return err
+	}
+
+	databaseCred, err := dbhelper.ParseDatabaseSecretData(dbcr, dbSecret.Data)
+	if err != nil {
+		// failed to parse database credential from secret
+		return err
+	}
+
+	instance := &kindav1beta1.DbInstance{}
+	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
+		return err
+	}
+
+	db, _, err := dbhelper.FetchDatabaseData(ctx, dbcr, databaseCred, instance)
+	if err != nil {
+		// failed to determine database type
+		return err
+	}
+
+	adminSecretResource, err := r.getAdminSecret(ctx, dbcr)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return err
+		}
+		return err
+	}
+
+	// found admin secret. parse it to connect database
+	adminCred, err := db.ParseAdminCredentials(ctx, adminSecretResource.Data)
+	if err != nil {
+		// failed to parse database admin secret
+		return err
+	}
+
+	if err := db.CheckStatus(ctx, adminCred); err != nil {
 		return err
 	}
 
@@ -551,10 +607,14 @@ func (r *DatabaseReconciler) createDatabase(ctx context.Context, dbcr *kindav1be
 	if err != nil {
 		return err
 	}
-
-	err = database.CreateOrUpdateUser(ctx, db, dbuser, adminCred)
-	if err != nil {
-		return err
+	if len(dbcr.Spec.ExistingUser) > 0 {
+		if err := database.SetPermissions(ctx, db, dbuser, adminCred); err != nil {
+			return err
+		}
+	} else {
+		if err := database.CreateOrUpdateUser(ctx, db, dbuser, adminCred); err != nil {
+			return err
+		}
 	}
 	if len(dbcr.Status.ExtraGrants) > 0 && !instance.Spec.AllowExtraGrants {
 		err := errors.New("extra grants are not allowed on the instance")
@@ -664,9 +724,11 @@ func (r *DatabaseReconciler) deleteDatabase(ctx context.Context, dbcr *kindav1be
 		return err
 	}
 
-	err = database.DeleteUser(ctx, db, dbuser, adminCred)
-	if err != nil {
-		return err
+	// We can't revoke permissions on a removed database
+	if len(dbcr.Spec.ExistingUser) == 0 {
+		if err := database.DeleteUser(ctx, db, dbuser, adminCred); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -1031,7 +1093,7 @@ func (r *DatabaseReconciler) manageError(ctx context.Context, dbcr *kindav1beta1
 
 func (r *DatabaseReconciler) createSecret(ctx context.Context, dbcr *kindav1beta1.Database) (*corev1.Secret, error) {
 	log := log.FromContext(ctx)
-	secretData, err := dbhelper.GenerateDatabaseSecretData(dbcr.ObjectMeta, dbcr.Status.Engine, "")
+	secretData, err := dbhelper.GenerateDatabaseSecretData(dbcr.ObjectMeta, dbcr.Status.Engine, "", dbcr.Spec.ExistingUser)
 	if err != nil {
 		log.Error(err, "can not generate credentials for database")
 		return nil, err

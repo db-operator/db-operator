@@ -84,6 +84,11 @@ func (v *DbUserCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj
 	if err := TestExtraPrivileges(newObj.Spec.ExtraPrivileges); err != nil {
 		return warnings, err
 	}
+
+	if len(oldObj.Spec.ExistingUser) > 0 && len(newObj.Spec.ExistingUser) == 0 {
+		warnings = append(warnings, "After swtching from exsting user to a generated user, the password is set to an empty string, remove the db secret to generate it")
+	}
+
 	if err := kindarocksv1beta1.IsAccessTypeSupported(newObj.Spec.AccessType); err != nil {
 		return warnings, err
 	}

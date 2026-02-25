@@ -102,7 +102,7 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		// error, cause we don't know which user must be removed
 		if k8serrors.IsNotFound(err) && !dbusercr.IsDeleted() {
 			dbName := fmt.Sprintf("%s-%s", dbusercr.Namespace, dbusercr.Spec.DatabaseRef)
-			secretData, err := dbhelper.GenerateDatabaseSecretData(dbusercr.ObjectMeta, dbcr.Status.Engine, dbName)
+			secretData, err := dbhelper.GenerateDatabaseSecretData(dbusercr.ObjectMeta, dbcr.Status.Engine, dbName, dbusercr.Spec.ExistingUser)
 			if err != nil {
 				log.Error(err, "Could not generate credentials for database")
 				return r.manageError(ctx, dbusercr, err, false)
@@ -214,10 +214,12 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		// If allow existing is set to true, db-operator will not force user creation
 		// and also when a user with that property is removed, user won't be removed
 		// from the database, instead only the permissions will be revoked
-		allowExisting := false
+		existingUser := false
+		// TODO: Remove this annotation
 		allowExistingRaw, ok := dbusercr.Annotations[consts.ALLOW_EXISTING_USER]
 		if ok {
-			allowExisting, err = strconv.ParseBool(allowExistingRaw)
+			log.Info("Annotation is deprecated, please use .spec.existingUser instead", "annotation", consts.ALLOW_EXISTING_USER)
+			existingUser, err = strconv.ParseBool(allowExistingRaw)
 			if err != nil {
 				log.Info(
 					"can't parse a value of an annotation into a bool, ignoring",
@@ -231,14 +233,18 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			}
 		}
 
+		if len(dbusercr.Spec.ExistingUser) > 0 {
+			existingUser = true
+		}
+
 		if dbusercr.IsDeleted() {
 			if commonhelper.ContainsString(dbusercr.Finalizers, "dbuser."+dbusercr.Name) {
 				if err := r.handleTemplatedCredentials(ctx, dbcr, dbusercr, dbuser); err != nil {
 					return r.manageError(ctx, dbusercr, err, true)
 				}
-				if allowExisting {
+				if existingUser {
 					if err := database.RevokePermissions(ctx, db, dbuser, adminCred); err != nil {
-						log.Error(err, "failed deleting a user")
+						log.Error(err, "failed revoking permissions")
 						return r.manageError(ctx, dbusercr, err, false)
 					}
 				} else {
@@ -271,9 +277,9 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 			// If allow existing is set to true, always exexute UpdateOrCreate,
 			// otherwise follow the old logic
-			if allowExisting {
+			if existingUser {
 				log.Info("existing user management is allowed")
-				if err := database.CreateOrUpdateUser(ctx, db, dbuser, adminCred); err != nil {
+				if err := database.SetPermissions(ctx, db, dbuser, adminCred); err != nil {
 					return r.manageError(ctx, dbusercr, err, false)
 				}
 				if err = r.addFinalizers(ctx, dbusercr, dbcr); err != nil {
