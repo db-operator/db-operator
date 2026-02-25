@@ -1,0 +1,6 @@
+apiVersion: kinda.rocks/v1beta1
+kind: DbBackup
+metadata:
+  name: mysql
+spec:
+  database: mysql

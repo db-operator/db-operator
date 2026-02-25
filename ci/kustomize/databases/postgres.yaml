@@ -1,0 +1,11 @@
+apiVersion: kinda.rocks/v1beta1
+kind: Database
+metadata:
+  name: postgres
+spec:
+  backup:
+    enable: false
+  deletionProtected: false
+  instance: postgres
+  postgres: {}
+  secretName: postgres-creds

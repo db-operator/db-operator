@@ -1,0 +1,10 @@
+apiVersion: kinda.rocks/v1beta1
+kind: Database
+metadata:
+  name: mysql
+spec:
+  backup:
+    enable: false
+  deletionProtected: false
+  instance: mariadb
+  secretName: mysql-creds

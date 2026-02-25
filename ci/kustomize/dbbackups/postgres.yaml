@@ -1,0 +1,10 @@
+apiVersion: kinda.rocks/v1beta1
+kind: DbBackup
+metadata:
+  name: postgres
+spec:
+  database: postgres
+  image:
+    registry: localhost
+    repository: db-backup-cli
+    tag: latest

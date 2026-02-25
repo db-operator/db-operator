@@ -2,6 +2,7 @@ environments:
   db-operator:
   db-instances:
   tests:
+  local-dev:
 ---
 repositories:
   - name: jetstack
@@ -55,6 +56,7 @@ releases:
 
   - name: db-operator
     namespace: db-operator
+    wait: true
     createNamespace: true
     installed: {{ not (eq .Environment.Name "db-operator") }}
     chart: ../charts/db-operator
@@ -63,6 +65,13 @@ releases:
     needs:
       - monitoring/prometheus-stack
       - cert-manager/cert-manager
+    {{- if (eq .Environment.Name "local-dev") }}
+    values:
+      - image:
+          repository: localhost/my-db-operator
+          tag: v1.0.0-dev
+          pullPolicy: Never
+    {{- end }}
 
   - name: mariadb-instance
     namespace: databases
@@ -78,7 +87,7 @@ releases:
   - name: mysql-test
     namespace: mysql-test
     chart: ./charts/db-operator-mysql-test/
-    installed: {{ eq .Environment.Name "tests" }}
+    installed: {{ or (eq .Environment.Name "tests") (eq .Environment.Name "local-dev") }}
     labels:
       test: mysql
       purpose: test
@@ -97,8 +106,52 @@ releases:
 
   - name: psql-test
     namespace: psql-test
-    installed: {{ eq .Environment.Name "tests" }}
+    installed: {{ or (eq .Environment.Name "tests") (eq .Environment.Name "local-dev") }}
     chart: ./charts/db-operator-psql-test/
     labels:
       test: psql
       purpose: test
+
+  - name: db-instances
+    namespace: db-operator
+    chart: ../charts/db-instances/
+    installed: {{ eq .Environment.Name "local-dev" }}
+    needs:
+      - db-operator/db-operator
+    values:
+     - dbinstances:
+        postgres:
+          serviceMonitor:
+            enabled: true
+          podMonitor:
+            enabled: true
+          engine: postgres
+          monitoring:
+            enabled: true
+          secrets:
+            adminUser: db-operator
+            adminPassword: 123123!!
+          generic:
+            host: postgres-instance.databases.svc.cluster.local
+            port: 5432
+        mariadb:
+          serviceMonitor:
+            enabled: true
+          podMonitor:
+            enabled: true
+          engine: mysql
+          monitoring:
+            enabled: true
+          secrets:
+            adminUser: root
+            adminPassword: 123123!!
+          generic:
+            host: mariadb-instance.databases.svc.cluster.local
+            port: 3306
+
+  - name: databases
+    namespace: working-namespace
+    installed: {{ eq .Environment.Name "local-dev" }}
+    chart: ./kustomize/databases/
+    needs:
+      - db-operator/db-instances
