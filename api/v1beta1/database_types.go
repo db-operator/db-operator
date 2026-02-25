@@ -36,6 +36,10 @@ type DatabaseSpec struct {
 	Cleanup           bool              `json:"cleanup,omitempty"`
 	Credentials       Credentials       `json:"credentials,omitempty"`
 	ExtraGrants       []*ExtraGrant     `json:"extraGrants,omitempty"`
+	// If specified, DB Operator will try to use an existing user to assign permissions
+	// User will not be removed, when a database is removed, but the permissions added by the
+	// operator will be cleaned up
+	ExistingUser string `json:"existingUser,omitempty"`
 }
 
 type ExtraGrant struct {

@@ -128,6 +128,10 @@ func (v *DatabaseCustomValidator) ValidateUpdate(_ context.Context, oldObj, newO
 		}
 	}
 
+	if len(oldObj.Spec.ExistingUser) > 0 && len(newObj.Spec.ExistingUser) == 0 {
+		warnings = append(warnings, "After swtching from exsting user to a generated user, the password is set to an empty string, remove the db secret to generate it")
+	}
+
 	// Ensure fields are immutable
 	immutableErr := "cannot change %s, the field is immutable"
 	if newObj.Spec.Instance != oldObj.Spec.Instance {

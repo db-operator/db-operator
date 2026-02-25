@@ -674,8 +674,8 @@ func (p Postgres) setUserPermission(ctx context.Context, admin *DatabaseUser, us
 }
 
 func (p Postgres) revokePermissions(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error {
-	log := log.FromContext(ctx)
 	if user.AccessType != ACCESS_TYPE_MAINUSER && p.isUserExist(ctx, admin, user) {
+		log := log.FromContext(ctx)
 		schemas := p.Schemas
 		if !p.DropPublicSchema {
 			schemas = append(schemas, "public")
@@ -702,7 +702,7 @@ func (p Postgres) revokePermissions(ctx context.Context, admin *DatabaseUser, us
 				schema,
 				user.Username,
 			)
-			if err := p.executeExec(ctx, p.Database, revokeDefaults, p.MainUser); err != nil {
+			if err := p.executeExec(ctx, p.Database, revokeDefaults, admin); err != nil {
 				log.Error(err, "failed removing default privileges from schema", "username", user.Username, "schema", schema)
 				return err
 			}
@@ -716,7 +716,6 @@ func (p Postgres) revokePermissions(ctx context.Context, admin *DatabaseUser, us
 				log.Error(err, "failed dropping owned", "username", user.Username)
 				return err
 			}
-
 		}
 	}
 	return nil

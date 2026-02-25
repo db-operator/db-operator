@@ -50,6 +50,10 @@ type DbUserSpec struct {
 	// +kubebuilder:default=true
 	// +optional
 	GrantToAdmin bool `json:"grantToAdmin"`
+	// If specified, DB Operator will try to use an existing user to assign permissions
+	// User will not be removed, when a dbuser is removed, but the permissions added by the
+	// operator will be cleaned up
+	ExistingUser string `json:"existingUser,omitempty"`
 }
 
 // DbUserStatus defines the observed state of DbUser

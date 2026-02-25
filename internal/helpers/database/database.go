@@ -171,7 +171,7 @@ func ParseDatabaseSecretData(dbcr *kindav1beta1.Database, data map[string][]byte
 // If dbName is empty, it will be generated, that should be used for database resources.
 // In case this function is called by dbuser controller, dbName should be taken from the
 // `Spec.DatabaseRef` field, so it will ba passed as the last argument
-func GenerateDatabaseSecretData(objectMeta metav1.ObjectMeta, engine, dbName string) (map[string][]byte, error) {
+func GenerateDatabaseSecretData(objectMeta metav1.ObjectMeta, engine, dbName, existingUser string) (map[string][]byte, error) {
 	const (
 		// https://dev.mysql.com/doc/refman/5.7/en/identifier-length.html
 		mysqlDBNameLengthLimit = 63
@@ -181,12 +181,19 @@ func GenerateDatabaseSecretData(objectMeta metav1.ObjectMeta, engine, dbName str
 	if len(dbName) == 0 {
 		dbName = objectMeta.Namespace + "-" + objectMeta.Name
 	}
-	dbUser := objectMeta.Namespace + "-" + objectMeta.Name
-	dbPassword, err := kci.GeneratePass()
-	if err != nil {
-		return nil, err
+	var dbUser string
+	var dbPassword string
+	if len(existingUser) > 0 {
+		dbUser = existingUser
+		dbPassword = ""
+	} else {
+		var err error
+		dbPassword, err = kci.GeneratePass()
+		if err != nil {
+			return nil, err
+		}
+		dbUser = objectMeta.Namespace + "-" + objectMeta.Name
 	}
-
 	switch engine {
 	case "postgres":
 		data := map[string][]byte{
