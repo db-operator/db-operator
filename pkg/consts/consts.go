@@ -72,10 +72,11 @@ const (
 
 // Kubernetes Labels
 const (
-	MANAGED_BY_LABEL_KEY   = "app.kubernetes.io/managed-by"
-	MANAGED_BY_LABEL_VALUE = "db-operator"
-	USED_BY_KIND_LABEL_KEY = "kinda.rocks/used-by-kind"
-	USED_BY_NAME_LABEL_KEY = "kinda.rocks/used-by-name"
+	MANAGED_BY_LABEL_KEY      = "app.kubernetes.io/managed-by"
+	MANAGED_BY_LABEL_VALUE    = "db-operator"
+	USED_BY_KIND_LABEL_KEY    = "kinda.rocks/used-by-kind"
+	USED_BY_NAME_LABEL_KEY    = "kinda.rocks/used-by-name"
+	DBINSTANCE_NAME_LABEL_KEY = "kinda.rocks/dbinstance-name"
 )
 
 // Privileges

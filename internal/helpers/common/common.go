@@ -25,6 +25,7 @@ import (
 	kindav1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
 	"github.com/db-operator/db-operator/v2/pkg/utils/kci"
 	crdv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var OperatorVersion string
@@ -63,8 +64,17 @@ func GenerateChecksumSecretValue(databaseSecret *corev1.Secret) string {
 	return hash
 }
 
+type DbInstanceData struct {
+	AdminSecret  *corev1.Secret
+	ConfigMap    *corev1.ConfigMap
+	ClientSecret *corev1.Secret
+	HostFrom     client.Object
+	PortFrom     client.Object
+	PublicIPFrom client.Object
+}
+
 // TODO: proper error handling
-func IsDBInstanceSpecChanged(ctx context.Context, dbin *kindav1beta1.DbInstance) bool {
+func IsDBInstanceSpecChanged(ctx context.Context, dbin *kindav1beta1.DbInstance, data DbInstanceData) bool {
 	checksums := dbin.Status.Checksums
 	hash, err := kci.GenerateChecksum(dbin.Spec)
 	// just to ensure the state
@@ -77,9 +87,41 @@ func IsDBInstanceSpecChanged(ctx context.Context, dbin *kindav1beta1.DbInstance)
 	}
 
 	if backend, _ := dbin.GetBackendType(); backend == "google" {
-		instanceConfig, _ := kci.GetConfigResource(ctx, dbin.Spec.Google.ConfigmapName.ToKubernetesType())
-		hash, _ = kci.GenerateChecksum(instanceConfig)
-		if checksums["config"] != hash {
+		if data.ConfigMap != nil {
+			hash, _ := kci.GenerateChecksum(data.ConfigMap.Data)
+			if checksums["config"] != hash {
+				return true
+			}
+		}
+		if dbin.Spec.Google.ClientSecret.Name != "" && data.ClientSecret != nil {
+			hash, _ := kci.GenerateChecksum(data.ClientSecret.Data)
+			if checksums["clientSecret"] != hash {
+				return true
+			}
+		}
+	}
+
+	if backend, _ := dbin.GetBackendType(); backend == "generic" {
+		if from := dbin.Spec.Generic.HostFrom; from != nil && data.HostFrom != nil {
+			if checksums["hostFrom"] != getObjectDataChecksum(data.HostFrom) {
+				return true
+			}
+		}
+		if from := dbin.Spec.Generic.PortFrom; from != nil && data.PortFrom != nil {
+			if checksums["portFrom"] != getObjectDataChecksum(data.PortFrom) {
+				return true
+			}
+		}
+		if from := dbin.Spec.Generic.PublicIPFrom; from != nil && data.PublicIPFrom != nil {
+			if checksums["publicIPFrom"] != getObjectDataChecksum(data.PublicIPFrom) {
+				return true
+			}
+		}
+	}
+
+	if data.AdminSecret != nil {
+		hash, _ := kci.GenerateChecksum(data.AdminSecret.Data)
+		if checksums["adminSecret"] != hash {
 			return true
 		}
 	}
@@ -88,7 +130,7 @@ func IsDBInstanceSpecChanged(ctx context.Context, dbin *kindav1beta1.DbInstance)
 }
 
 // TODO: proper error handling
-func AddDBInstanceChecksumStatus(ctx context.Context, dbin *kindav1beta1.DbInstance) {
+func AddDBInstanceChecksumStatus(ctx context.Context, dbin *kindav1beta1.DbInstance, data DbInstanceData) {
 	checksums := dbin.Status.Checksums
 	if len(checksums) == 0 {
 		checksums = make(map[string]string)
@@ -97,12 +139,58 @@ func AddDBInstanceChecksumStatus(ctx context.Context, dbin *kindav1beta1.DbInsta
 	checksums["spec"] = hash
 
 	if backend, _ := dbin.GetBackendType(); backend == "google" {
-		instanceConfig, _ := kci.GetConfigResource(ctx, dbin.Spec.Google.ConfigmapName.ToKubernetesType())
-		hash, _ = kci.GenerateChecksum(instanceConfig)
-		checksums["config"] = hash
+		if data.ConfigMap != nil {
+			checksums["config"], _ = kci.GenerateChecksum(data.ConfigMap.Data)
+		}
+		if dbin.Spec.Google.ClientSecret.Name != "" && data.ClientSecret != nil {
+			checksums["clientSecret"], _ = kci.GenerateChecksum(data.ClientSecret.Data)
+		}
+	}
+
+	if backend, _ := dbin.GetBackendType(); backend == "generic" {
+		if from := dbin.Spec.Generic.HostFrom; from != nil && data.HostFrom != nil {
+			checksums["hostFrom"] = getObjectDataChecksum(data.HostFrom)
+		}
+		if from := dbin.Spec.Generic.PortFrom; from != nil && data.PortFrom != nil {
+			checksums["portFrom"] = getObjectDataChecksum(data.PortFrom)
+		}
+		if from := dbin.Spec.Generic.PublicIPFrom; from != nil && data.PublicIPFrom != nil {
+			checksums["publicIPFrom"] = getObjectDataChecksum(data.PublicIPFrom)
+		}
+	}
+
+	if data.AdminSecret != nil {
+		checksums["adminSecret"], _ = kci.GenerateChecksum(data.AdminSecret.Data)
 	}
 
 	dbin.Status.Checksums = checksums
+}
+
+func getObjectDataChecksum(obj client.Object) string {
+	switch o := obj.(type) {
+	case *corev1.Secret:
+		hash, _ := kci.GenerateChecksum(o.Data)
+		return hash
+	case *corev1.ConfigMap:
+		hash, _ := kci.GenerateChecksum(o.Data)
+		return hash
+	}
+	return ""
+}
+
+func EnsureLabel(ctx context.Context, c client.Client, obj client.Object, key string, value string) error {
+	labels := obj.GetLabels()
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+
+	if labels[key] == value {
+		return nil
+	}
+
+	labels[key] = value
+	obj.SetLabels(labels)
+	return c.Update(ctx, obj)
 }
 
 func ContainsString(slice []string, s string) bool {
