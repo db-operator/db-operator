@@ -20,6 +20,7 @@ import (
 	"errors"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 )
 
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
@@ -98,6 +99,17 @@ type FromRef struct {
 	Name      string `json:"name"`
 	Namespace string `json:"namespace"`
 	Key       string `json:"key"`
+}
+
+func (fr *FromRef) ToKubernetesType() k8stypes.NamespacedName {
+	if fr == nil {
+		return k8stypes.NamespacedName{}
+	}
+
+	return k8stypes.NamespacedName{
+		Name:      fr.Name,
+		Namespace: fr.Namespace,
+	}
 }
 
 // DbInstanceBackup defines name of google bucket to use for storing database dumps for backup when backup is enabled
