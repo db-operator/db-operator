@@ -68,6 +68,60 @@ spec:
       key: publicIp
     backupHost: {{ .Values.postgresql.service.name }}.{{ .Values.postgresql.service.namespace }}.svc.cluster.local
 
+{{- if .Values.features.existingUser.enabled }}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ template "db-operator-psql-test.name" . }}-create-user-{{ randAlphaNum 5 | lower }}
+  labels:
+    {{- include "db-operator-psql-test.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    {{- if .Values.cleanup }}
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- end }}
+    "helm.sh/hook-weight": "2"
+spec:
+  containers:
+  - name: postgres-writer
+    image: postgres
+    command:
+      - psql
+      - -c
+      - "CREATE USER {{ .Values.features.existingUser.username }} with PASSWORD '{{ .Values.features.existingUser.password }}'"
+    env:
+      - name: PGHOST
+        value: {{ .Values.postgresql.service.name }}.{{ .Values.postgresql.service.namespace }}.svc.cluster.local
+      - name: PGUSER
+        value: {{ .Values.postgresql.admin.user }}
+      - name: PGPASSWORD
+        value: {{ .Values.postgresql.admin.password }}
+      - name: PGDATABASE
+        value: postgres
+    imagePullPolicy: IfNotPresent
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+  restartPolicy: Never
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name:  {{ template "db-operator-psql-test.name" . }}-existing-user-password
+  labels:
+    {{- include "db-operator-psql-test.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    {{- if .Values.cleanup }}
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- end }}
+    "helm.sh/hook-weight": "2"
+type: Opaque
+data:
+  POSTGRES_PASSWORD: {{ .Values.features.existingUser.password | b64enc }}
+{{- end }}
 ---
 apiVersion: "kinda.rocks/v1beta1"
 kind: "Database"
@@ -80,7 +134,7 @@ metadata:
     {{- if .Values.cleanup }}
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
     {{- end }}
-    "helm.sh/hook-weight": "2"
+    "helm.sh/hook-weight": "3"
 spec:
   secretName: {{ template "db-operator-psql-test.name" . }}-postgresql-credentials
   instance: {{ template "db-operator-psql-test.name" . }}-postgresql
@@ -88,6 +142,9 @@ spec:
     enable: false
     cron: ""
   deletionProtected: true
+  {{- if .Values.features.existingUser.enabled }}
+  existingUser: {{ .Values.features.existingUser.username }}
+  {{- end }}
 
 ---
 apiVersion: v1
@@ -101,7 +158,7 @@ metadata:
     {{- if .Values.cleanup }}
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
     {{- end }}
-    "helm.sh/hook-weight": "3"
+    "helm.sh/hook-weight": "4"
 data:
   write.sh: |
 {{ .Files.Get "scripts/test_write.sh" | indent 4}}
@@ -120,7 +177,7 @@ metadata:
     {{- if .Values.cleanup }}
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
     {{- end }}
-    "helm.sh/hook-weight": "4"
+    "helm.sh/hook-weight": "5"
 spec:
   containers:
   - name: postgres-writer
@@ -201,7 +258,11 @@ spec:
   volumes:
     - name: db-secret
       secret:
+        {{- if .Values.features.existingUser.enabled }}
+        secretName:  {{ template "db-operator-psql-test.name" . }}-existing-user-password
+        {{- else }}
         secretName: {{ template "db-operator-psql-test.name" . }}-postgresql-credentials
+        {{- end }}
     - name: script
       configMap:
         name: {{ template "db-operator-psql-test.name" . }}-postgresql-test-script

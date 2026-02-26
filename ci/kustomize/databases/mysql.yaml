@@ -8,3 +8,4 @@ spec:
   deletionProtected: false
   instance: mariadb
   secretName: mysql-creds
+  cleanup: true

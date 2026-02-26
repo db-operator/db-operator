@@ -1,6 +1,6 @@
 # db-operator
 
-![Version: 2.5.2](https://img.shields.io/badge/Version-2.5.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 2.21.0](https://img.shields.io/badge/AppVersion-2.21.0-informational?style=flat-square)
+![Version: 2.6.0](https://img.shields.io/badge/Version-2.6.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 2.22.0](https://img.shields.io/badge/AppVersion-2.22.0-informational?style=flat-square)
 
 The DB Operator creates databases and make them available in the cluster via Custom Resource.
 
@@ -15,7 +15,7 @@ The DB Operator creates databases and make them available in the cluster via Cus
 
 | Name | Email | Url |
 | ---- | ------ | --- |
-| Nikolai Rodionov | <allanger@zohomail.com> | <https://badhouseplants.net> |
+| Nikolai Rodionov | <iam@allanger.xyz> | <https://badhouseplants.net> |
 
 ## Requirements
 

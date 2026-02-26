@@ -87,7 +87,7 @@ releases:
   - name: mysql-test
     namespace: mysql-test
     chart: ./charts/db-operator-mysql-test/
-    installed: {{ or (eq .Environment.Name "tests") (eq .Environment.Name "local-dev") }}
+    installed: false
     labels:
       test: mysql
       purpose: test
@@ -106,7 +106,7 @@ releases:
 
   - name: psql-test
     namespace: psql-test
-    installed: {{ or (eq .Environment.Name "tests") (eq .Environment.Name "local-dev") }}
+    installed: false
     chart: ./charts/db-operator-psql-test/
     labels:
       test: psql

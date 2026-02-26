@@ -1,3 +1,9 @@
+features:
+  existingUser:
+    enabled: false
+    username: testuser
+    password: qwertyu9
+
 postgresql:
   admin:
     password: 123123!!
