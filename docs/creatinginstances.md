@@ -81,7 +81,7 @@ data:
   credentials.json: |-
     << Service Account Cloud SQL Client >>
 ```
-Configure `DbInstance` like below. 
+Configure `DbInstance` like below.
 ```YAML
 apiVersion: kinda.rocks/v1beta1
 kind: DbInstance
@@ -149,7 +149,7 @@ spec:
 ```
 
 
-### CheckingStatus
+### Checking DbInstance status
 
 Check **DbInstance** status
 ```
@@ -161,6 +161,12 @@ The output should be like
 NAME              PHASE      STATUS
 example-generic   Creating   false
 ```
+
+#### Automatic Reconciliation on Resource Changes
+
+The `DbInstance` controller automatically reconciles when referenced Secrets or ConfigMaps change. The controller adds the label `kinda.rocks/dbinstance-name: <dbinstance-name>` to all Secrets or ConfigMaps that are referenced by a particular `DbInstance`.
+
+**Note:** Since the operator uses a label to track the relationship, there is a **one-to-one relationship** between the `DbInstance` and its referenced resources. Sharing a Secret or ConfigMap between multiple `DbInstance` objects is discouraged, as the labeling won't be consistent.
 
 Possible phases and meanings
 
