@@ -70,7 +70,7 @@ type DatabaseStatus struct {
 	Engine                string              `json:"engine"`
 	OperatorVersion       string              `json:"operatorVersion,omitempty"`
 	ExtraGrants           []*ExtraGrant       `json:"extraGrants,omitempty"`
-	IsExistingUser        bool                `json:"isExistingUser,omitempty"`
+	IsExistingUser        *bool               `json:"isExistingUser,omitempty"`
 }
 
 // DatabaseProxyStatus defines whether proxy for database is enabled or not

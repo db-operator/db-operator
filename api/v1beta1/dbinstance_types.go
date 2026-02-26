@@ -37,6 +37,9 @@ type DbInstanceSpec struct {
 	// If set to true, extra grants are enabled on the databases
 	// making it possible to provide access to any user on the database instance
 	AllowExtraGrants bool `json:"allowExtraGrants,omitempty"`
+	// If enabled, it will be possible to use existing users in
+	// DbUsers and Databases
+	AllowExistingUsers bool `json:"allowExistingUsers,omitempty"`
 	// InstanceVars can be used by any database/dbuser that are deployed
 	// to this instance to build templated credentials with some generic values.
 	// Can be used for example to provide a read only postgres replica url

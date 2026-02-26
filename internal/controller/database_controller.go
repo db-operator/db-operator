@@ -57,14 +57,15 @@ import (
 // DatabaseReconciler reconciles a Database object
 type DatabaseReconciler struct {
 	client.Client
-	Log             logr.Logger
-	Scheme          *runtime.Scheme
-	Recorder        events.EventRecorder
-	Interval        time.Duration
-	Conf            *config.Config
-	WatchNamespaces []string
-	CheckChanges    bool
-	kubeHelper      *kubehelper.KubeHelper
+	Log                         logr.Logger
+	Scheme                      *runtime.Scheme
+	Recorder                    events.EventRecorder
+	Interval                    time.Duration
+	Conf                        *config.Config
+	WatchNamespaces             []string
+	CheckChanges                bool
+	kubeHelper                  *kubehelper.KubeHelper
+	EnableExistingUserMigration bool
 }
 
 var (
@@ -299,12 +300,19 @@ func (r *DatabaseReconciler) isFullReconcile(ctx context.Context, dbcr *kindav1b
  * ------------------------------------------------------------------ */
 func (r *DatabaseReconciler) handleDbCreateOrUpdate(ctx context.Context, dbcr *kindav1beta1.Database, mustReconcile bool) (reconcile.Result, error) {
 	log := log.FromContext(ctx)
-	var err error
-
 	phase := dbPhaseCreateOrUpdate
-
 	reconcilePeriod := r.Interval * time.Second
 	reconcileResult := reconcile.Result{RequeueAfter: reconcilePeriod}
+	if r.EnableExistingUserMigration {
+		requeue, err := r.existingUserMigration(ctx, dbcr)
+		if err != nil {
+			return r.manageError(ctx, dbcr, err, true, phase)
+		}
+		if requeue {
+			return reconcile.Result{Requeue: true}, nil
+		}
+	}
+	var err error
 
 	log.Info("reconciling database")
 
@@ -608,6 +616,9 @@ func (r *DatabaseReconciler) createDatabase(ctx context.Context, dbcr *kindav1be
 		return err
 	}
 	if len(dbcr.Spec.ExistingUser) > 0 {
+		if !instance.Spec.AllowExistingUsers {
+			return errors.New("existing users are not allowed on the instance")
+		}
 		if err := database.SetPermissions(ctx, db, dbuser, adminCred); err != nil {
 			return err
 		}
@@ -1101,4 +1112,94 @@ func (r *DatabaseReconciler) createSecret(ctx context.Context, dbcr *kindav1beta
 
 	databaseSecret := kci.SecretBuilder(dbcr.Spec.SecretName, dbcr.Namespace, secretData)
 	return databaseSecret, nil
+}
+
+// If the user status was updated in this function, it should return true, to stop current reconciliation loop.
+func (r *DatabaseReconciler) existingUserMigration(ctx context.Context, dbcr *kindav1beta1.Database) (bool, error) {
+	log := log.FromContext(ctx)
+	// When changing from an existing user to a generated one and another way around,
+	// we need to make sure that the generated user is removed from the instance,
+	// or the grants are dropped from the existing one.
+	// Also we need to remove the secret to enforce the secret rotation
+
+	isExistingUser := len(dbcr.Spec.ExistingUser) > 0
+	// If status.isExisting user is not initialized, set to the value from the spec
+	if dbcr.Status.IsExistingUser == nil {
+		dbcr.Status.IsExistingUser = &isExistingUser
+	}
+
+	isDeleteGenerated := false
+	isCleanUpExisting := false
+
+	if *dbcr.Status.IsExistingUser != isExistingUser {
+		if *dbcr.Status.IsExistingUser {
+			log.Info("Switching from an existing user to a generated one, permissions will be removed")
+			isCleanUpExisting = true
+		} else {
+			log.Info("Switching from a generated user to an existing one, user will be removed")
+			isDeleteGenerated = true
+		}
+
+		var err error
+		var dbSecret *corev1.Secret
+		dbSecret, err = r.getDatabaseSecret(ctx, dbcr)
+		if err != nil {
+			log.Info("Couldn't get the secret with database credentials, the permissions can't be cleaned up")
+			return false, err
+		}
+
+		databaseCred, err := dbhelper.ParseDatabaseSecretData(dbcr, dbSecret.Data)
+		if err != nil {
+			// failed to parse database credential from secret
+			return false, err
+		}
+		instance := &kindav1beta1.DbInstance{}
+		if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
+			return false, err
+		}
+		db, dbuser, err := dbhelper.FetchDatabaseData(ctx, dbcr, databaseCred, instance)
+		if err != nil {
+			// failed to determine database type
+			return false, err
+		}
+		dbuser.AccessType = database.ACCESS_TYPE_MAINUSER
+
+		adminSecretResource, err := r.getAdminSecret(ctx, dbcr)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				log.Error(err, "can not find admin secret")
+				return false, err
+			}
+			return false, err
+		}
+
+		// found admin secret. parse it to connect database
+		adminCred, err := db.ParseAdminCredentials(ctx, adminSecretResource.Data)
+		if err != nil {
+			// failed to parse database admin secret
+			return false, err
+		}
+
+		if isDeleteGenerated {
+			if err := database.DeleteUser(ctx, db, dbuser, adminCred); err != nil {
+				return false, err
+			}
+		}
+		if isCleanUpExisting {
+			if err := database.RevokePermissions(ctx, db, dbuser, adminCred); err != nil {
+				return false, err
+			}
+		}
+
+		log.Info("Removing the credentials secret to re-generate the password")
+		if err := r.Client.Delete(ctx, dbSecret); err != nil {
+			return false, err
+		}
+		dbcr.Status.IsExistingUser = &isExistingUser
+		if err := r.Status().Update(ctx, dbcr); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+	return false, nil
 }

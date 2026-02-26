@@ -86,7 +86,7 @@ func (v *DbUserCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj
 	}
 
 	if len(oldObj.Spec.ExistingUser) > 0 && len(newObj.Spec.ExistingUser) == 0 {
-		warnings = append(warnings, "After swtching from exsting user to a generated user, the password is set to an empty string, remove the db secret to generate it")
+		warnings = append(warnings, "If the user-migration feature is enabled, operator will try to do the cleanup, otherwise you need to do it yourself")
 	}
 
 	if err := kindarocksv1beta1.IsAccessTypeSupported(newObj.Spec.AccessType); err != nil {
