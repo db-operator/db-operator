@@ -62,6 +62,7 @@ type DbUserStatus struct {
 	DatabaseName string `json:"database"`
 	// It's required to let the operator update users
 	Created         bool   `json:"created"`
+	IsExistingUser  bool   `json:"isExistingUser,omitempty"`
 	OperatorVersion string `json:"operatorVersion,omitempty"`
 }
 

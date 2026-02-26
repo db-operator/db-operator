@@ -163,6 +163,8 @@ spec:
                 type: boolean
               database:
                 type: string
+              isExistingUser:
+                type: boolean
               operatorVersion:
                 type: string
               status:

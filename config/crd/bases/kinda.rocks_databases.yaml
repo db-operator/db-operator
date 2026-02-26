@@ -507,6 +507,8 @@ spec:
                   - user
                   type: object
                 type: array
+              isExistingUser:
+                type: boolean
               monitorUserSecret:
                 type: string
               operatorVersion:
