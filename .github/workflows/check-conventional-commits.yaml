@@ -10,6 +10,7 @@ jobs:
         with:
           fetch-depth: 0
       - run: |-
+          git remote show
           git checkout main
           git pull
           git checkout $GITHUB_HEAD_REF
