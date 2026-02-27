@@ -10,6 +10,7 @@ jobs:
         with:
           fetch-depth: 0
       - run: |-
+          git log --format="%H" main..
           git remote show
           git checkout main
           git pull
