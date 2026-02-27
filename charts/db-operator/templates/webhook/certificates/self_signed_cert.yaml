@@ -1,0 +1,17 @@
+{{/*
+   * A self-signed cert generated using the Helm function.
+   * It's valid for 365 days and is re-generated on every synchronization
+   * that makes it incompatible with GitOps tools like ArgoCD and FluxCD.
+*/}}
+{{- $method :=(($.Values.webhook).certificate).method -}}
+{{- if (eq $method "helm") }} {{/* if[0] */}}
+apiVersion: v1
+kind: Secret
+type: kubernetes.io/tls
+metadata:
+  name: {{ include "db-operator.webhook.certificateName" $ }}
+data:
+  tls.crt: |-
+    {{ include "db-operator.webhook.selfSignedCert" $}}
+  tls.key: <base64 encoded server key>
+{{- end -}} {{/* /if[0] */}}

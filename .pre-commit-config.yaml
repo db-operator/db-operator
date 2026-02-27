@@ -6,7 +6,8 @@ repos:
         # -- Pre commit hook is conflicting with the helm-docs
         exclude: |
           (?x)(
-            ^charts/db-instances/README.md
+            ^charts/db-instances/README.md|
+            ^charts/db-operator/README.md
           )
       - id: trailing-whitespace
       - id: detect-private-key

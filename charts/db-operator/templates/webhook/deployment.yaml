@@ -2,21 +2,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "webhook.name" . }}
+  name: {{ include "db-operator.webhook.name" . }}
   labels:
-    {{- include "labels" . | nindent 4 }}
-    app.kubernetes.io/component: "webhook"
+    {{- include "db-operator.webhook.labels" $ | nindent 4 }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      {{- include "selectorLabels" . | nindent 6 }}
-      app.kubernetes.io/component: "webhook"
+      {{- include "db-operator.webhook.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "labels" . | nindent 8 }}
-        app.kubernetes.io/component: "webhook"
+        {{- include "db-operator.webhook.labels" . | nindent 8 }}
         {{- if .Values.webhook.podLabels }}
         {{ toYaml .Values.webhook.podLabels | trim | nindent 8 }}
         {{- end }}
@@ -29,7 +26,7 @@ spec:
       hostUsers: {{ .Values.hostUsers }}
       {{- end }}
       {{- if .Values.webhook.serviceAccount.create }}
-      serviceAccountName: {{ template "webhook.serviceAccountName" . }}
+      serviceAccountName: {{ template "db-operator.webhook.serviceAccountName" . }}
       {{- end }}
       {{- with .Values.podSecurityContext }}
       securityContext:
@@ -41,7 +38,7 @@ spec:
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          image: "{{ .Values.image.repository }}:{{ template "image_version" . }}"
+          image: {{ include "db-operator.imageBootsrap" (dict "image" $.Values.image "chart" $.Chart) }}
           ports:
           - containerPort: 9443
             name: webhook-server
@@ -49,7 +46,7 @@ spec:
           command:
           - db-operator
           args:
-            {{- range include "webhook.args" $ | split "," }}
+            {{- range include "db-operator.webhook.args" $ | split "," }}
             - {{ . }}
             {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}

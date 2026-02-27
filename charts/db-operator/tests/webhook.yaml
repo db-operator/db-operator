@@ -16,15 +16,15 @@ tests:
       - hasDocuments:
           count: 1
           filterAware: true
-        template: webhook/serviceaccount.yaml
+        template: webhook/service_account.yaml
       - hasDocuments:
           count: 1
           filterAware: true
-        template: webhook/mutating_webhook.yaml
+        template: webhook/configs/mutating_webhook.yaml
       - hasDocuments:
           count: 1
           filterAware: true
-        template: webhook/validation_webhook.yaml
+        template: webhook/configs/validating_webhook.yaml
   - it: Each template should not be rendered when webhooks are disabled
     set:
       webhook:
@@ -41,12 +41,12 @@ tests:
       - hasDocuments:
           count: 0
           filterAware: true
-        template: webhook/serviceaccount.yaml
+        template: webhook/service_account.yaml
       - hasDocuments:
           count: 0
           filterAware: true
-        template: webhook/mutating_webhook.yaml
+        template: webhook/configs/mutating_webhook.yaml
       - hasDocuments:
           count: 0
           filterAware: true
-        template: webhook/validation_webhook.yaml
+        template: webhook/configs/validating_webhook.yaml

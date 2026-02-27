@@ -1,22 +1,4 @@
 -----------------------------------------------------------------------
-                                 .-"``"-.
-                                /______; \
-                               {_______}\|
-                               (/ a a \)(_)
-                               (.-.).-.)
-  _______________________ooo__(    ^    )___________________________
- /                             '-.___.-'                            \
-| Please read these notes, they might be useful and we will try to   |
-| make them as short as possible                                     |
- \________________________________________ooo_______________________/
-                               |_  |  _|  jgs
-                               \___|___/
-                               {___|___}
-                                |_ | _|
-                                /-'Y'-\
-                               (__/ \__)
-
------------------------------------------------------------------------
 Release information
 The Chart name: {{ .Chart.Name }}.
 The Repo URL: https://db-operator.github.io/charts
@@ -24,14 +6,13 @@ The Release name {{ .Release.Name }}.
 -----------------------------------------------------------------------
 Breaking changes and migration paths:
 
-From 2.5.0, the .image.logLevel field is no longer used,  and instead
-users should use .controller.logLevel and .webhook.logLevel
+Version `3.0.0` contains breaking changes for ones using the google cloudsql instances. It doesn't mean that the operator will not work with them anymore, but users will have to use **generic** DbInsances and prepare the infrasturture using other tools.
 
-From 2.0.0, the "v" prefix will not be
-automatically added to the image tag. If you are overriding the image
-tag through ".Values.image.tag" and are relying on this behaviour,
-please add the "v" prefix manually to the Helm value.
-Otherwise, no action is required from your side!
+Other changes that might require migration:
+
+- Pod names were changed, now instead of `db-operator-` and `db-operator-webhook`, we have `db-opetator-controller` and `db-operator-webhook`
+- RBAC separation: the controller and webhook now use different ClusterRoles. The configuration has been moved to .controller.rbac and .webhook.rbac accordingly.
+- DB Operator configuration is now set under `controller.config`
 
 {{- if not .Values.crds.install }}
 -----------------------------------------------------------------------

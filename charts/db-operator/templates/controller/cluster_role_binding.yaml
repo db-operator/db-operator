@@ -1,0 +1,17 @@
+{{- if .Values.controller.rbac.create -}}
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ template "db-operator.controller.name" . }}
+  labels:
+    {{- include "db-operator.controller.labels" . | nindent 4 }}
+subjects:
+- kind: ServiceAccount
+  name: {{ template "db-operator.controller.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: {{ template "db-operator.controller.name" . }}
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}

@@ -1,43 +1,48 @@
 nameOverride: ""
-image:
-  repository: ghcr.io/db-operator/db-operator
-  pullPolicy: Always
+clusterDomain: cluster.local
 
-controller:
-  logLevel: info
-  extraArgs: []
+image:
+  registry: ghcr.io
+  repository: db-operator/db-operator
+  tag: ""
+  pullPolicy: Always
 # imagePullSecrets:
 #   - name: myRegistrySecret
+# Global metadata, should be applied to each resource
+metadata:
+  labels: {}
+  annotations: {}
 
-reconcileInterval: "60"
-# watchNamespace value is comma-separated list of namespace names. It's necessary to set "" to watch cluster wide.
-watchNamespace: ""
-
-# ------------------------------------------------------------
-# -- If set to true, db-operator will check if Kubernetes
-# -- objects were changed before running database queries.
-# -- It might reduce the amount of queries, because otherwise
-# -- db-operator will try to update databases and users every
-# -- ${RECONCILE_INTERVAL} seconds.
-# ------------------------------------------------------------
-# -- NOTE: Currently, it's only working with Database Users
-# ------------------------------------------------------------
-checkForChanges: false
-
-rbac:
-  create: true
-serviceAccount:
-  create: true
 crds:
   install: true
   keep: true
   annotations: {}
-webhook:
+
+controller:
+  logLevel: info
   extraArgs: []
+  serviceAccount:
+    name: ""
+    create: true
+  rbac:
+    create: true
+  config:
+    reconcileInterval: "60"
+    # watchNamespace value is comma-separated list of namespace names. It's necessary to set "" to watch cluster wide.
+    watchNamespace: ""
+    checkForChanges: false
+    # Which namespace should be used for backup pods
+    backupNamespace: ""
+
+webhook:
   enabled: true
   logLevel: info
+  extraArgs: []
   podLabels: {}
+  rbac:
+    create: true
   serviceAccount:
+    name: ""
     create: true
   names:
     mutating: db-operator-mutating-webhook-configuration

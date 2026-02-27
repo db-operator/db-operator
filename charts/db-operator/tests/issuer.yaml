@@ -1,7 +1,7 @@
 ---
 suite: Test issuer templating
 templates:
-  - certificate/issuer.yaml
+  - webhook/certificates/issuer.yaml
 tests:
   - it: Issuer should be rendered by default
     asserts:

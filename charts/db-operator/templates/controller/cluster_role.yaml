@@ -1,0 +1,135 @@
+{{- if .Values.controller.rbac.create -}}
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ template "db-operator.controller.name" . }}
+  labels:
+    {{- include "db-operator.controller.labels" . | nindent 4 }}
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  - configmaps
+  - pods
+  - services
+  - serviceaccounts
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+
+- apiGroups:
+  - kinda.rocks
+  resources:
+  - databases
+  - dbinstances
+  - dbusers
+  - dbbackups
+  - dbrestores
+  verbs:
+  - "*"
+
+- apiGroups:
+  - kinda.rocks
+  resources:
+  - databases/finalizers
+  - dbinstances/finalizers
+  - dbusers/finalizers
+  - dbbackups/finalizers
+  - dbrestores/finalizers
+  verbs:
+  - "*"
+
+- apiGroups:
+  - kinda.rocks
+  resources:
+  - databases/status
+  - dbinstances/status
+  - dbusers/status
+  - dbbackups/status
+  - dbrestores/status
+  verbs:
+  - "*"
+
+- apiGroups:
+  - "rbac.authorization.k8s.io"
+  resources:
+  - roles
+  - rolebindings
+  verbs:
+  - create
+  - update
+  - get
+  - list
+  - watch
+
+- apiGroups:
+  - "events.k8s.io"
+  resources:
+  - events
+  verbs:
+  - create
+  - update
+  - patch
+  - get
+  - list
+  - watch
+
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - replicasets
+  verbs:
+  - get
+  - create
+  - update
+  - list
+  - watch
+
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  verbs:
+  - create
+  - update
+  - patch
+  - get
+  - list
+  - watch
+
+{{/* TODO: Check if really needed */}}
+- apiGroups:
+  - "apiextensions.k8s.io"
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+  - list
+  - watch
+
+{{/* TODO: Remove once backups are there */}}
+- apiGroups:
+  - batch
+  resources:
+  - cronjobs
+  verbs:
+  - create
+  - update
+  - list
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - update
+{{- end -}}

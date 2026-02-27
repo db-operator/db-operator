@@ -41,7 +41,7 @@ spec:
       clientConfig:
         service:
           namespace: {{ $.Release.Namespace }}
-          name: {{ include "webhook.name" . }}
+          name: {{ include "db-operator.webhook.name" . }}
           path: /convert
       conversionReviewVersions:
         - v1alpha1

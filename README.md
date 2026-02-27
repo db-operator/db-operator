@@ -1,5 +1,15 @@
 ## Charts for deploying DB Operator
 
+## Migration to the db-operator v3
+
+Version `3.0.0` contains breaking changes for ones using the google cloudsql instances. It doesn't mean that the operator will not work with them anymore, but users will have to use **generic** DbInsances and prepare the infrasturture using other tools.
+
+Other changes that might require migration:
+
+- Pod names were changed, now instead of `db-operator-` and `db-operator-webhook`, we have `db-opetator-controller` and `db-operator-webhook`
+- RBAC separation: the controller and webhook now use different ClusterRoles. The configuration has been moved to .controller.rbac and .webhook.rbac accordingly.
+- DB Operator configuration is now set under `controller.config`
+
 ## Get started with the helm chart
 
 Docs: <https://db-operator.github.io/documentation/install_helm>

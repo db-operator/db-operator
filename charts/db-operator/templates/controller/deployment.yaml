@@ -2,24 +2,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ template "db-operator.name" . }}
+  name: {{ template "db-operator.controller.name" $ }}
   labels:
-    {{- include "labels" . | nindent 4 }}
-    app.kubernetes.io/component: "controller"
+    {{- include "db-operator.controller.labels" $ | nindent 4 }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      {{- include "selectorLabels" . | nindent 6 }}
-      app.kubernetes.io/component: "controller"
+      {{- include "db-operator.controller.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "labels" . | nindent 8 }}
-        app.kubernetes.io/component: "controller"
-        {{- if .Values.podLabels }}
-        {{ toYaml .Values.podLabels | trim | nindent 8 }}
-        {{- end }}
+        {{- include "db-operator.controller.labels" $ | nindent 8 }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/controller/config.yaml") . | sha256sum }}
         {{- if .Values.annotations }}
@@ -29,9 +23,7 @@ spec:
       {{- if semverCompare ">=1.33-0" .Capabilities.KubeVersion.Version }}
       hostUsers: {{ .Values.hostUsers }}
       {{- end }}
-      {{- if .Values.serviceAccount.create }}
-      serviceAccountName: {{ template "db-operator.serviceAccountName" . }}
-      {{- end }}
+      serviceAccountName: {{ template "db-operator.controller.serviceAccountName" . }}
       {{- with .Values.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -42,7 +34,7 @@ spec:
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          image: "{{ .Values.image.repository }}:{{ template "image_version" . }}"
+          image: {{ include "db-operator.imageBootsrap" (dict "image" $.Values.image "chart" $.Chart) }}
           ports:
           - containerPort: 60000
             name: metrics
@@ -67,27 +59,17 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: metadata.name
-            {{- if .Values.secrets.gsql }}
-            - name: GOOGLE_APPLICATION_CREDENTIALS
-              value: "/run/secrets/gcloudsqladmin/credentials.json"
-            {{- if .Values.secrets.gsql.readonly }}
-            - name: GCSQL_CLIENT_CREDENTIALS
-              value: "/run/secrets/gcloudsqlclient/credentials.json"
-            {{- end }}
-            {{- end }}
+            - name: DB_BACKUP_NAMESPACE
+              {{- if .Values.controller.config.backupNamespace }}
+              value: {{ .Values.controller.config.backupNamespace }}
+              {{- else }}
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+              {{- end }}
             - name: CONFIG_PATH
               value: "/run/config/config.yaml"
           volumeMounts:
-          {{- if .Values.secrets.gsql }}
-          - mountPath: /run/secrets/gcloudsqladmin
-            name: serviceaccount-cloudsql-admin
-            readOnly: true
-          {{- if .Values.secrets.gsql.readonly }}
-          - mountPath: /run/secrets/gcloudsqlclient
-            name: serviceaccount-cloudsql-client
-            readOnly: true
-          {{- end }}
-          {{- end }}
           - mountPath: /run/config/
             name: config-volume
             readOnly: true
@@ -107,18 +89,6 @@ spec:
 {{ toYaml .Values.imagePullSecrets | nindent 8 }}
     {{- end }}
       volumes:
-      {{- if .Values.secrets.gsql }}
-        - name: serviceaccount-cloudsql-admin
-          secret:
-            defaultMode: 420
-            secretName: cloudsql-admin-serviceaccount
-      {{- if .Values.secrets.gsql.readonly }}
-        - name: serviceaccount-cloudsql-client
-          secret:
-            defaultMode: 420
-            secretName: cloudsql-readonly-serviceaccount
-      {{- end }}
-      {{- end }}
         - name: config-volume
           configMap:
-            name: {{ template "db-operator.name" . }}-config
+            name: {{ template "db-operator.controller.name" . }}-config

@@ -1,7 +1,7 @@
 {{- if .Values.webhook.enabled }}
 ---
 apiVersion: admissionregistration.k8s.io/v1
-kind: MutatingWebhookConfiguration
+kind: ValidatingWebhookConfiguration
 metadata:
   annotations:
     {{- if .Values.webhook.certificate.create }}
@@ -10,19 +10,18 @@ metadata:
     cert-manager.io/inject-ca-from-secret: {{ .Release.Namespace }}/{{ .Values.webhook.certificate.secretName}}
     {{- end }}
   labels:
-    {{- include "labels" . | nindent 4 }}
-    app.kubernetes.io/component: "webhook"
-  name: {{ .Values.webhook.names.mutating }}
+    {{- include "db-operator.webhook.labels" . | nindent 4 }}
+  name: {{ .Values.webhook.names.validating }}
 webhooks:
 - admissionReviewVersions:
   - v1
   clientConfig:
     service:
-      name: {{ include "webhook.name" . }}
+      name: {{ include "db-operator.webhook.name" . }}
       namespace: {{ .Release.Namespace }}
-      path: /mutate-kinda-rocks-v1beta1-database
+      path: /validate-kinda-rocks-v1beta1-database
   failurePolicy: Fail
-  name: mdatabase.kb.io
+  name: vdatabase.kb.io
   rules:
   - apiGroups:
     - kinda.rocks
@@ -38,11 +37,11 @@ webhooks:
   - v1
   clientConfig:
     service:
-      name: {{ include "webhook.name" . }}
+      name: {{ include "db-operator.webhook.name" . }}
       namespace: {{ .Release.Namespace }}
-      path: /mutate-kinda-rocks-v1beta1-dbinstance
+      path: /validate-kinda-rocks-v1beta1-dbinstance
   failurePolicy: Fail
-  name: mdbinstance.kb.io
+  name: vdbinstance.kb.io
   rules:
   - apiGroups:
     - kinda.rocks
@@ -53,5 +52,25 @@ webhooks:
     - UPDATE
     resources:
     - dbinstances
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: {{ include "db-operator.webhook.name" . }}
+      namespace: {{ .Release.Namespace }}
+      path: /validate-kinda-rocks-v1beta1-dbuser
+  failurePolicy: Fail
+  name: vdbuser.kb.io
+  rules:
+  - apiGroups:
+    - kinda.rocks
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - dbusers
   sideEffects: None
 {{- end }}

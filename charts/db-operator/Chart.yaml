@@ -1,26 +1,21 @@
+---
 apiVersion: v2
 type: application
 name: db-operator
-version: 2.6.0
-# ---------------------------------------------------------------------------------
-# -- All supported k8s versions are in the test:
-# --  https://github.com/db-operator/charts/blob/main/.github/workflows/test.yaml
-# ---------------------------------------------------------------------------------
-kubeVersion: ">= 1.30-prerelease"
+version: 3.0.0
+description: This operator lets you manage databases in a Kubernetes native way, even if they are not deployed to Kubernetes
+# All supported k8s versions are in the test:
+# https://github.com/db-operator/charts/blob/main/.github/workflows/integration-test.yaml
+kubeVersion: ">= 1.32-prerelease"
 appVersion: "2.22.0"
-description: The DB Operator creates databases and make them available in the cluster via Custom Resource.
-home: https://github.com/db-operator/db-operator
+home: https://github.com/db-operator
 maintainers:
   - name: Nikolai Rodionov
     email: iam@allanger.xyz
     url: https://badhouseplants.net
 sources:
   - https://github.com/db-operator/db-operator
-  - https://github.com/db-operator/cloudish-sql
-  - https://github.com/db-operator/pgdump-gcs
-  - https://github.com/db-operator/mydump-gcs
 keywords:
   - database
-  - Operator
   - mysql
   - postgres

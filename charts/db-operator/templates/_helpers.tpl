@@ -1,4 +1,3 @@
-{{/* vim: set filetype=mustache: */}}
 {{/*
 Expand the name of the chart.
 */}}
@@ -52,73 +51,18 @@ Arguments builder
 {{- end -}}
 
 {{/*
-Webhook templates
-*/}}
-
-{{/*
-Expand the name of the chart.
-*/}}
-{{- define "webhook.name" -}}
-{{- printf "db-operator-webhook" -}}
-{{- end -}}
-
-{{/*
-Create a default fully qualified app name.
-We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
-If release name contains chart name it will be used as a full name.
-*/}}
-{{- define "webhook.fullname" -}}
-{{- if .Values.fullnameOverride -}}
-{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
-{{- else -}}
-{{- $name := default .Chart.Name .Values.nameOverride -}}
-{{- if contains $name .Release.Name -}}
-{{- .Release.Name | trunc 63 | trimSuffix "-" -}}
-{{- else -}}
-{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Create the name of the service account to use
-*/}}
-{{- define "webhook.serviceAccountName" -}}
-{{- if .Values.webhook.serviceAccount.create -}}
-    {{ default (include "webhook.name" .) .Values.webhook.serviceAccount.name }}
-{{- else -}}
-    {{ default "default" .Values.webhook.serviceAccount.name }}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Webhook extra args
-*/}}
-{{- define "webhook.args" -}}
-{{- $args := list -}}
-{{- $args = append $args (printf "--zap-log-level=%s" .Values.webhook.logLevel) -}}
-{{- $args = append $args "--webhook" -}}
-{{- with .Values.webhook }}
-{{- range .extraArgs -}}
-{{- $args = append $args . -}}
-{{- end -}}
-{{- end -}}
-{{ join "," $args }}
-{{- end -}}
-
-{{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "chart" -}}
+{{- define "db-operator.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 {{/*
-Common labels
+DB Operator labels
 */}}
-{{- define "labels" -}}
-helm.sh/chart: {{ include "chart" . }}
-{{ include "selectorLabels" . }}
+{{- define "db-operator.labels" -}}
+helm.sh/chart: {{ include "db-operator.chart" . }}
+{{ include "db-operator.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -128,14 +72,27 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "selectorLabels" -}}
+{{- define "db-operator.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "db-operator.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
 {{/*
-Image version definition;
+Build an image out of object like that:
+image:
+  registry: ghcr.io
+  repositoru: db-operator/db-operator
+  tag: latest
+Might be used to make it easier to configure mirroring
 */}}
-{{- define "image_version" -}}
-{{ default .Chart.AppVersion .Values.image.tag }}
-{{- end -}}
+{{- define "db-operator.imageBootsrap" -}}
+{{- $image := "" }}
+{{- if .image.registry }}
+{{- $image = printf "%s/" .image.registry }}
+{{- end }}
+{{- $tag := printf "%s" .chart.AppVersion }}
+{{- if .image.tag }}
+{{- $tag = .image.tag }}
+{{- end }}
+{{- printf "%s%s:%s" $image .image.repository $tag }}
+{{- end }}
