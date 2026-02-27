@@ -120,7 +120,7 @@ func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	// Check if spec or referenced data changed
-	if commonhelper.IsDBInstanceSpecChanged(ctx, dbin, instanceData) {
+	if commonhelper.IsDBInstanceChanged(ctx, dbin, instanceData) {
 		log.Info("spec or referenced data changed")
 		dbin.Status.Status = false
 		dbin.Status.Phase = dbInstancePhaseValidate // set phase to initial state
@@ -141,7 +141,7 @@ func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			return reconcileResult, err
 		}
 
-		commonhelper.AddDBInstanceChecksumStatus(ctx, dbin, instanceData)
+		dbin.Status.Checksums = commonhelper.GenerateDBInstanceChecksums(dbin, instanceData)
 		dbin.Status.Phase = dbInstancePhaseCreate
 		dbin.Status.Info = map[string]string{}
 

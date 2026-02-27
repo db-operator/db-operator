@@ -18,6 +18,7 @@ package common
 
 import (
 	"context"
+	"reflect"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -64,6 +65,7 @@ func GenerateChecksumSecretValue(databaseSecret *corev1.Secret) string {
 	return hash
 }
 
+// DbInstanceData contains all externally referenced objects of a DatabaseInstance
 type DbInstanceData struct {
 	AdminSecret  *corev1.Secret
 	ConfigMap    *corev1.ConfigMap
@@ -73,77 +75,31 @@ type DbInstanceData struct {
 	PublicIPFrom client.Object
 }
 
-// TODO: proper error handling
-func IsDBInstanceSpecChanged(ctx context.Context, dbin *kindav1beta1.DbInstance, data DbInstanceData) bool {
-	checksums := dbin.Status.Checksums
+func IsDBInstanceChanged(ctx context.Context, dbin *kindav1beta1.DbInstance, data DbInstanceData) bool {
+	currentChecksums := GenerateDBInstanceChecksums(dbin, data)
+	return !reflect.DeepEqual(currentChecksums, dbin.Status.Checksums)
+}
+
+// GenerateDBInstanceChecksums serves as the single source of truth for calculating the checksums
+// of all objects a DBInstance depends on (spec, secrets, and configmaps).
+func GenerateDBInstanceChecksums(dbin *kindav1beta1.DbInstance, data DbInstanceData) map[string]string {
+	checksums := make(map[string]string)
+
 	hash, err := kci.GenerateChecksum(dbin.Spec)
 	// just to ensure the state
-	if err != nil {
-		return true
+	if err == nil {
+		checksums["spec"] = hash
 	}
 
-	if checksums["spec"] != hash {
-		return true
-	}
-
-	if backend, _ := dbin.GetBackendType(); backend == "google" {
+	backend, _ := dbin.GetBackendType()
+	if backend == "google" {
 		if data.ConfigMap != nil {
 			hash, _ := kci.GenerateChecksum(data.ConfigMap.Data)
-			if checksums["config"] != hash {
-				return true
-			}
+			checksums["config"] = hash
 		}
 		if dbin.Spec.Google.ClientSecret.Name != "" && data.ClientSecret != nil {
 			hash, _ := kci.GenerateChecksum(data.ClientSecret.Data)
-			if checksums["clientSecret"] != hash {
-				return true
-			}
-		}
-	}
-
-	if backend, _ := dbin.GetBackendType(); backend == "generic" {
-		if from := dbin.Spec.Generic.HostFrom; from != nil && data.HostFrom != nil {
-			if checksums["hostFrom"] != getObjectDataChecksum(data.HostFrom) {
-				return true
-			}
-		}
-		if from := dbin.Spec.Generic.PortFrom; from != nil && data.PortFrom != nil {
-			if checksums["portFrom"] != getObjectDataChecksum(data.PortFrom) {
-				return true
-			}
-		}
-		if from := dbin.Spec.Generic.PublicIPFrom; from != nil && data.PublicIPFrom != nil {
-			if checksums["publicIPFrom"] != getObjectDataChecksum(data.PublicIPFrom) {
-				return true
-			}
-		}
-	}
-
-	if data.AdminSecret != nil {
-		hash, _ := kci.GenerateChecksum(data.AdminSecret.Data)
-		if checksums["adminSecret"] != hash {
-			return true
-		}
-	}
-
-	return false
-}
-
-// TODO: proper error handling
-func AddDBInstanceChecksumStatus(ctx context.Context, dbin *kindav1beta1.DbInstance, data DbInstanceData) {
-	checksums := dbin.Status.Checksums
-	if len(checksums) == 0 {
-		checksums = make(map[string]string)
-	}
-	hash, _ := kci.GenerateChecksum(dbin.Spec)
-	checksums["spec"] = hash
-
-	if backend, _ := dbin.GetBackendType(); backend == "google" {
-		if data.ConfigMap != nil {
-			checksums["config"], _ = kci.GenerateChecksum(data.ConfigMap.Data)
-		}
-		if dbin.Spec.Google.ClientSecret.Name != "" && data.ClientSecret != nil {
-			checksums["clientSecret"], _ = kci.GenerateChecksum(data.ClientSecret.Data)
+			checksums["clientSecret"] = hash
 		}
 	}
 
@@ -160,10 +116,11 @@ func AddDBInstanceChecksumStatus(ctx context.Context, dbin *kindav1beta1.DbInsta
 	}
 
 	if data.AdminSecret != nil {
-		checksums["adminSecret"], _ = kci.GenerateChecksum(data.AdminSecret.Data)
+		hash, _ := kci.GenerateChecksum(data.AdminSecret.Data)
+		checksums["adminSecret"] = hash
 	}
 
-	dbin.Status.Checksums = checksums
+	return checksums
 }
 
 func getObjectDataChecksum(obj client.Object) string {
