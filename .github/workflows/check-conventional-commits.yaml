@@ -11,10 +11,6 @@ jobs:
           fetch-depth: 0
       - run: |-
           git log --format="%H" origin/main..
-          git remote show
-          git checkout main
-          git pull
-          git checkout $GITHUB_HEAD_REF
           cp ./.github/conventional_commit_comment.md pr_comment.md
 
           pattern='^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([a-z]+\))?!?: .+$'
