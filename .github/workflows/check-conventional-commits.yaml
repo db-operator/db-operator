@@ -10,11 +10,10 @@ jobs:
         with:
           fetch-depth: 0
       - run: |-
-          git log --format="%H" origin/main..
           cp ./.github/conventional_commit_comment.md pr_comment.md
 
           pattern='^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([a-z]+\))?!?: .+$'
-          for commit in $(git log --format="%H" main..); do
+          for commit in $(git log --format="%H" origin/main..); do
             message=$(git show -s --format=%s  $commit)
             if [[ $message =~ $pattern ]]; then
               echo "- $commit - $message" >> pr_comment.md
