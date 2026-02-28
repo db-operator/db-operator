@@ -27,17 +27,20 @@ import (
 	kubehelper "github.com/db-operator/db-operator/v2/internal/helpers/kube"
 	proxyhelper "github.com/db-operator/db-operator/v2/internal/helpers/proxy"
 	"github.com/db-operator/db-operator/v2/pkg/config"
+	"github.com/db-operator/db-operator/v2/pkg/consts"
 	"github.com/db-operator/db-operator/v2/pkg/utils/database"
 	"github.com/db-operator/db-operator/v2/pkg/utils/dbinstance"
-	"github.com/db-operator/db-operator/v2/pkg/utils/kci"
 	"github.com/db-operator/db-operator/v2/pkg/utils/proxy"
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -64,6 +67,7 @@ type DbInstanceReconciler struct {
 //+kubebuilder:rbac:groups=kinda.rocks,resources=dbinstances,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=kinda.rocks,resources=dbinstances/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=kinda.rocks,resources=dbinstances/finalizers,verbs=update
+//+kubebuilder:rbac:groups="",resources=secrets;configmaps,verbs=get;list;watch;update;patch
 
 func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
@@ -92,9 +96,32 @@ func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}()
 
 	r.kubeHelper = kubehelper.NewKubeHelper(r.Client, r.Recorder, dbin)
-	// Check if spec changed
-	if commonhelper.IsDBInstanceSpecChanged(ctx, dbin) {
-		log.Info("spec changed")
+
+	// Ensure referenced secrets/configmaps have namespace set
+	if err := dbin.ValidateNamespaces(); err != nil {
+		log.Error(err, "invalid namespaced references")
+		return reconcileResult, nil // Stop reconciling as this is a spec error
+	}
+
+	// Fetch data for checksum and reconcile
+	instanceData, err := r.fetchInstanceData(ctx, dbin)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			log.Error(err, "referenced secret/configmap not found")
+			return reconcileResult, nil // Wait for resource to be created, or for user to fix spec
+		}
+		return reconcileResult, err
+	}
+
+	// Label referenced resources
+	if err := r.labelReferencedResources(ctx, dbin, instanceData); err != nil {
+		log.Error(err, "failed to label referenced resources")
+		return reconcileResult, err
+	}
+
+	// Check if spec or referenced data changed
+	if commonhelper.IsDBInstanceChanged(ctx, dbin, instanceData) {
+		log.Info("spec or referenced data changed")
 		dbin.Status.Status = false
 		dbin.Status.Phase = dbInstancePhaseValidate // set phase to initial state
 	}
@@ -114,11 +141,11 @@ func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			return reconcileResult, err
 		}
 
-		commonhelper.AddDBInstanceChecksumStatus(ctx, dbin)
+		dbin.Status.Checksums = commonhelper.GenerateDBInstanceChecksums(dbin, instanceData)
 		dbin.Status.Phase = dbInstancePhaseCreate
 		dbin.Status.Info = map[string]string{}
 
-		err = r.create(ctx, dbin)
+		err = r.create(ctx, dbin, instanceData)
 		if err != nil {
 			log.Error(err, "instance creation failed")
 			return reconcileResult, nil // failed but don't requeue the request. retry by changing spec or config
@@ -148,23 +175,107 @@ func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 func (r *DbInstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&kindav1beta1.DbInstance{}).
+		Watches(
+			&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.findDbInstanceForResource),
+		).
+		Watches(
+			&corev1.ConfigMap{},
+			handler.EnqueueRequestsFromMapFunc(r.findDbInstanceForResource),
+		).
 		Complete(r)
 }
 
-func (r *DbInstanceReconciler) create(ctx context.Context, dbin *kindav1beta1.DbInstance) error {
-	log := log.FromContext(ctx)
-	secret, err := kci.GetSecretResource(ctx, dbin.Spec.AdminUserSecret.ToKubernetesType())
+func (r *DbInstanceReconciler) findDbInstanceForResource(ctx context.Context, obj client.Object) []reconcile.Request {
+	labels := obj.GetLabels()
+	if dbInstanceName, ok := labels[consts.DBINSTANCE_NAME_LABEL_KEY]; ok {
+		return []reconcile.Request{
+			{
+				NamespacedName: types.NamespacedName{
+					Name: dbInstanceName,
+				},
+			},
+		}
+	}
+	return nil
+}
+
+func (r *DbInstanceReconciler) fetchInstanceData(ctx context.Context, dbin *kindav1beta1.DbInstance) (commonhelper.DbInstanceData, error) {
+	data := commonhelper.DbInstanceData{}
+
+	// Fetch Admin Secret
+	adminSecret := &corev1.Secret{}
+	err := r.Get(ctx, dbin.Spec.AdminUserSecret.ToKubernetesType(), adminSecret)
 	if err != nil {
-		log.Error(err, "failed to get instance admin user secret",
-			"namespace",
-			dbin.Spec.AdminUserSecret.Namespace,
-			"name",
-			dbin.Spec.AdminUserSecret.Name)
-		return err
+		return data, err
+	}
+	data.AdminSecret = adminSecret
+
+	if backend, _ := dbin.GetBackendType(); backend == "google" {
+		configMap := &corev1.ConfigMap{}
+		err := r.Get(ctx, dbin.Spec.Google.ConfigmapName.ToKubernetesType(), configMap)
+		if err != nil {
+			return data, err
+		}
+		data.ConfigMap = configMap
+
+		if dbin.Spec.Google.ClientSecret.Name != "" {
+			clientSecret := &corev1.Secret{}
+			err := r.Get(ctx, dbin.Spec.Google.ClientSecret.ToKubernetesType(), clientSecret)
+			if err != nil {
+				return data, err
+			}
+			data.ClientSecret = clientSecret
+		}
 	}
 
+	if backend, _ := dbin.GetBackendType(); backend == "generic" {
+		if from := dbin.Spec.Generic.HostFrom; from != nil {
+			obj, err := r.fetchFromRef(ctx, from)
+			if err != nil {
+				return data, err
+			}
+			data.HostFrom = obj
+		}
+		if from := dbin.Spec.Generic.PortFrom; from != nil {
+			obj, err := r.fetchFromRef(ctx, from)
+			if err != nil {
+				return data, err
+			}
+			data.PortFrom = obj
+		}
+		if from := dbin.Spec.Generic.PublicIPFrom; from != nil {
+			obj, err := r.fetchFromRef(ctx, from)
+			if err != nil {
+				return data, err
+			}
+			data.PublicIPFrom = obj
+		}
+	}
+
+	return data, nil
+}
+
+func (r *DbInstanceReconciler) fetchFromRef(ctx context.Context, from *kindav1beta1.FromRef) (client.Object, error) {
+	var obj client.Object
+	switch from.Kind {
+	case "Secret":
+		obj = &corev1.Secret{}
+	case "ConfigMap":
+		obj = &corev1.ConfigMap{}
+	default:
+		return nil, errors.New("invalid kind in fromRef")
+	}
+
+	err := r.Get(ctx, from.ToKubernetesType(), obj)
+	return obj, err
+}
+
+func (r *DbInstanceReconciler) create(ctx context.Context, dbin *kindav1beta1.DbInstance, data commonhelper.DbInstanceData) error {
+	log := log.FromContext(ctx)
+
 	db := database.New(dbin.Spec.Engine)
-	cred, err := db.ParseAdminCredentials(ctx, secret.Data)
+	cred, err := db.ParseAdminCredentials(ctx, data.AdminSecret.Data)
 	if err != nil {
 		return err
 	}
@@ -177,17 +288,8 @@ func (r *DbInstanceReconciler) create(ctx context.Context, dbin *kindav1beta1.Db
 	var instance dbinstance.DbInstance
 	switch backend {
 	case "google":
-		configmap, err := kci.GetConfigResource(ctx, dbin.Spec.Google.ConfigmapName.ToKubernetesType())
-		if err != nil {
-			log.Error(err, "failed reading GCSQL instance config",
-				"namespace", dbin.Spec.Google.ConfigmapName.Namespace,
-				"name", dbin.Spec.Google.ConfigmapName.Name,
-			)
-			return err
-		}
-
 		name := dbin.Spec.Google.InstanceName
-		config := configmap.Data["config"]
+		config := data.ConfigMap.Data["config"]
 		user := cred.Username
 		password := cred.Password
 		apiEndpoint := dbin.Spec.Google.APIEndpoint
@@ -337,6 +439,46 @@ func (r *DbInstanceReconciler) createProxy(ctx context.Context, dbin *kindav1bet
 		} else {
 			// failed to create service
 			log.Error(err, "failed to create proxy service")
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *DbInstanceReconciler) labelReferencedResources(ctx context.Context, dbin *kindav1beta1.DbInstance, data commonhelper.DbInstanceData) error {
+	if data.AdminSecret != nil {
+		if err := commonhelper.EnsureLabel(ctx, r.Client, data.AdminSecret, consts.DBINSTANCE_NAME_LABEL_KEY, dbin.Name); err != nil {
+			return err
+		}
+	}
+
+	if data.ConfigMap != nil {
+		if err := commonhelper.EnsureLabel(ctx, r.Client, data.ConfigMap, consts.DBINSTANCE_NAME_LABEL_KEY, dbin.Name); err != nil {
+			return err
+		}
+	}
+
+	if data.ClientSecret != nil {
+		if err := commonhelper.EnsureLabel(ctx, r.Client, data.ClientSecret, consts.DBINSTANCE_NAME_LABEL_KEY, dbin.Name); err != nil {
+			return err
+		}
+	}
+
+	if data.HostFrom != nil {
+		if err := commonhelper.EnsureLabel(ctx, r.Client, data.HostFrom, consts.DBINSTANCE_NAME_LABEL_KEY, dbin.Name); err != nil {
+			return err
+		}
+	}
+
+	if data.PortFrom != nil {
+		if err := commonhelper.EnsureLabel(ctx, r.Client, data.PortFrom, consts.DBINSTANCE_NAME_LABEL_KEY, dbin.Name); err != nil {
+			return err
+		}
+	}
+
+	if data.PublicIPFrom != nil {
+		if err := commonhelper.EnsureLabel(ctx, r.Client, data.PublicIPFrom, consts.DBINSTANCE_NAME_LABEL_KEY, dbin.Name); err != nil {
 			return err
 		}
 	}

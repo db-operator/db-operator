@@ -1,6 +1,3 @@
-//go:build !tests
-// +build !tests
-
 /*
  * Copyright 2021 kloeckner.i GmbH
  *
@@ -21,94 +18,17 @@ package common_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 
-	"bou.ke/monkey"
 	kindav1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
 	"github.com/db-operator/db-operator/v2/internal/helpers/common"
 	"github.com/db-operator/db-operator/v2/internal/utils/testutils"
-	"github.com/db-operator/db-operator/v2/pkg/consts"
-	"github.com/db-operator/db-operator/v2/pkg/test"
-	"github.com/db-operator/db-operator/v2/pkg/utils/kci"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
-const (
-	TestSecretName = "TestSec"
-	TestNamespace  = "TestNS"
-)
-
-func newPostgresTestDbInstanceCr() kindav1beta1.DbInstance {
-	info := make(map[string]string)
-	info["DB_PORT"] = "5432"
-	info["DB_CONN"] = "postgres"
-	return kindav1beta1.DbInstance{
-		Spec: kindav1beta1.DbInstanceSpec{
-			Engine: "postgres",
-			DbInstanceSource: kindav1beta1.DbInstanceSource{
-				Generic: &kindav1beta1.GenericInstance{
-					Host: test.GetPostgresHost(),
-					Port: test.GetPostgresPort(),
-				},
-			},
-		},
-		Status: kindav1beta1.DbInstanceStatus{Info: info},
-	}
-}
-
-func newMysqlTestDbInstanceCr() kindav1beta1.DbInstance {
-	info := make(map[string]string)
-	info["DB_PORT"] = "3306"
-	info["DB_CONN"] = "mysql"
-	return kindav1beta1.DbInstance{
-		Spec: kindav1beta1.DbInstanceSpec{
-			Engine: "mysql",
-			DbInstanceSource: kindav1beta1.DbInstanceSource{
-				Generic: &kindav1beta1.GenericInstance{
-					Host: test.GetMysqlHost(),
-					Port: test.GetMysqlPort(),
-				},
-			},
-		},
-		Status: kindav1beta1.DbInstanceStatus{Info: info},
-	}
-}
-
-func newPostgresTestDbCr() *kindav1beta1.Database {
-	o := metav1.ObjectMeta{Namespace: TestNamespace}
-	s := kindav1beta1.DatabaseSpec{SecretName: TestSecretName}
-
-	db := kindav1beta1.Database{
-		ObjectMeta: o,
-		Spec:       s,
-		Status:     kindav1beta1.DatabaseStatus{Engine: consts.ENGINE_POSTGRES},
-	}
-
-	return &db
-}
-
-func newMysqlTestDbCr() *kindav1beta1.Database {
-	o := metav1.ObjectMeta{Namespace: "TestNS"}
-	s := kindav1beta1.DatabaseSpec{SecretName: "TestSec"}
-
-	info := make(map[string]string)
-	info["DB_PORT"] = "3306"
-	info["DB_CONN"] = "mysql"
-
-	db := kindav1beta1.Database{
-		ObjectMeta: o,
-		Spec:       s,
-		Status:     kindav1beta1.DatabaseStatus{Engine: consts.ENGINE_MYSQL},
-	}
-
-	return &db
-}
-
-func TestIsSpecChanged(t *testing.T) {
+func TestIsDBChanged(t *testing.T) {
 	db := testutils.NewPostgresTestDbCr(testutils.NewPostgresTestDbInstanceCr())
 
 	testDbSecret := &corev1.Secret{
@@ -130,100 +50,120 @@ func TestIsSpecChanged(t *testing.T) {
 	assert.Equal(t, change, true, "expected true")
 }
 
-func testConfigmap1(_ context.Context, nsName types.NamespacedName) (*corev1.ConfigMap, error) {
-	cm := &corev1.ConfigMap{}
-	cm.Namespace = nsName.Namespace
-	cm.Name = nsName.Name
-
-	data := make(map[string]string)
-	data["config"] = "test1"
-	cm.Data = data
-
-	return cm, nil
-}
-
-func testConfigmap2(_ context.Context, nsName types.NamespacedName) (*corev1.ConfigMap, error) {
-	cm := &corev1.ConfigMap{}
-	cm.Namespace = nsName.Namespace
-	cm.Name = nsName.Name
-
-	data := make(map[string]string)
-	data["config"] = "test2"
-	cm.Data = data
-
-	return cm, nil
-}
-
-func errorConfigmap(namespace, configmapName string) (*corev1.ConfigMap, error) {
-	cm := &corev1.ConfigMap{}
-	return cm, errors.New("whatever error")
-}
-
-func testAdminSecret(namespace, secretName string) (*corev1.Secret, error) {
-	secret := &corev1.Secret{}
-
-	data := make(map[string][]byte)
-	data["user"] = []byte("user")
-	data["password"] = []byte("securepassword")
-
-	secret.Data = data
-	return secret, nil
-}
-
-func TestSpecChanged(t *testing.T) {
-	dbin := &kindav1beta1.DbInstance{}
-	before := kindav1beta1.DbInstanceSpec{
-		AdminUserSecret: kindav1beta1.NamespacedName{
-			Namespace: "test",
-			Name:      "secret1",
-		},
-	}
-
+func TestGenerateDBInstanceChecksums(t *testing.T) {
 	ctx := context.Background()
 
-	dbin.Spec = before
-	common.AddDBInstanceChecksumStatus(ctx, dbin)
-	nochange := common.IsDBInstanceSpecChanged(ctx, dbin)
-	assert.Equal(t, nochange, false, "expected false")
+	t.Run("Basic Spec and AdminSecret", func(t *testing.T) {
+		// Test case: Basic instance with only AdminSecret referenced.
+		// Verifies that 'spec' and 'adminSecret' keys are populated.
+		dbin := &kindav1beta1.DbInstance{
+			Spec: kindav1beta1.DbInstanceSpec{
+				Engine: "postgres",
+			},
+		}
+		data := common.DbInstanceData{
+			AdminSecret: &corev1.Secret{
+				Data: map[string][]byte{"password": []byte("pass")},
+			},
+		}
 
-	after := kindav1beta1.DbInstanceSpec{
-		AdminUserSecret: kindav1beta1.NamespacedName{
-			Namespace: "test",
-			Name:      "secret2",
-		},
-	}
-	dbin.Spec = after
-	change := common.IsDBInstanceSpecChanged(ctx, dbin)
-	assert.Equal(t, change, true, "expected true")
-}
+		checksums := common.GenerateDBInstanceChecksums(dbin, data)
+		assert.Contains(t, checksums, "spec")
+		assert.Contains(t, checksums, "adminSecret")
+		assert.NotContains(t, checksums, "config")
+	})
 
-func TestConfigChanged(t *testing.T) {
-	dbin := &kindav1beta1.DbInstance{}
-	dbin.Spec.Google = &kindav1beta1.GoogleInstance{
-		InstanceName: "test",
-		ConfigmapName: kindav1beta1.NamespacedName{
-			Namespace: "testNS",
-			Name:      "test",
-		},
-	}
+	t.Run("Google Backend with ConfigMap and ClientSecret", func(t *testing.T) {
+		// Test case: Google backend with both ConfigMap and ClientSecret.
+		// Verifies that backend-specific keys are correctly included.
+		dbin := &kindav1beta1.DbInstance{
+			Spec: kindav1beta1.DbInstanceSpec{
+				Engine: "postgres",
+				DbInstanceSource: kindav1beta1.DbInstanceSource{
+					Google: &kindav1beta1.GoogleInstance{
+						ClientSecret: kindav1beta1.NamespacedName{Name: "client-sec"},
+					},
+				},
+			},
+		}
+		data := common.DbInstanceData{
+			ConfigMap: &corev1.ConfigMap{
+				Data: map[string]string{"config": "val"},
+			},
+			ClientSecret: &corev1.Secret{
+				Data: map[string][]byte{"key": []byte("val")},
+			},
+		}
 
-	patch := monkey.Patch(kci.GetConfigResource, testConfigmap1)
-	defer patch.Unpatch()
-	common.AddDBInstanceChecksumStatus(context.Background(), dbin)
+		checksums := common.GenerateDBInstanceChecksums(dbin, data)
+		assert.Contains(t, checksums, "config")
+		assert.Contains(t, checksums, "clientSecret")
+	})
 
-	ctx := context.Background()
+	t.Run("Generic Backend with Host, Port and PublicIP FromRef", func(t *testing.T) {
+		// Test case: Generic backend with all fields fetched from external references.
+		// Verifies that generic-specific 'From' keys are included.
+		dbin := &kindav1beta1.DbInstance{
+			Spec: kindav1beta1.DbInstanceSpec{
+				Engine: "postgres",
+				DbInstanceSource: kindav1beta1.DbInstanceSource{
+					Generic: &kindav1beta1.GenericInstance{
+						HostFrom:     &kindav1beta1.FromRef{Name: "host-sec"},
+						PortFrom:     &kindav1beta1.FromRef{Name: "port-cm"},
+						PublicIPFrom: &kindav1beta1.FromRef{Name: "ip-sec"},
+					},
+				},
+			},
+		}
+		data := common.DbInstanceData{
+			HostFrom:     &corev1.Secret{Data: map[string][]byte{"host": []byte("localhost")}},
+			PortFrom:     &corev1.ConfigMap{Data: map[string]string{"port": "5432"}},
+			PublicIPFrom: &corev1.Secret{Data: map[string][]byte{"ip": []byte("1.1.1.1")}},
+		}
 
-	nochange := common.IsDBInstanceSpecChanged(ctx, dbin)
-	assert.Equal(t, nochange, false, "expected false")
+		checksums := common.GenerateDBInstanceChecksums(dbin, data)
+		assert.Contains(t, checksums, "hostFrom")
+		assert.Contains(t, checksums, "portFrom")
+		assert.Contains(t, checksums, "publicIPFrom")
+	})
 
-	patch = monkey.Patch(kci.GetConfigResource, testConfigmap2)
-	change := common.IsDBInstanceSpecChanged(ctx, dbin)
-	assert.Equal(t, change, true, "expected true")
-}
+	t.Run("Missing data doesn't panic and omits keys", func(t *testing.T) {
+		// Test case: Spec expects references, but DbInstanceData is empty.
+		// Verifies the function is robust against missing data (e.g. during partial reconcile).
+		dbin := &kindav1beta1.DbInstance{
+			Spec: kindav1beta1.DbInstanceSpec{
+				DbInstanceSource: kindav1beta1.DbInstanceSource{
+					Google: &kindav1beta1.GoogleInstance{},
+				},
+			},
+		}
+		data := common.DbInstanceData{}
 
-func TestAddChecksumStatus(t *testing.T) {
-	dbin := &kindav1beta1.DbInstance{}
-	common.AddDBInstanceChecksumStatus(context.Background(), dbin)
-	checksums := dbin.Status.Checksums
-	assert.NotEqual(t, checksums, map[string]string{}, "annotation should have checksum")
+		assert.NotPanics(t, func() {
+			checksums := common.GenerateDBInstanceChecksums(dbin, data)
+			assert.NotContains(t, checksums, "config")
+			assert.NotContains(t, checksums, "adminSecret")
+		})
+	})
+
+	t.Run("IsDBInstanceChanged detects modifications", func(t *testing.T) {
+		// Test case: End-to-end detection of state change.
+		// Verifies that modifying a referenced secret results in a 'changed' detection.
+		dbin := &kindav1beta1.DbInstance{
+			Status: kindav1beta1.DbInstanceStatus{
+				Checksums: map[string]string{"spec": "initial-spec"},
+			},
+		}
+		data := common.DbInstanceData{
+			AdminSecret: &corev1.Secret{Data: map[string][]byte{"foo": []byte("bar")}},
+		}
+
+		// Initial state sync
+		dbin.Status.Checksums = common.GenerateDBInstanceChecksums(dbin, data)
+		assert.False(t, common.IsDBInstanceChanged(ctx, dbin, data))
+
+		// Modify secret data
+		data.AdminSecret.Data["foo"] = []byte("changed")
+		assert.True(t, common.IsDBInstanceChanged(ctx, dbin, data))
+	})
 }

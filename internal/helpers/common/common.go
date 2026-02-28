@@ -18,6 +18,7 @@ package common
 
 import (
 	"context"
+	"reflect"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -25,6 +26,7 @@ import (
 	kindav1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
 	"github.com/db-operator/db-operator/v2/pkg/utils/kci"
 	crdv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var OperatorVersion string
@@ -63,46 +65,89 @@ func GenerateChecksumSecretValue(databaseSecret *corev1.Secret) string {
 	return hash
 }
 
-// TODO: proper error handling
-func IsDBInstanceSpecChanged(ctx context.Context, dbin *kindav1beta1.DbInstance) bool {
-	checksums := dbin.Status.Checksums
+// DbInstanceData contains all externally referenced objects of a DatabaseInstance
+type DbInstanceData struct {
+	AdminSecret  *corev1.Secret
+	ConfigMap    *corev1.ConfigMap
+	ClientSecret *corev1.Secret
+	HostFrom     client.Object
+	PortFrom     client.Object
+	PublicIPFrom client.Object
+}
+
+func IsDBInstanceChanged(ctx context.Context, dbin *kindav1beta1.DbInstance, data DbInstanceData) bool {
+	currentChecksums := GenerateDBInstanceChecksums(dbin, data)
+	return !reflect.DeepEqual(currentChecksums, dbin.Status.Checksums)
+}
+
+// GenerateDBInstanceChecksums serves as the single source of truth for calculating the checksums
+// of all objects a DBInstance depends on (spec, secrets, and configmaps).
+func GenerateDBInstanceChecksums(dbin *kindav1beta1.DbInstance, data DbInstanceData) map[string]string {
+	checksums := make(map[string]string)
+
 	hash, err := kci.GenerateChecksum(dbin.Spec)
 	// just to ensure the state
-	if err != nil {
-		return true
+	if err == nil {
+		checksums["spec"] = hash
 	}
 
-	if checksums["spec"] != hash {
-		return true
-	}
-
-	if backend, _ := dbin.GetBackendType(); backend == "google" {
-		instanceConfig, _ := kci.GetConfigResource(ctx, dbin.Spec.Google.ConfigmapName.ToKubernetesType())
-		hash, _ = kci.GenerateChecksum(instanceConfig)
-		if checksums["config"] != hash {
-			return true
+	backend, _ := dbin.GetBackendType()
+	if backend == "google" {
+		if data.ConfigMap != nil {
+			hash, _ := kci.GenerateChecksum(data.ConfigMap.Data)
+			checksums["config"] = hash
+		}
+		if dbin.Spec.Google.ClientSecret.Name != "" && data.ClientSecret != nil {
+			hash, _ := kci.GenerateChecksum(data.ClientSecret.Data)
+			checksums["clientSecret"] = hash
 		}
 	}
 
-	return false
+	if backend, _ := dbin.GetBackendType(); backend == "generic" {
+		if from := dbin.Spec.Generic.HostFrom; from != nil && data.HostFrom != nil {
+			checksums["hostFrom"] = getObjectDataChecksum(data.HostFrom)
+		}
+		if from := dbin.Spec.Generic.PortFrom; from != nil && data.PortFrom != nil {
+			checksums["portFrom"] = getObjectDataChecksum(data.PortFrom)
+		}
+		if from := dbin.Spec.Generic.PublicIPFrom; from != nil && data.PublicIPFrom != nil {
+			checksums["publicIPFrom"] = getObjectDataChecksum(data.PublicIPFrom)
+		}
+	}
+
+	if data.AdminSecret != nil {
+		hash, _ := kci.GenerateChecksum(data.AdminSecret.Data)
+		checksums["adminSecret"] = hash
+	}
+
+	return checksums
 }
 
-// TODO: proper error handling
-func AddDBInstanceChecksumStatus(ctx context.Context, dbin *kindav1beta1.DbInstance) {
-	checksums := dbin.Status.Checksums
-	if len(checksums) == 0 {
-		checksums = make(map[string]string)
+func getObjectDataChecksum(obj client.Object) string {
+	switch o := obj.(type) {
+	case *corev1.Secret:
+		hash, _ := kci.GenerateChecksum(o.Data)
+		return hash
+	case *corev1.ConfigMap:
+		hash, _ := kci.GenerateChecksum(o.Data)
+		return hash
 	}
-	hash, _ := kci.GenerateChecksum(dbin.Spec)
-	checksums["spec"] = hash
+	return ""
+}
 
-	if backend, _ := dbin.GetBackendType(); backend == "google" {
-		instanceConfig, _ := kci.GetConfigResource(ctx, dbin.Spec.Google.ConfigmapName.ToKubernetesType())
-		hash, _ = kci.GenerateChecksum(instanceConfig)
-		checksums["config"] = hash
+func EnsureLabel(ctx context.Context, c client.Client, obj client.Object, key string, value string) error {
+	labels := obj.GetLabels()
+	if labels == nil {
+		labels = make(map[string]string)
 	}
 
-	dbin.Status.Checksums = checksums
+	if labels[key] == value {
+		return nil
+	}
+
+	labels[key] = value
+	obj.SetLabels(labels)
+	return c.Update(ctx, obj)
 }
 
 func ContainsString(slice []string, s string) bool {

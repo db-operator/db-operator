@@ -20,6 +20,7 @@ import (
 	"errors"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
@@ -98,6 +99,17 @@ type FromRef struct {
 	Name      string `json:"name"`
 	Namespace string `json:"namespace"`
 	Key       string `json:"key"`
+}
+
+func (fr *FromRef) ToKubernetesType() types.NamespacedName {
+	if fr == nil {
+		return types.NamespacedName{}
+	}
+
+	return types.NamespacedName{
+		Name:      fr.Name,
+		Namespace: fr.Namespace,
+	}
 }
 
 // DbInstanceBackup defines name of google bucket to use for storing database dumps for backup when backup is enabled
@@ -201,6 +213,36 @@ func (dbin *DbInstance) GetBackendType() (string, error) {
 	}
 
 	return "", errors.New("no backend type defined")
+}
+
+// ValidateNamespaces checks if all namespaced references have a namespace
+func (dbin *DbInstance) ValidateNamespaces() error {
+	if dbin.Spec.AdminUserSecret.Namespace == "" {
+		return errors.New("adminSecretRef.Namespace must be specified")
+	}
+
+	if dbin.Spec.Google != nil {
+		if dbin.Spec.Google.ConfigmapName.Namespace == "" {
+			return errors.New("google.configmapRef.Namespace must be specified")
+		}
+		if dbin.Spec.Google.ClientSecret.Name != "" && dbin.Spec.Google.ClientSecret.Namespace == "" {
+			return errors.New("google.clientSecretRef.Namespace must be specified")
+		}
+	}
+
+	if dbin.Spec.Generic != nil {
+		if from := dbin.Spec.Generic.HostFrom; from != nil && from.Namespace == "" {
+			return errors.New("generic.hostFrom.namespace must be specified")
+		}
+		if from := dbin.Spec.Generic.PortFrom; from != nil && from.Namespace == "" {
+			return errors.New("generic.portFrom.namespace must be specified")
+		}
+		if from := dbin.Spec.Generic.PublicIPFrom; from != nil && from.Namespace == "" {
+			return errors.New("generic.publicIpFrom.namespace must be specified")
+		}
+	}
+
+	return nil
 }
 
 // IsMonitoringEnabled returns boolean value if monitoring is enabled for the instance
