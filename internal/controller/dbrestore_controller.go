@@ -89,7 +89,7 @@ func (r *DbRestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	resourceHolder := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        obj.Name + "restore-holder",
-			Namespace:   obj.Namespace,
+			Namespace:   r.Opts.RestoreNamesapce,
 			Labels:      obj.Labels,
 			Annotations: obj.Annotations,
 		},
@@ -337,13 +337,13 @@ func (r *DbRestoreReconciler) createRole(ctx context.Context, obj *kindarocksv1b
 			{
 				Verbs:         []string{"get"},
 				APIGroups:     []string{"kinda.rocks"},
-				Resources:     []string{"DbRestores"},
+				Resources:     []string{"dbrestores"},
 				ResourceNames: []string{obj.Name},
 			},
 			{
 				Verbs:         []string{"get", "patch", "update"},
 				APIGroups:     []string{"kinda.rocks"},
-				Resources:     []string{"DbRestores/status"},
+				Resources:     []string{"dbrestores/status"},
 				ResourceNames: []string{obj.Name},
 			},
 		},
@@ -427,14 +427,27 @@ func (r *DbRestoreReconciler) createDbSecret(ctx context.Context, obj *kindarock
 
 	db, _, err := database.FetchDatabaseData(ctx, dbcr, databaseCred, instance)
 
+	adminSecret := &corev1.Secret{}
+
+	if err := r.Get(ctx, instance.Spec.AdminUserSecret.ToKubernetesType(), adminSecret); err != nil {
+		return err
+	}
+
+	adminCred, err := db.ParseAdminCredentials(ctx, adminSecret.Data)
+	if err != nil {
+		// failed to parse database admin secret
+		return err
+	}
+
 	envData := map[string][]byte{}
 	switch dbcr.Status.Engine {
 	case "postgres":
 		envData["PGHOST"] = []byte(db.GetDatabaseAddress(ctx).Host)
 		envData["PGPORT"] = []byte(strconv.FormatUint(uint64(db.GetDatabaseAddress(ctx).Port), 10))
-		envData["PGDATABASE"] = []byte(databaseCred.DatabaseName)
-		envData["PGPASSWORD"] = []byte(databaseCred.Password)
-		envData["PGUSER"] = []byte(databaseCred.Username)
+		envData["PGDATABASE"] = []byte("postgres")
+		envData["PGPASSWORD"] = []byte(adminCred.Password)
+		envData["PGUSER"] = []byte(adminCred.Username)
+		envData["DATABASE"] = []byte(databaseCred.DatabaseName)
 	case "mysql":
 		return errors.New("not implemented")
 	default:
@@ -531,10 +544,11 @@ func (r *DbRestoreReconciler) createPod(ctx context.Context, obj *kindarocksv1be
 					Name:          "01-download",
 					Image:         image,
 					Args: []string{
+						"restore",
 						"download",
 						"--namespace",
 						obj.Namespace,
-						"--backup-name",
+						"--restore-name",
 						obj.Name,
 					},
 					EnvFrom: []corev1.EnvFromSource{{
@@ -559,6 +573,10 @@ func (r *DbRestoreReconciler) createPod(ctx context.Context, obj *kindarocksv1be
 						},
 					},
 					ImagePullPolicy: corev1.PullPolicy(*obj.Spec.Image.PullPolicy),
+					VolumeMounts: []corev1.VolumeMount{{
+						Name:      "backup",
+						MountPath: "/backup",
+					}},
 				},
 			},
 			Containers: []corev1.Container{
@@ -568,9 +586,10 @@ func (r *DbRestoreReconciler) createPod(ctx context.Context, obj *kindarocksv1be
 					Image:         image,
 					Args: []string{
 						"restore",
+						"restore",
 						"--namespace",
 						obj.Namespace,
-						"--backup-name",
+						"--restore-name",
 						obj.Name,
 					},
 					EnvFrom: []corev1.EnvFromSource{{
