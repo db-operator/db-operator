@@ -437,6 +437,11 @@ func (in *DbBackupStatus) DeepCopyInto(out *DbBackupStatus) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.BackupPodName != nil {
+		in, out := &in.BackupPodName, &out.BackupPodName
+		*out = new(string)
+		**out = **in
+	}
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
 		*out = make([]v1.Condition, len(*in))

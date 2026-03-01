@@ -125,6 +125,9 @@ spec:
                 default: 0
                 format: int64
                 type: integer
+              backupPodId:
+                description: An ID of a last created pod
+                type: string
               backupSize:
                 default: 0
                 format: int64

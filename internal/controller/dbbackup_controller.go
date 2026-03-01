@@ -112,6 +112,7 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	// If status conditions are not set, it probably means that the CR was just created.
 	// Set the status conditions and return to let the next reconcile loop continue the logic
+	log.Info("Checking if DbBackup is initialized")
 	if len(dbbackupcr.Status.Conditions) == 0 {
 		if err := r.initDbBackupCR(ctx, dbbackupcr); err != nil {
 			log.Error(err, "Couldn't initialize a DbBackup object")
@@ -122,6 +123,7 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	// If object is removed, run the cleanup
+	log.Info("Checking if DbBackup is deleted")
 	if dbbackupcr.IsDeleted() {
 		log.Info("Resource is deleted, cleaning up")
 		if err := r.cleanup(ctx, dbbackupcr, resourceHolder); err != nil {
@@ -132,6 +134,7 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	// If success, we don't need to do anything
+	log.Info("Checking if DbBackup is succeded")
 	if r.isSuccess(dbbackupcr) {
 		if err := r.cleanup(ctx, dbbackupcr, resourceHolder); err != nil {
 			log.Error(err, "Couldn't execute the cleanup logic")
@@ -147,13 +150,25 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	// If object status is false, do not retry
+	log.Info("Checking if DbBackup is failed")
 	if r.isFailed(dbbackupcr) {
 		log.Info("The object status is false, not retrying")
 		return ctrl.Result{}, nil
 	}
 
+	running, err := r.isBackupRunning(ctx, dbbackupcr)
+	if err != nil {
+		log.Error(err, "Couldn't get the pod status, continuing ...")
+	}
+
+	if running {
+		log.Info("Backup pod is running, waiting ...")
+		return ctrl.Result{}, nil
+	}
+
 	// The backup pod is using this field to lock the object,
 	// Operator must wait until the object is unlocked
+	log.Info("Checking if DbBackup is locked by a backup pod")
 	if *dbbackupcr.Status.LockedByBackupJob {
 		log.Info("Locked by a backup job, skipping ...")
 		return ctrl.Result{}, nil
@@ -161,8 +176,10 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	r.Opts.kubeHelper = kubehelper.NewKubeHelper(r.Client, r.Recorder, dbbackupcr)
 
+	log.Info("Checking is resource holder is ready")
 	// Create a resource holder and add a finalizer to DbBackup
 	if !meta.IsStatusConditionTrue(dbbackupcr.Status.Conditions, consts.TYPE_RESOURCE_HOLDER) {
+		r.Recorder.Eventf(dbbackupcr, resourceHolder, corev1.EventTypeNormal, "DbBackup", "ResourceHolder", "Creating a resource holder")
 		_, err := r.Opts.kubeHelper.Create(ctx, resourceHolder)
 		if err != nil {
 			log.Error(err, "Couldn't create a resource hodler", "name", resourceHolder.Name)
@@ -183,9 +200,11 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
+	log.Info("Checking if resource holder finalizer is added")
 	// Set the finalizer if needed
 	if meta.IsStatusConditionTrue(dbbackupcr.Status.Conditions, consts.TYPE_RESOURCE_HOLDER) {
-		if !slices.Contains(dbbackupcr.Finalizers, consts.FIN_RESOURCE_HOLDER) && !*dbbackupcr.Spec.Debug {
+		if !slices.Contains(dbbackupcr.Finalizers, consts.FIN_RESOURCE_HOLDER) {
+			r.Recorder.Eventf(dbbackupcr, resourceHolder, corev1.EventTypeNormal, "DbBackup", "ResourceHolder", "Adding a resource holder finalizer")
 			dbbackupcr.Finalizers = append(dbbackupcr.Finalizers, consts.FIN_RESOURCE_HOLDER)
 
 			if err := r.Update(ctx, dbbackupcr); err != nil {
@@ -198,6 +217,7 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 	}
 
+	log.Info("Getting a new resource holder from Kubernetes")
 	// Get the new verson of a resource holder
 	if err := r.Get(ctx, types.NamespacedName{Namespace: resourceHolder.Namespace, Name: resourceHolder.Name}, resourceHolder); err != nil {
 		log.Error(err, "Couldn't get a resource hodler")
@@ -210,6 +230,7 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	r.Opts.dbCredsSecretName = fmt.Sprintf("%s-db", r.Opts.childObjName)
 	r.Opts.storageCredsSecretName = fmt.Sprintf("%s-storage", r.Opts.childObjName)
 
+	log.Info("Getting a database for this backup")
 	// Try to get the database for a backup
 	dbcr := &kindarocksv1beta1.Database{}
 	if err = r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: *dbbackupcr.Spec.Database}, dbcr); err != nil {
@@ -228,6 +249,7 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
+	log.Info("Checking if database is ready")
 	// If database is not ready, we need to try later
 	if !dbcr.Status.Status {
 		err := errors.New("database is not ready")
@@ -235,8 +257,10 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{Requeue: true}, err
 	}
 
+	log.Info("Setting the database engine")
 	// Set the engine
 	if dbbackupcr.Status.Engine == nil {
+		r.Recorder.Eventf(dbbackupcr, dbcr, corev1.EventTypeNormal, "DbBackup", "Engine", "Setting the engine")
 		dbbackupcr.Status.Engine = &dbcr.Status.Engine
 		if err := r.Status().Update(ctx, dbbackupcr); err != nil {
 			log.Error(err, "Couldn't set database engine in the status")
@@ -246,10 +270,12 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
+	log.Info("Checking if retry limit is reached")
 	// If not backup.success, create a backup pod
 	// Check if db-operator has reached the possible amount of retries
 	// If yes, give up and set status to false
 	if *dbbackupcr.Status.FailedRetries >= *dbbackupcr.Spec.Retries {
+		r.Recorder.Eventf(dbbackupcr, dbcr, corev1.EventTypeWarning, "DbBackup", "Failed", "Backup was failed")
 		err := errors.New("failed retries amount is reached")
 		log.Error(err, "The amount of  failed retries is reached, CR is marked as failed", "retry", dbbackupcr.Status.FailedRetries)
 
@@ -267,39 +293,49 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	log.Info("Executing the backup logic", "retry", *dbbackupcr.Status.FailedRetries+1)
-
 	// Init the kubehelper object
 	// Create a service account
 	// Create a DB Secret
 	// Create a POD
 
+	log.Info("Creating a Service Account")
 	if err := r.createSA(ctx, dbbackupcr); err != nil {
 		log.Error(err, "Couldn't create a service account")
 		return ctrl.Result{}, err
 	}
 
+	log.Info("Creating a database Secret")
 	if err := r.createDbSecret(ctx, dbbackupcr, dbcr); err != nil {
 		log.Error(err, "Couldn't create a secret with database credentials")
 		return ctrl.Result{}, err
 	}
 
+	log.Info("Creating a storage Secret")
 	if err := r.createUploadSecret(ctx, dbbackupcr, dbcr); err != nil {
 		log.Error(err, "Couldn't create a secret with storage credentials")
 		return ctrl.Result{}, err
 	}
 
+	log.Info("Creating a Role")
 	if err := r.createRole(ctx, dbbackupcr); err != nil {
 		log.Error(err, "Couldn't create a role")
 		return ctrl.Result{}, err
 	}
 
+	log.Info("Creating a Role Binding")
 	if err := r.createRoleBinding(ctx, dbbackupcr); err != nil {
 		log.Error(err, "Couldn't create a role binding")
 		return ctrl.Result{}, err
 	}
 
+	log.Info("Creating a Pod")
 	if err := r.createPod(ctx, dbbackupcr); err != nil {
 		log.Error(err, "Couldn't create a pod")
+		return ctrl.Result{}, err
+	}
+
+	if err := r.Status().Update(ctx, dbbackupcr); err != nil {
+		log.Error(err, "Coudln't update DbBackup status")
 		return ctrl.Result{}, err
 	}
 
@@ -319,6 +355,7 @@ func (r *DbBackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *DbBackupReconciler) initDbBackupCR(ctx context.Context, obj *kindarocksv1beta1.DbBackup) error {
 	log := logf.FromContext(ctx)
 	log.Info("Initializing an object")
+	r.Recorder.Eventf(obj, nil, corev1.EventTypeNormal, "DbBackup", "Initialization", "Initializing the DbBackup object")
 	obj.Status.OperatorVersion = &commonhelper.OperatorVersion
 	meta.SetStatusCondition(
 		&obj.Status.Conditions,
@@ -345,9 +382,21 @@ func (r *DbBackupReconciler) isSuccess(obj *kindarocksv1beta1.DbBackup) bool {
 	return meta.IsStatusConditionTrue(obj.Status.Conditions, consts.TYPE_BACKUP_STATUS)
 }
 
+func (r *DbBackupReconciler) isBackupRunning(ctx context.Context, obj *kindarocksv1beta1.DbBackup) (bool, error) {
+	pod := &corev1.Pod{}
+	if err := r.Get(ctx, types.NamespacedName{Namespace: obj.Namespace, Name: *obj.Status.BackupPodName}, pod); err != nil {
+		return false, err
+	}
+	if pod.Status.Phase == corev1.PodPending || pod.Status.Phase == corev1.PodRunning {
+		return true, nil
+	}
+	return false, nil
+}
+
 // Remove the resource holder and a finalizer from the DbBackup
 func (r *DbBackupReconciler) cleanup(ctx context.Context, obj *kindarocksv1beta1.DbBackup, cm *corev1.ConfigMap) error {
 	log := logf.FromContext(ctx)
+	r.Recorder.Eventf(obj, nil, corev1.EventTypeNormal, "DbBackup", "CleanUp", "Cleaning up after a backup")
 	if *obj.Spec.Debug {
 		log.Info("Debug mod is turned on, not removing anything")
 		return nil
@@ -386,8 +435,11 @@ func (r *DbBackupReconciler) createSA(ctx context.Context, obj *kindarocksv1beta
 			}},
 		},
 	}
-	if err := r.Opts.kubeHelper.HandleCreateOrUpdate(ctx, sa); err != nil {
-		return err
+	r.Recorder.Eventf(obj, sa, corev1.EventTypeNormal, "DbBackup", "ServiceAccount", "Creating a service account")
+	if err := r.Create(ctx, sa); err != nil {
+		if !k8serrors.IsAlreadyExists(err) {
+			return err
+		}
 	}
 	return nil
 }
@@ -423,8 +475,11 @@ func (r *DbBackupReconciler) createRole(ctx context.Context, obj *kindarocksv1be
 			},
 		},
 	}
-	if err := r.Opts.kubeHelper.HandleCreateOrUpdate(ctx, role); err != nil {
-		return err
+	r.Recorder.Eventf(obj, role, corev1.EventTypeNormal, "DbBackup", "Role", "Creating a role")
+	if err := r.Create(ctx, role); err != nil {
+		if !k8serrors.IsAlreadyExists(err) {
+			return err
+		}
 	}
 	return nil
 }
@@ -432,7 +487,7 @@ func (r *DbBackupReconciler) createRole(ctx context.Context, obj *kindarocksv1be
 func (r *DbBackupReconciler) createRoleBinding(ctx context.Context, obj *kindarocksv1beta1.DbBackup) error {
 	log := logf.FromContext(ctx)
 	log.Info("Creating a Role Binding")
-	role := &rbacv1.RoleBinding{
+	roleBinding := &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        r.Opts.childObjName,
 			Namespace:   obj.Namespace,
@@ -457,8 +512,11 @@ func (r *DbBackupReconciler) createRoleBinding(ctx context.Context, obj *kindaro
 			Name:     r.Opts.childObjName,
 		},
 	}
-	if err := r.Opts.kubeHelper.HandleCreateOrUpdate(ctx, role); err != nil {
-		return err
+	r.Recorder.Eventf(obj, roleBinding, corev1.EventTypeNormal, "DbBackup", "RoleBinding", "Creating a role binding")
+	if err := r.Create(ctx, roleBinding); err != nil {
+		if !k8serrors.IsAlreadyExists(err) {
+			return err
+		}
 	}
 	return nil
 }
@@ -510,8 +568,11 @@ func (r *DbBackupReconciler) createDbSecret(ctx context.Context, obj *kindarocks
 	envData["DB_USER"] = []byte(databaseCred.Username)
 	secret.Data = envData
 
-	if err := r.Opts.kubeHelper.HandleCreateOrUpdate(ctx, secret); err != nil {
-		return err
+	r.Recorder.Eventf(obj, secret, corev1.EventTypeNormal, "DbBackup", "DbSecret", "Creating a secret with database credentials")
+	if err := r.Create(ctx, secret); err != nil {
+		if !k8serrors.IsAlreadyExists(err) {
+			return err
+		}
 	}
 
 	return nil
@@ -555,8 +616,11 @@ func (r *DbBackupReconciler) createUploadSecret(ctx context.Context, obj *kindar
 
 	secret.Data = credSecret.Data
 
-	if err := r.Opts.kubeHelper.HandleCreateOrUpdate(ctx, secret); err != nil {
-		return err
+	r.Recorder.Eventf(obj, secret, corev1.EventTypeNormal, "DbBackup", "StorageSecret", "Creating a secret with storage credentials")
+	if err := r.Create(ctx, secret); err != nil {
+		if !k8serrors.IsAlreadyExists(err) {
+			return err
+		}
 	}
 
 	return nil
@@ -729,10 +793,14 @@ func (r *DbBackupReconciler) createPod(ctx context.Context, obj *kindarocksv1bet
 		},
 	}
 
-	if err := r.Opts.kubeHelper.HandleCreateOrUpdate(ctx, pod); err != nil {
-		return err
+	r.Recorder.Eventf(obj, pod, corev1.EventTypeNormal, "DbBackup", "Pod", "Creating a backup pod")
+	if err := r.Create(ctx, pod); err != nil {
+		if !k8serrors.IsAlreadyExists(err) {
+			return err
+		}
 	}
 
+	obj.Status.BackupPodName = &pod.Name
 	return nil
 }
 
@@ -745,22 +813,6 @@ func (r *DbBackupReconciler) getDatabaseSecret(ctx context.Context, dbcr *kindar
 	}
 	err := r.Get(ctx, key, secret)
 	if err != nil {
-		return nil, err
-	}
-
-	return secret, nil
-}
-
-func (r *DbBackupReconciler) getAdminSecret(ctx context.Context, dbcr *kindarocksv1beta1.Database) (*corev1.Secret, error) {
-	instance := &kindarocksv1beta1.DbInstance{}
-	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
-		return nil, err
-	}
-
-	// get database admin credentials
-	secret := &corev1.Secret{}
-
-	if err := r.Get(ctx, instance.Spec.AdminUserSecret.ToKubernetesType(), secret); err != nil {
 		return nil, err
 	}
 

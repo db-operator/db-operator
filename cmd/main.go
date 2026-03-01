@@ -186,9 +186,10 @@ func main() {
 			ReconcileAfter: time.Duration(i),
 		}
 		if err := (&controller.DbBackupReconciler{
-			Opts:   dbBackupOpts,
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
+			Opts:     dbBackupOpts,
+			Client:   mgr.GetClient(),
+			Scheme:   mgr.GetScheme(),
+			Recorder: mgr.GetEventRecorder("dbbackup-controller"),
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "Failed to create controller", "controller", "DbBackup")
 			os.Exit(1)
