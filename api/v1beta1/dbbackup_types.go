@@ -104,6 +104,7 @@ type DbBackupStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Path",type=boolean,JSONPath=`.status.path`,description="A path to the backup in the external storage."
 // +kubebuilder:printcolumn:name="Status",type=boolean,JSONPath=`.status.status`,description="If database was backed up."
 // +kubebuilder:printcolumn:name="OperatorVersion",type=string,JSONPath=`.status.operatorVersion`,description="db-operator version of last full reconcile"
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`,description="time since creation of resource"
