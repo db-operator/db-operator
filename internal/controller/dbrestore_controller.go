@@ -34,6 +34,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	kindarocksv1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
+	commonhelper "github.com/db-operator/db-operator/v2/internal/helpers/common"
 	"github.com/db-operator/db-operator/v2/internal/helpers/database"
 	dbhelper "github.com/db-operator/db-operator/v2/internal/helpers/database"
 	kubehelper "github.com/db-operator/db-operator/v2/internal/helpers/kube"
@@ -221,12 +222,12 @@ func (r *DbRestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
-	if err := r.createRole(ctx, obj); err != nil {
+	if err := r.createClusterRole(ctx, obj); err != nil {
 		log.Error(err, "Couldn't create a role")
 		return ctrl.Result{}, err
 	}
 
-	if err := r.createRoleBinding(ctx, obj); err != nil {
+	if err := r.createClusterRoleBinding(ctx, obj); err != nil {
 		log.Error(err, "Couldn't create a role binding")
 		return ctrl.Result{}, err
 	}
@@ -262,6 +263,7 @@ func (r *DbRestoreReconciler) isSuccess(obj *kindarocksv1beta1.DbRestore) bool {
 func (r *DbRestoreReconciler) initDbRestoreCR(ctx context.Context, obj *kindarocksv1beta1.DbRestore) error {
 	log := logf.FromContext(ctx)
 	log.Info("Initializing an object")
+	obj.Status.OperatorVersion = &commonhelper.OperatorVersion
 	meta.SetStatusCondition(
 		&obj.Status.Conditions,
 		metav1.Condition{Type: consts.TYPE_RESTORE_STATUS, Status: metav1.ConditionUnknown, Reason: "Reconciling", Message: "Starting reconciliation"},
@@ -317,10 +319,10 @@ func (r *DbRestoreReconciler) createSA(ctx context.Context, obj *kindarocksv1bet
 	return nil
 }
 
-func (r *DbRestoreReconciler) createRole(ctx context.Context, obj *kindarocksv1beta1.DbRestore) error {
+func (r *DbRestoreReconciler) createClusterRole(ctx context.Context, obj *kindarocksv1beta1.DbRestore) error {
 	log := logf.FromContext(ctx)
 	log.Info("Creating a Role")
-	role := &rbacv1.Role{
+	role := &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        r.Opts.childObjName,
 			Namespace:   r.Opts.RestoreNamesapce,
@@ -354,10 +356,10 @@ func (r *DbRestoreReconciler) createRole(ctx context.Context, obj *kindarocksv1b
 	return nil
 }
 
-func (r *DbRestoreReconciler) createRoleBinding(ctx context.Context, obj *kindarocksv1beta1.DbRestore) error {
+func (r *DbRestoreReconciler) createClusterRoleBinding(ctx context.Context, obj *kindarocksv1beta1.DbRestore) error {
 	log := logf.FromContext(ctx)
 	log.Info("Creating a Role Binding")
-	role := &rbacv1.RoleBinding{
+	role := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        r.Opts.childObjName,
 			Namespace:   r.Opts.RestoreNamesapce,
@@ -378,7 +380,7 @@ func (r *DbRestoreReconciler) createRoleBinding(ctx context.Context, obj *kindar
 		}},
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "Role",
+			Kind:     "ClusterRole",
 			Name:     r.Opts.childObjName,
 		},
 	}

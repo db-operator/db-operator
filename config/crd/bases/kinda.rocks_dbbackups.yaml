@@ -195,7 +195,7 @@ spec:
                 - type
                 x-kubernetes-list-type: map
               engine:
-                description: Database engine
+                description: Database engine. It's used by the db-backup-cli
                 type: string
               failedRetries:
                 default: 0
