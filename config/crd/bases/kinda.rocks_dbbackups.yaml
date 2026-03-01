@@ -15,6 +15,10 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - description: A path to the backup in the external storage.
+      jsonPath: .status.path
+      name: Path
+      type: boolean
     - description: If database was backed up.
       jsonPath: .status.status
       name: Status

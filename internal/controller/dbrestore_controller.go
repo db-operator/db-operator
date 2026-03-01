@@ -448,6 +448,7 @@ func (r *DbRestoreReconciler) createDbSecret(ctx context.Context, obj *kindarock
 		envData["PGPASSWORD"] = []byte(adminCred.Password)
 		envData["PGUSER"] = []byte(adminCred.Username)
 		envData["DATABASE"] = []byte(databaseCred.DatabaseName)
+		envData["USERNAME"] = []byte(databaseCred.Username)
 	case "mysql":
 		return errors.New("not implemented")
 	default:

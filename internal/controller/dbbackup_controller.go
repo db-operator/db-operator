@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"time"
 
+	commonhelper "github.com/db-operator/db-operator/v2/internal/helpers/common"
 	dbhelper "github.com/db-operator/db-operator/v2/internal/helpers/database"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -127,6 +128,11 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	if r.isSuccess(dbbackupcr) {
 		if err := r.cleanup(ctx, dbbackupcr, resourceHolder); err != nil {
 			log.Error(err, "Couldn't execute the cleanup logic")
+			return ctrl.Result{}, err
+		}
+		status := true
+		dbbackupcr.Status.Status = &status
+		if err := r.Status().Update(ctx, dbbackupcr); err != nil {
 			return ctrl.Result{}, err
 		}
 		log.Info("Backup is already processed successfully")
@@ -277,6 +283,7 @@ func (r *DbBackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *DbBackupReconciler) initDbBackupCR(ctx context.Context, obj *kindarocksv1beta1.DbBackup) error {
 	log := logf.FromContext(ctx)
 	log.Info("Initializing an object")
+	obj.Status.OperatorVersion = &commonhelper.OperatorVersion
 	meta.SetStatusCondition(
 		&obj.Status.Conditions,
 		metav1.Condition{Type: consts.TYPE_BACKUP_STATUS, Status: metav1.ConditionUnknown, Reason: "Reconciling", Message: "Starting reconciliation"},
