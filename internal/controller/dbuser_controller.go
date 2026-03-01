@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package controllers
+package controller
 
 import (
 	"context"
@@ -376,7 +376,7 @@ func parseDbUserSecretData(engine string, data map[string][]byte) (database.Cred
 	switch engine {
 	case "postgres":
 		if name, ok := data["POSTGRES_DB"]; ok {
-			cred.Name = string(name)
+			cred.DatabaseName = string(name)
 		} else {
 			return cred, errors.New("POSTGRES_DB key does not exist in secret data")
 		}
@@ -396,7 +396,7 @@ func parseDbUserSecretData(engine string, data map[string][]byte) (database.Cred
 		return cred, nil
 	case "mysql":
 		if name, ok := data["DB"]; ok {
-			cred.Name = string(name)
+			cred.DatabaseName = string(name)
 		} else {
 			return cred, errors.New("DB key does not exist in secret data")
 		}

@@ -251,6 +251,23 @@ spec:
                 description: DbInstanceBackup defines name of google bucket to use
                   for storing database dumps for backup when backup is enabled
                 properties:
+                  availableSecrets:
+                    additionalProperties:
+                      description: |-
+                        NamespacedName is a fork of the kubernetes api type of the same name.
+                        Sadly this is required because CRD structs must have all fields json tagged and the kubernetes type is not tagged.
+                      properties:
+                        Name:
+                          type: string
+                        Namespace:
+                          type: string
+                      required:
+                      - Name
+                      - Namespace
+                      type: object
+                    description: Available secrets may be used by DbBackup resources
+                      to get env variables for backing up
+                    type: object
                   bucket:
                     type: string
                 required:

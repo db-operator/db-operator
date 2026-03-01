@@ -85,7 +85,7 @@ func GenerateTemplatedSecrets(ctx context.Context, dbcr *kindav1beta1.Database, 
 		DatabasePort: dbcr.Status.ProxyStatus.SQLPort,
 		UserName:     databaseCred.Username,
 		Password:     databaseCred.Password,
-		DatabaseName: databaseCred.Name,
+		DatabaseName: databaseCred.DatabaseName,
 	}
 
 	// If proxy is not used, set a real database address

@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  namespace: {{ .Namespace }}
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: backup
+      image: {{ .ImageRegistry }}/{{ .ImageRepository }}:{{ .ImageTag }}
+      imagePullPolicy: {{ .ImagePullPolicy }}
+      args:
+        - backup
+        - --database-name
+        - {{ .DatabaseName }}
+        - --namespace
+        - {{ .Namespace }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+            - ALL
+      volumeMounts:
+        - name: data
+          mountPath: /backup
+          readOnly: false
+    
+    - name: upload
+      image: {{ .ImageRegistry }}/{{ .ImageRepository }}:{{ .ImageTag }}
+      imagePullPolicy: {{ .ImagePullPolicy }}
+      args:
+        - upload
+        - --namespace
+        - {{ .Namespace }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+            - ALL
+      volumeMounts:
+        - name: data
+          mountPath: /backup
+          readOnly: false
+
+  volumes:
+    - name: data
+      emptyDir: {}

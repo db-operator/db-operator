@@ -17,6 +17,7 @@ rules:
   resources:
   - databases
   - dbinstances
+  - dbrestores
   - dbusers
   verbs:
   - create
@@ -31,6 +32,7 @@ rules:
   resources:
   - databases/finalizers
   - dbinstances/finalizers
+  - dbrestores/finalizers
   - dbusers/finalizers
   verbs:
   - update
@@ -39,6 +41,7 @@ rules:
   resources:
   - databases/status
   - dbinstances/status
+  - dbrestores/status
   - dbusers/status
   verbs:
   - get

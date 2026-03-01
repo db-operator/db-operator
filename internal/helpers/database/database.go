@@ -88,7 +88,7 @@ func FetchDatabaseData(ctx context.Context, dbcr *kindav1beta1.Database, dbCred 
 			Backend:                     backend,
 			Host:                        host,
 			Port:                        uint16(port),
-			Database:                    dbCred.Name,
+			Database:                    dbCred.DatabaseName,
 			Monitoring:                  monitoringEnabled,
 			Extensions:                  extList,
 			SSLEnabled:                  instance.Spec.SSLConnection.Enabled,
@@ -107,7 +107,7 @@ func FetchDatabaseData(ctx context.Context, dbcr *kindav1beta1.Database, dbCred 
 			Backend:      backend,
 			Host:         host,
 			Port:         uint16(port),
-			Database:     dbCred.Name,
+			Database:     dbCred.DatabaseName,
 			SSLEnabled:   instance.Spec.SSLConnection.Enabled,
 			SkipCAVerify: instance.Spec.SSLConnection.SkipVerify,
 		}
@@ -125,7 +125,7 @@ func ParseDatabaseSecretData(dbcr *kindav1beta1.Database, data map[string][]byte
 	switch dbcr.Status.Engine {
 	case "postgres":
 		if name, ok := data[consts.POSTGRES_DB]; ok {
-			cred.Name = string(name)
+			cred.DatabaseName = string(name)
 		} else {
 			return cred, errors.New("POSTGRES_DB key does not exist in secret data")
 		}
@@ -145,7 +145,7 @@ func ParseDatabaseSecretData(dbcr *kindav1beta1.Database, data map[string][]byte
 		return cred, nil
 	case "mysql":
 		if name, ok := data[consts.MYSQL_DB]; ok {
-			cred.Name = string(name)
+			cred.DatabaseName = string(name)
 		} else {
 			return cred, errors.New("DB key does not exist in secret data")
 		}

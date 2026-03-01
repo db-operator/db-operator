@@ -81,3 +81,23 @@ const (
 // Privileges
 
 const ALL_PRIVILEGES = "ALL PRIVILEGES"
+
+// Shared Status Conditions
+const (
+	// TYPE_BACKUP_STATUS represents the status of a backup
+	TYPE_BACKUP_STATUS = "BackupStatus"
+	// TYPE_RESOURCE_HOLDER represents the status of a resource holder
+	TYPE_RESOURCE_HOLDER = "ResourceHolderStatus"
+	// TYPE_RESTORE_STATUS represents the status of a restore
+	TYPE_RESTORE_STATUS = "RestoreStatus"
+)
+
+const (
+	DEFAULT_TEMPLATES_DIR = "/templates"
+	ENV_BACKUP_NAMESPACE  = "DB_BACKUP_NAMESPACE"
+)
+
+// Finalizers
+const (
+	FIN_RESOURCE_HOLDER string = "kinda.rocks/resource-hodler"
+)

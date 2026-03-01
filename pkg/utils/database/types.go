@@ -26,7 +26,7 @@ const (
 
 // Credentials contains credentials to connect database
 type Credentials struct {
-	Name             string
+	DatabaseName     string
 	Username         string
 	Password         string
 	TemplatedSecrets map[string]string
