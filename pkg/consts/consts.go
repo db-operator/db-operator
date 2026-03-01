@@ -86,6 +86,8 @@ const ALL_PRIVILEGES = "ALL PRIVILEGES"
 const (
 	// TYPE_BACKUP_STATUS represents the status of a backup
 	TYPE_BACKUP_STATUS = "BackupStatus"
+	// TYPE_RESOURCE_HOLDER represents the status of a resource holder
+	TYPE_RESOURCE_HOLDER = "ResourceHolderStatus"
 	// TYPE_RESTORE_STATUS represents the status of a restore
 	TYPE_RESTORE_STATUS = "RestoreStatus"
 )

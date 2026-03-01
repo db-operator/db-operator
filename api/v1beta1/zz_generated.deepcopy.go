@@ -362,8 +362,8 @@ func (in *DbBackupSpec) DeepCopyInto(out *DbBackupSpec) {
 		*out = new(string)
 		**out = **in
 	}
-	if in.UploadCredentialsSecret != nil {
-		in, out := &in.UploadCredentialsSecret, &out.UploadCredentialsSecret
+	if in.StorageCredentials != nil {
+		in, out := &in.StorageCredentials, &out.StorageCredentials
 		*out = new(string)
 		**out = **in
 	}

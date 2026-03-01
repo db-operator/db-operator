@@ -18,10 +18,14 @@ spec:
     - description: A path to the backup in the external storage.
       jsonPath: .status.path
       name: Path
-      type: boolean
+      type: string
     - description: If database was backed up.
       jsonPath: .status.status
       name: Status
+      type: boolean
+    - description: Is DbBackup locked by the backup pod
+      jsonPath: .status.lockedByBackupJob
+      name: Locked
       type: boolean
     - description: db-operator version of last full reconcile
       jsonPath: .status.operatorVersion
