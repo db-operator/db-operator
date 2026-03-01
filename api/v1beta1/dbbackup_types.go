@@ -83,6 +83,8 @@ type DbBackupStatus struct {
 	Engine *string `json:"engine,omitempty"`
 	// Path of the backup in the storage
 	Path *string `json:"path,omitempty"`
+	// An ID of a last created pod
+	BackupPodName *string `json:"backupPodId,omitempty"`
 	// For Kubernetes API conventions, see:
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
 
