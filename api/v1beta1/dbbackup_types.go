@@ -35,7 +35,7 @@ type DbBackupSpec struct {
 	// Must be in the namespace where backup pods are created,
 	// will be mounted directly to pods
 	// +optional
-	UploadCredentialsSecret *string `json:"uploadCredentialsSecret,omitzero"`
+	StorageCredentials *string `json:"uploadCredentialsSecret,omitzero"`
 	// +required
 	// +kubebuilder:default=false
 	Cleanup *bool `json:"cleanup"`
@@ -83,7 +83,6 @@ type DbBackupStatus struct {
 	Engine *string `json:"engine,omitempty"`
 	// Path of the backup in the storage
 	Path *string `json:"path,omitempty"`
-
 	// For Kubernetes API conventions, see:
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
 
@@ -104,8 +103,9 @@ type DbBackupStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="Path",type=boolean,JSONPath=`.status.path`,description="A path to the backup in the external storage."
+// +kubebuilder:printcolumn:name="Path",type=string,JSONPath=`.status.path`,description="A path to the backup in the external storage."
 // +kubebuilder:printcolumn:name="Status",type=boolean,JSONPath=`.status.status`,description="If database was backed up."
+// +kubebuilder:printcolumn:name="Locked",type=boolean,JSONPath=`.status.lockedByBackupJob`,description="Is DbBackup locked by the backup pod"
 // +kubebuilder:printcolumn:name="OperatorVersion",type=string,JSONPath=`.status.operatorVersion`,description="db-operator version of last full reconcile"
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`,description="time since creation of resource"
 

@@ -72,12 +72,16 @@ type DbBackupReconcilerOpts struct {
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=create;patch;get;delete
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
+// This controller must ensure that state conflicts are not happening, because the external pod
+// will fail in case this operator is updating the object that must be consumed by the
+// backup tool
 func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// Prepare required resources
 	var err error
 	log := logf.FromContext(ctx)
 	log.Info("Started a reconciliation")
 
+	// Get the DbBackup from the cluster
 	dbbackupcr := &kindarocksv1beta1.DbBackup{}
 	if err = r.Get(ctx, req.NamespacedName, dbbackupcr); err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -89,11 +93,10 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	immutableResHolder := true
-
 	// Since owner references must be set to resources in the same namespace,
 	// we are creating an additional ConfigMap that will be a holder
 	// for all resources required for a backup, to make cleanup easier
+	immutableResHolder := true
 	resourceHolder := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        dbbackupcr.Name + "backup-holder",
@@ -114,7 +117,10 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			log.Error(err, "Couldn't initialize a DbBackup object")
 			return ctrl.Result{}, err
 		}
+		// Return here, because the status change triggers a new reconciliation
+		return ctrl.Result{}, nil
 	}
+
 	// If object is removed, run the cleanup
 	if dbbackupcr.IsDeleted() {
 		log.Info("Resource is deleted, cleaning up")
@@ -125,6 +131,7 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
+	// If success, we don't need to do anything
 	if r.isSuccess(dbbackupcr) {
 		if err := r.cleanup(ctx, dbbackupcr, resourceHolder); err != nil {
 			log.Error(err, "Couldn't execute the cleanup logic")
@@ -138,32 +145,60 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		log.Info("Backup is already processed successfully")
 		return ctrl.Result{}, nil
 	}
+
 	// If object status is false, do not retry
 	if r.isFailed(dbbackupcr) {
 		log.Info("The object status is false, not retrying")
 		return ctrl.Result{}, nil
 	}
 
+	// The backup pod is using this field to lock the object,
+	// Operator must wait until the object is unlocked
 	if *dbbackupcr.Status.LockedByBackupJob {
 		log.Info("Locked by a backup job, skipping ...")
 		return ctrl.Result{}, nil
 	}
 
 	r.Opts.kubeHelper = kubehelper.NewKubeHelper(r.Client, r.Recorder, dbbackupcr)
+
 	// Create a resource holder and add a finalizer to DbBackup
-	if !slices.Contains(dbbackupcr.Finalizers, consts.FIN_RESOURCE_HOLDER) {
+	if !meta.IsStatusConditionTrue(dbbackupcr.Status.Conditions, consts.TYPE_RESOURCE_HOLDER) {
 		_, err := r.Opts.kubeHelper.Create(ctx, resourceHolder)
 		if err != nil {
 			log.Error(err, "Couldn't create a resource hodler", "name", resourceHolder.Name)
 			return ctrl.Result{}, err
 		}
-		dbbackupcr.Finalizers = append(dbbackupcr.Finalizers, consts.FIN_RESOURCE_HOLDER)
-		if err := r.Update(ctx, dbbackupcr); err != nil {
-			log.Error(err, "Couldn't add a finalizer")
+
+		meta.SetStatusCondition(
+			&dbbackupcr.Status.Conditions,
+			metav1.Condition{Type: consts.TYPE_RESOURCE_HOLDER, Status: metav1.ConditionTrue, Reason: "Created", Message: "Resource holder is ready"},
+		)
+
+		if err := r.Status().Update(ctx, dbbackupcr); err != nil {
+			log.Error(err, "Couldn't update status")
 			return ctrl.Result{}, err
+		}
+
+		// Return to avoid additional conflicts
+		return ctrl.Result{}, nil
+	}
+
+	// Set the finalizer if needed
+	if meta.IsStatusConditionTrue(dbbackupcr.Status.Conditions, consts.TYPE_RESOURCE_HOLDER) {
+		if !slices.Contains(dbbackupcr.Finalizers, consts.FIN_RESOURCE_HOLDER) && !*dbbackupcr.Spec.Debug {
+			dbbackupcr.Finalizers = append(dbbackupcr.Finalizers, consts.FIN_RESOURCE_HOLDER)
+
+			if err := r.Update(ctx, dbbackupcr); err != nil {
+				log.Error(err, "Couldn't add a finalizer")
+				return ctrl.Result{}, err
+			}
+
+			// Return to avoid additional conflicts
+			return ctrl.Result{}, nil
 		}
 	}
 
+	// Get the new verson of a resource holder
 	if err := r.Get(ctx, types.NamespacedName{Namespace: resourceHolder.Namespace, Name: resourceHolder.Name}, resourceHolder); err != nil {
 		log.Error(err, "Couldn't get a resource hodler")
 		return ctrl.Result{}, err
@@ -178,6 +213,7 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	// Try to get the database for a backup
 	dbcr := &kindarocksv1beta1.Database{}
 	if err = r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: *dbbackupcr.Spec.Database}, dbcr); err != nil {
+		// If we can't get a database, doesn't make sense to continue
 		meta.SetStatusCondition(
 			&dbbackupcr.Status.Conditions,
 			metav1.Condition{Type: consts.TYPE_BACKUP_STATUS, Status: metav1.ConditionFalse, Reason: "Failed", Message: "Database doesn't exist"},
@@ -192,23 +228,23 @@ func (r *DbBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
+	// If database is not ready, we need to try later
 	if !dbcr.Status.Status {
 		err := errors.New("database is not ready")
 		log.Error(err, "Database is not ready", "namespace", dbbackupcr.Namespace, "database", *dbbackupcr.Spec.Database)
-		return ctrl.Result{}, err
+		return ctrl.Result{Requeue: true}, err
 	}
 
+	// Set the engine
 	if dbbackupcr.Status.Engine == nil {
 		dbbackupcr.Status.Engine = &dbcr.Status.Engine
 		if err := r.Status().Update(ctx, dbbackupcr); err != nil {
 			log.Error(err, "Couldn't set database engine in the status")
 			return ctrl.Result{}, err
 		}
+		// Return here, because the status change triggers a new reconciliation
 		return ctrl.Result{}, nil
 	}
-
-	// Prepare required Kubernetes resources: Role, RoleBinding, ServiceAccount, and Pod
-	// TODO: Add support for PVC to handle big backups
 
 	// If not backup.success, create a backup pod
 	// Check if db-operator has reached the possible amount of retries
@@ -288,6 +324,10 @@ func (r *DbBackupReconciler) initDbBackupCR(ctx context.Context, obj *kindarocks
 		&obj.Status.Conditions,
 		metav1.Condition{Type: consts.TYPE_BACKUP_STATUS, Status: metav1.ConditionUnknown, Reason: "Reconciling", Message: "Starting reconciliation"},
 	)
+	meta.SetStatusCondition(
+		&obj.Status.Conditions,
+		metav1.Condition{Type: consts.TYPE_RESOURCE_HOLDER, Status: metav1.ConditionUnknown, Reason: "Reconciling", Message: "Starting reconciliation"},
+	)
 	if err := r.Status().Update(ctx, obj); err != nil {
 		log.V(2).Info("Failed to update DbBackup status", "error", err)
 		return err
@@ -308,6 +348,10 @@ func (r *DbBackupReconciler) isSuccess(obj *kindarocksv1beta1.DbBackup) bool {
 // Remove the resource holder and a finalizer from the DbBackup
 func (r *DbBackupReconciler) cleanup(ctx context.Context, obj *kindarocksv1beta1.DbBackup, cm *corev1.ConfigMap) error {
 	log := logf.FromContext(ctx)
+	if *obj.Spec.Debug {
+		log.Info("Debug mod is turned on, not removing anything")
+		return nil
+	}
 	log.Info("Executing the cleanup logic")
 	if err := r.Delete(ctx, cm); err != nil {
 		if !k8serrors.IsNotFound(err) {
@@ -459,19 +503,11 @@ func (r *DbBackupReconciler) createDbSecret(ctx context.Context, obj *kindarocks
 	db, _, err := database.FetchDatabaseData(ctx, dbcr, databaseCred, instance)
 
 	envData := map[string][]byte{}
-	switch dbcr.Status.Engine {
-	case "postgres":
-		envData["PGHOST"] = []byte(db.GetDatabaseAddress(ctx).Host)
-		envData["PGPORT"] = []byte(strconv.FormatUint(uint64(db.GetDatabaseAddress(ctx).Port), 10))
-		envData["PGDATABASE"] = []byte(databaseCred.DatabaseName)
-		envData["PGPASSWORD"] = []byte(databaseCred.Password)
-		envData["PGUSER"] = []byte(databaseCred.Username)
-	case "mysql":
-		return errors.New("not implemented")
-	default:
-		return errors.New("not supported engine type")
-	}
-
+	envData["DB_HOST"] = []byte(db.GetDatabaseAddress(ctx).Host)
+	envData["DB_PORT"] = []byte(strconv.FormatUint(uint64(db.GetDatabaseAddress(ctx).Port), 10))
+	envData["DB_DATABASE"] = []byte(databaseCred.DatabaseName)
+	envData["DB_PASSWORD"] = []byte(databaseCred.Password)
+	envData["DB_USER"] = []byte(databaseCred.Username)
 	secret.Data = envData
 
 	if err := r.Opts.kubeHelper.HandleCreateOrUpdate(ctx, secret); err != nil {
@@ -507,7 +543,7 @@ func (r *DbBackupReconciler) createUploadSecret(ctx context.Context, obj *kindar
 		return err
 	}
 
-	value, ok := instance.Spec.Backup.AvailableSecrets[*obj.Spec.UploadCredentialsSecret]
+	value, ok := instance.Spec.Backup.AvailableSecrets[*obj.Spec.StorageCredentials]
 	if !ok {
 		return errors.New("upload credentials secret is not found")
 	}

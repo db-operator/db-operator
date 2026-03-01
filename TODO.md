@@ -1,6 +1,7 @@
 TODO:
 
 - [ ] DbBackup and DbRestore CRDs
+- [ ] Implement a cleanup for the DbBackup (Remove backup from the storage)
 - [ ] DbBackupGroup CRD - creates DbBackup on a cron based schedule
 - [ ] DbBackup should be engine aware (probably we can get the data from the status)
 - [ ] DbRestore should be engine aware
