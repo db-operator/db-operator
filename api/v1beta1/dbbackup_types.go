@@ -79,7 +79,7 @@ type DbBackupStatus struct {
 	UploadDuration *int64 `json:"uploadDuration,omitempty"`
 	// +kubebuilder:default=false
 	Status *bool `json:"status,omitempty"`
-	// Database engine
+	// Database engine. It's used by the db-backup-cli
 	Engine *string `json:"engine,omitempty"`
 	// Path of the backup in the storage
 	Path *string `json:"path,omitempty"`
