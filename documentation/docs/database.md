@@ -7,7 +7,7 @@ icon: lucide/database
 
 ## How to create and use a database
 
-To create a `Database`, you first would need to have a running `DbInstance`. You can read about the `DbInstances` [here](./dbinstance.md).
+To create a `Database`, you first would need to have a running `DbInstance`. You can read about the `DbInstances` [here](./dbinstances.md).
 
 After you have a working `DbInstance` you can start managing databases.
 

@@ -376,6 +376,8 @@ spec:
                     type: string
                   enable:
                     type: boolean
+                  envFromSecret:
+                    type: string
                 required:
                 - cron
                 - enable
