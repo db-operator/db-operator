@@ -236,6 +236,11 @@ spec:
                 - Name
                 - Namespace
                 type: object
+              allowExistingUsers:
+                description: |-
+                  If enabled, it will be possible to use existing users in
+                  DbUsers and Databases
+                type: boolean
               allowExtraGrants:
                 description: |-
                   If set to true, extra grants are enabled on the databases

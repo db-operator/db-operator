@@ -64,6 +64,7 @@ func main() {
 	var enableLeaderElection bool
 	var checkForChanges bool
 	var isWebhook bool
+	var isExsistingUserMigration bool
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":60000", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&checkForChanges, "check-for-changes", false,
@@ -72,6 +73,7 @@ func main() {
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.BoolVar(&isWebhook, "webhook", false, "Starts the webhook server when set.")
+	flag.BoolVar(&isExsistingUserMigration, "enable-user-migration", false, "If enabled, DB Operator will try to clean up after migrating from/to an existing user.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -147,25 +149,27 @@ func main() {
 		setupLog.Info("Database resources will be served in the next namespaces", "namespaces", namespaces)
 
 		if err = (&controllers.DatabaseReconciler{
-			Client:          mgr.GetClient(),
-			Log:             ctrl.Log.WithName("controllers").WithName("Database"),
-			Scheme:          mgr.GetScheme(),
-			Recorder:        mgr.GetEventRecorder("database-controller"),
-			Interval:        time.Duration(i),
-			Conf:            conf,
-			WatchNamespaces: namespaces,
-			CheckChanges:    checkForChanges,
+			Client:                      mgr.GetClient(),
+			Log:                         ctrl.Log.WithName("controllers").WithName("Database"),
+			Scheme:                      mgr.GetScheme(),
+			Recorder:                    mgr.GetEventRecorder("database-controller"),
+			Interval:                    time.Duration(i),
+			Conf:                        conf,
+			WatchNamespaces:             namespaces,
+			CheckChanges:                checkForChanges,
+			EnableExistingUserMigration: isExsistingUserMigration,
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Database")
 			os.Exit(1)
 		}
 
 		if err = (&controllers.DbUserReconciler{
-			Client:       mgr.GetClient(),
-			Scheme:       mgr.GetScheme(),
-			Recorder:     mgr.GetEventRecorder("dbuser-controller"),
-			Interval:     time.Duration(i),
-			CheckChanges: checkForChanges,
+			Client:                      mgr.GetClient(),
+			Scheme:                      mgr.GetScheme(),
+			Recorder:                    mgr.GetEventRecorder("dbuser-controller"),
+			Interval:                    time.Duration(i),
+			CheckChanges:                checkForChanges,
+			EnableExistingUserMigration: isExsistingUserMigration,
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DbUser")
 			os.Exit(1)
