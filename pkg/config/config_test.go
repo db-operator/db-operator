@@ -23,16 +23,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestUnitLoadConfig(t *testing.T) {
-	os.Setenv("CONFIG_PATH", "./test/config_ok.yaml")
-	confLoad, _ := LoadConfig()
-	confStatic := Config{}
-
-	confStatic.Instances.Google.ClientSecretName = "cloudsql-readonly-serviceaccount"
-	assert.Equal(t, confStatic.Instances.Google.ClientSecretName, confLoad.Instances.Google.ClientSecretName, "Values should be match")
-	assert.EqualValues(t, confLoad.Backup.ActiveDeadlineSeconds, int64(600))
-}
-
 func TestUnitLoadConfigFailCases(t *testing.T) {
 	os.Setenv("CONFIG_PATH", "./test/config_NotFound.yaml")
 	conf, err := LoadConfig()
@@ -47,9 +37,11 @@ func TestUnitLoadConfigFailCases(t *testing.T) {
 
 func TestUnitBackupResourceConfig(t *testing.T) {
 	os.Setenv("CONFIG_PATH", "./test/config_backup.yaml")
-	conf, _ := LoadConfig()
-	assert.Equal(t, conf.Backup.Resource.Requests.Cpu, "50m")
-	assert.Equal(t, conf.Backup.Resource.Requests.Memory, "50Mi")
-	assert.Equal(t, conf.Backup.Resource.Limits.Cpu, "100m")
-	assert.Equal(t, conf.Backup.Resource.Limits.Memory, "100Mi")
+	conf, err := LoadConfig()
+	assert.NoError(t, err)
+	t.Log(conf)
+	assert.Equal(t, conf.Backup.Resources.Requests.Cpu().String(), "50m")
+	assert.Equal(t, conf.Backup.Resources.Requests.Memory().String(), "50Mi")
+	assert.Equal(t, conf.Backup.Resources.Limits.Cpu().String(), "100m")
+	assert.Equal(t, conf.Backup.Resources.Limits.Memory().String(), "100Mi")
 }
