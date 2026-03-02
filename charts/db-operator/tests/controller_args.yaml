@@ -33,7 +33,9 @@ tests:
   - it: logLevel=info, checkForChanges and no extraArgs
     template: controller/deployment.yaml
     set:
-      checkForChanges: true
+      controller:
+        config:
+          checkForChanges: true
     asserts:
       - equal:
           path: spec.template.spec.containers[0].args
@@ -69,8 +71,9 @@ tests:
   - it: logLevel=info, extraArgs and checkForChanges
     template: controller/deployment.yaml
     set:
-      checkForChanges: true
       controller:
+        config:
+          checkForChanges: true
         extraArgs:
           - --test
           - --test2

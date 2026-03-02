@@ -48,8 +48,11 @@ Controller extra args
 */}}
 {{- define "db-operator.controller.args" -}}
 {{- $args := list -}}
-{{- $args = append $args (printf "--zap-log-level=%s" .Values.controller.logLevel) -}}
-{{- with .Values.Controller }}
+{{- with .Values.controller }}
+{{- $args = append $args (printf "--zap-log-level=%s" .logLevel) -}}
+{{- if .config.checkForChanges }}
+{{- $args = append $args "--check-for-changes" }}
+{{- end }}
 {{- range .extraArgs -}}
 {{- $args = append $args . -}}
 {{- end -}}

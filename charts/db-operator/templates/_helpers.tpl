@@ -24,33 +24,6 @@ If release name contains chart name it will be used as a full name.
 {{- end -}}
 
 {{/*
-Create the name of the service account to use
-*/}}
-{{- define "db-operator.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create -}}
-    {{ default (include "db-operator.name" .) .Values.serviceAccount.name }}
-{{- else -}}
-    {{ default "default" .Values.serviceAccount.name }}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Arguments builder
-*/}}
-{{- define "db-operator.args" -}}
-{{- $args := list -}}
-{{- $args = append $args (printf "--zap-log-level=%s" .Values.controller.logLevel) -}}
-{{- if .Values.checkForChanges -}}
-{{- $args = append $args "--check-for-changes" -}}
-{{- end -}}
-{{- /* controller-specific extraArgs */ -}}
-{{- range .Values.controller.extraArgs -}}
-{{- $args = append $args . -}}
-{{- end -}}
-{{ join "," $args }}
-{{- end -}}
-
-{{/*
 Create chart name and version as used by the chart label.
 */}}
 {{- define "db-operator.chart" -}}

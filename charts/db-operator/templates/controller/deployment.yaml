@@ -40,9 +40,9 @@ spec:
             name: metrics
           command:
           - db-operator
-          {{- if (include "db-operator.args" . ) }}
+          {{- if (include "db-operator.controller.args" . ) }}
           args:
-            {{- range include "db-operator.args" $ | split "," }}
+            {{- range include "db-operator.controller.args" $ | split "," }}
             - {{ . }}
             {{- end }}
           {{- end }}
