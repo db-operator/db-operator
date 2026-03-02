@@ -23,10 +23,8 @@ spec:
   adminSecretRef:
     Name: cnpg17-admin-creds
     Namespace: databases
-  # -- Legacy settings, please set it like this
-  # -- it's going to be removed in the next api version
   backup:
-    bucket: ""
+    bucket: <A name of the s3 bucket to be used for backups>
   engine: postgres
   generic:
     hostFrom:

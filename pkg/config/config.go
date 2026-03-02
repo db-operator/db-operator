@@ -20,8 +20,65 @@ import (
 	"os"
 
 	"github.com/db-operator/db-operator/v2/pkg/utils/kci"
-	"gopkg.in/yaml.v3"
+	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/yaml"
 )
+
+// Config defines configurations needed by db-operator
+type Config struct {
+	Instances  instanceConfig   `yaml:"instance"`
+	Backup     *BackupConfig    `yaml:"backup"`
+	Monitoring monitoringConfig `yaml:"monitoring"`
+}
+type instanceConfig struct {
+	Google  googleInstanceConfig  `yaml:"google"`
+	Generic genericInstanceConfig `yaml:"generic"`
+	Percona perconaClusterConfig  `yaml:"percona"`
+}
+
+type googleInstanceConfig struct {
+	ClientSecretName string      `yaml:"clientSecretName"`
+	ProxyConfig      proxyConfig `yaml:"proxy"`
+}
+
+type genericInstanceConfig struct { // TODO
+}
+
+type perconaClusterConfig struct {
+	ProxyConfig proxyConfig `yaml:"proxy"`
+}
+
+type proxyConfig struct {
+	NodeSelector map[string]string `yaml:"nodeSelector"`
+	Image        string            `yaml:"image"`
+	MetricsPort  int               `yaml:"metricsPort"`
+}
+
+// BackupConfig defines docker image for creating database dump by backup cronjob
+// backup cronjob will be created by db-operator when backup is enabled
+type BackupConfig struct {
+	Postgres              *postgresBackupConfig        `yaml:"postgres"`
+	Mysql                 *mysqlBackupConfig           `yaml:"mysql"`
+	NodeSelector          map[string]string            `yaml:"nodeSelector"`
+	ActiveDeadlineSeconds int64                        `default:"1200" yaml:"activeDeadlineSeconds"`
+	Resources             *corev1.ResourceRequirements `yaml:"resources"`
+	// Must be in the same namespace as the DB Operator
+	StorageCredSecret string `yaml:"storageCredSecret"`
+}
+
+type postgresBackupConfig struct {
+	Image string `yaml:"image"`
+}
+
+type mysqlBackupConfig struct {
+	Image string `yaml:"image"`
+}
+
+// monitoringConfig defines prometheus exporter configurations
+// which will be created by db-operator when monitoring is enabled
+type monitoringConfig struct {
+	PromPushGateway string `yaml:"promPushGateway,omitempty"`
+}
 
 // LoadConfig reads config file for db-operator from defined path and parse
 func LoadConfig() (*Config, error) {
@@ -36,8 +93,7 @@ func LoadConfig() (*Config, error) {
 
 	conf := &Config{}
 
-	err = yaml.Unmarshal(data, &conf)
-	if err != nil {
+	if err = yaml.Unmarshal(data, &conf); err != nil {
 		return nil, err
 	}
 	return conf, nil

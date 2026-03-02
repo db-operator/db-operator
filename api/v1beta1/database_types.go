@@ -82,8 +82,9 @@ type DatabaseProxyStatus struct {
 
 // DatabaseBackup defines the desired state of backup and schedule
 type DatabaseBackup struct {
-	Enable bool   `json:"enable"`
-	Cron   string `json:"cron"`
+	Enable        bool   `json:"enable"`
+	Cron          string `json:"cron"`
+	EnvFromSecret string `json:"envFromSecret,omitempty"`
 }
 
 // +kubebuilder:object:root=true
