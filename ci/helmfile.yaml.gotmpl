@@ -3,6 +3,7 @@ environments:
   db-instances:
   tests:
   local-dev:
+  e2e-tests:
 ---
 repositories:
   - name: jetstack
@@ -83,6 +84,9 @@ releases:
     values:
       - auth:
           rootPassword: 123123!!
+      - service:
+          type: NodePort
+          nodePort: "30306"
 
   - name: mysql-test
     namespace: mysql-test
@@ -103,6 +107,9 @@ releases:
       - auth:
           username: db-operator
           password: 123123!!
+      - service:
+          type: NodePort
+          nodePort: 30432
 
   - name: psql-test
     namespace: psql-test
