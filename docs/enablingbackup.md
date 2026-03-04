@@ -1,17 +1,8 @@
 # Enabling regular backup
 
 The DB Operator supports automatic database backups with Cronjob resource in Kubernetes.
-It creates database dumps and uploads them to a Google Cloud Storage(GCS) bucket.
-Currently it supports only GCS as backup storage.
+It creates database dumps and uploads them to an external storage using rclone. 
 
-## Prerequisites
-
-* Google Cloud Storage(GCS) bucket
-* Service account with privilege for writing into the bucket
-
-## Limitation
-
-* Only GCS as backend storage
 
 ## How to enable
 
