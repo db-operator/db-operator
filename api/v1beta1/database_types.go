@@ -62,14 +62,29 @@ type Postgres struct {
 type DatabaseStatus struct {
 	// Important: Run "make generate" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
-	Status                bool                `json:"status"`
-	MonitorUserSecretName string              `json:"monitorUserSecret,omitempty"`
-	ProxyStatus           DatabaseProxyStatus `json:"proxyStatus,omitempty"`
-	DatabaseName          string              `json:"database"`
-	UserName              string              `json:"user"`
-	Engine                string              `json:"engine"`
-	OperatorVersion       string              `json:"operatorVersion,omitempty"`
-	ExtraGrants           []*ExtraGrant       `json:"extraGrants,omitempty"`
+	Status                 bool                `json:"status"`
+	MonitorUserSecretName  string              `json:"monitorUserSecret,omitempty"`
+	ProxyStatus            DatabaseProxyStatus `json:"proxyStatus,omitempty"`
+	DatabaseName           string              `json:"database"`
+	UserName               string              `json:"user"`
+	Engine                 string              `json:"engine"`
+	OperatorVersion        string              `json:"operatorVersion,omitempty"`
+	ExtraGrants            []*ExtraGrant       `json:"extraGrants,omitempty"`
+	Conditions             []metav1.Condition  `json:"conditions,omitempty"`
+	DbInstanceData         *DbInstanceData     `json:"dbInstanceData"`
+	DbInstanceDataChecksum string              `json:'"dbinstanceDataChecksum,omitempty"`
+}
+
+// Information required for connecting to the database
+// that is hold by the DbInstance
+type DbInstanceData struct {
+	// A host database is listening on
+	Host string `json:"host,omitempty"`
+	// A port database is listening on
+	Port uint16 `json:"port,omitempty"`
+	// Which ssl mode to use when connecting to this DB.
+	// In this configmap a generic valiue should be stored
+	SslMode string `json:"sslMode,omitempty"`
 }
 
 // DatabaseProxyStatus defines whether proxy for database is enabled or not

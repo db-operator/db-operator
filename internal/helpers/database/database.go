@@ -215,10 +215,7 @@ func GenerateDatabaseSecretData(objectMeta metav1.ObjectMeta, engine, dbName, ex
 }
 
 func GetSSLMode(dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) (string, error) {
-	genericSSL, err := GetGenericSSLMode(dbcr, instance)
-	if err != nil {
-		return "", err
-	}
+	genericSSL := GetGenericSSLMode(instance)
 
 	if dbcr.Status.Engine == "postgres" {
 		switch genericSSL {
@@ -245,14 +242,14 @@ func GetSSLMode(dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) 
 	return "", fmt.Errorf("unknown database engine: %s", dbcr.Status.Engine)
 }
 
-func GetGenericSSLMode(dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) (string, error) {
+func GetGenericSSLMode(instance *kindav1beta1.DbInstance) string {
 	if !instance.Spec.SSLConnection.Enabled {
-		return consts.SSL_DISABLED, nil
+		return consts.SSL_DISABLED
 	} else {
 		if instance.Spec.SSLConnection.SkipVerify {
-			return consts.SSL_REQUIRED, nil
+			return consts.SSL_REQUIRED
 		} else {
-			return consts.SSL_VERIFY_CA, nil
+			return consts.SSL_VERIFY_CA
 		}
 	}
 }
