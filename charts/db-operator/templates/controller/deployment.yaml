@@ -59,14 +59,6 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: metadata.name
-            - name: DB_BACKUP_NAMESPACE
-              {{- if .Values.controller.config.backupNamespace }}
-              value: {{ .Values.controller.config.backupNamespace }}
-              {{- else }}
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-              {{- end }}
             - name: CONFIG_PATH
               value: "/run/config/config.yaml"
           volumeMounts:

@@ -12,7 +12,7 @@ Other changes that might require migration:
 
 - Pod names were changed, now instead of `db-operator-` and `db-operator-webhook`, we have `db-opetator-controller` and `db-operator-webhook`
 - RBAC separation: the controller and webhook now use different ClusterRoles. The configuration has been moved to .controller.rbac and .webhook.rbac accordingly.
-- DB Operator configuration is now set under `controller.config`
+- Pre-defined DB Operator flags are now set under `controller.args`
 
 {{- if not .Values.crds.install }}
 -----------------------------------------------------------------------

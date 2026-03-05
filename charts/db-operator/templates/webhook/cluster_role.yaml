@@ -13,8 +13,6 @@ rules:
   - databases
   - dbinstances
   - dbusers
-  - dbbackups
-  - dbrestores
   verbs:
   - create
   - delete

@@ -6,6 +6,10 @@
 {{ printf "%s-certificate" (include "db-operator.webhook.name" $)}}
 {{- end }}
 
+{{/*
+  This helpers are not used yet, but I hope to implement
+  self-signed certs soon
+*/}}
 {{- define "db-operator.webhook.shortSvcUrl" -}}
 {{- include "db-operator.webhook.name" $ }}.{{ $.Release.Namespace }}.svc
 {{- end }}

@@ -50,7 +50,7 @@ Controller extra args
 {{- $args := list -}}
 {{- with .Values.controller }}
 {{- $args = append $args (printf "--zap-log-level=%s" .logLevel) -}}
-{{- if .config.checkForChanges }}
+{{- if .args.checkForChanges }}
 {{- $args = append $args "--check-for-changes" }}
 {{- end }}
 {{- range .extraArgs -}}

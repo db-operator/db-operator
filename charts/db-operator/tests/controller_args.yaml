@@ -34,7 +34,7 @@ tests:
     template: controller/deployment.yaml
     set:
       controller:
-        config:
+        args:
           checkForChanges: true
     asserts:
       - equal:
@@ -72,7 +72,7 @@ tests:
     template: controller/deployment.yaml
     set:
       controller:
-        config:
+        args:
           checkForChanges: true
         extraArgs:
           - --test

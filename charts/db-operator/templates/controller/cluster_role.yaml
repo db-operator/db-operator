@@ -12,9 +12,6 @@ rules:
   resources:
   - secrets
   - configmaps
-  - pods
-  - services
-  - serviceaccounts
   verbs:
   - get
   - list
@@ -22,7 +19,6 @@ rules:
   - create
   - update
   - patch
-  - delete
 
 - apiGroups:
   - kinda.rocks
@@ -30,10 +26,14 @@ rules:
   - databases
   - dbinstances
   - dbusers
-  - dbbackups
-  - dbrestores
   verbs:
-  - "*"
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 
 - apiGroups:
   - kinda.rocks
@@ -41,10 +41,8 @@ rules:
   - databases/finalizers
   - dbinstances/finalizers
   - dbusers/finalizers
-  - dbbackups/finalizers
-  - dbrestores/finalizers
   verbs:
-  - "*"
+  - update
 
 - apiGroups:
   - kinda.rocks
@@ -52,22 +50,10 @@ rules:
   - databases/status
   - dbinstances/status
   - dbusers/status
-  - dbbackups/status
-  - dbrestores/status
   verbs:
-  - "*"
-
-- apiGroups:
-  - "rbac.authorization.k8s.io"
-  resources:
-  - roles
-  - rolebindings
-  verbs:
-  - create
-  - update
   - get
-  - list
-  - watch
+  - patch
+  - update
 
 - apiGroups:
   - "events.k8s.io"
@@ -115,7 +101,6 @@ rules:
   - list
   - watch
 
-{{/* TODO: Remove once backups are there */}}
 - apiGroups:
   - batch
   resources:
@@ -125,11 +110,4 @@ rules:
   - update
   - list
   - watch
-- apiGroups:
-  - batch
-  resources:
-  - jobs
-  verbs:
-  - create
-  - update
 {{- end -}}

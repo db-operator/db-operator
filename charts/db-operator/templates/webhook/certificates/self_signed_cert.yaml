@@ -1,4 +1,7 @@
 {{/*
+   * It's not implemented yet, need to figure out how to
+   * use this certs in the webhooks and CRDs
+   *
    * A self-signed cert generated using the Helm function.
    * It's valid for 365 days and is re-generated on every synchronization
    * that makes it incompatible with GitOps tools like ArgoCD and FluxCD.
