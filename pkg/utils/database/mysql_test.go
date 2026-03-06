@@ -340,7 +340,7 @@ func TestMysqlGetCredentials(t *testing.T) {
 
 	cred := m.GetCredentials(context.TODO(), dbu)
 	assert.Equal(t, cred.Username, dbu.Username)
-	assert.Equal(t, cred.Name, m.Database)
+	assert.Equal(t, cred.DatabaseName, m.Database)
 	assert.Equal(t, cred.Password, dbu.Password)
 }
 

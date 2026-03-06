@@ -29,11 +29,14 @@ import (
 
 	kindarocksv1alpha1 "github.com/db-operator/db-operator/v2/api/v1alpha1"
 	kindarocksv1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
+	"github.com/db-operator/db-operator/v2/internal/controller"
 	controllers "github.com/db-operator/db-operator/v2/internal/controller"
 	webhookv1beta1 "github.com/db-operator/db-operator/v2/internal/webhook/v1beta1"
 	"github.com/db-operator/db-operator/v2/pkg/config"
+	"github.com/db-operator/db-operator/v2/pkg/consts"
 	"github.com/db-operator/db-operator/v2/pkg/utils/thirdpartyapi"
 
+	rbacv1 "k8s.io/api/rbac/v1"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.) to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -50,9 +53,11 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(rbacv1.AddToScheme(scheme))
 
 	utilruntime.Must(kindarocksv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(kindarocksv1beta1.AddToScheme(scheme))
+
 	//+kubebuilder:scaffold:scheme
 
 	thirdpartyapi.AppendToScheme(scheme)
@@ -64,6 +69,8 @@ func main() {
 	var enableLeaderElection bool
 	var checkForChanges bool
 	var isWebhook bool
+	var enableDevLogging bool
+	var restoreNamespace string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":60000", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&checkForChanges, "check-for-changes", false,
@@ -72,8 +79,11 @@ func main() {
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.BoolVar(&isWebhook, "webhook", false, "Starts the webhook server when set.")
+	flag.BoolVar(&enableDevLogging, "dev-logging", false, "If true, sets the zap development mode.")
+	flag.StringVar(&restoreNamespace, "restore-namespace", "", "DB Operator will create resources required for restoring database in this namespace.")
+
 	opts := zap.Options{
-		Development: true,
+		Development: enableDevLogging,
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
@@ -168,6 +178,31 @@ func main() {
 			CheckChanges: checkForChanges,
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DbUser")
+			os.Exit(1)
+		}
+
+		dbBackupOpts := &controllers.DbBackupReconcilerOpts{
+			Namespace:      os.Getenv(consts.ENV_BACKUP_NAMESPACE),
+			ReconcileAfter: time.Duration(i),
+		}
+		if err := (&controller.DbBackupReconciler{
+			Opts:     dbBackupOpts,
+			Client:   mgr.GetClient(),
+			Scheme:   mgr.GetScheme(),
+			Recorder: mgr.GetEventRecorder("dbbackup-controller"),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create controller", "controller", "DbBackup")
+			os.Exit(1)
+		}
+		if err := (&controller.DbRestoreReconciler{
+			Opts: &controllers.DbRestoreReconcilerOpts{
+				RestoreNamesapce: restoreNamespace,
+			},
+			Client:   mgr.GetClient(),
+			Scheme:   mgr.GetScheme(),
+			Recorder: mgr.GetEventRecorder("dbuser-controller"),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create controller", "controller", "DbRestore")
 			os.Exit(1)
 		}
 	}

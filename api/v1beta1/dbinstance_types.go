@@ -115,6 +115,8 @@ func (fr *FromRef) ToKubernetesType() k8stypes.NamespacedName {
 // DbInstanceBackup defines name of google bucket to use for storing database dumps for backup when backup is enabled
 type DbInstanceBackup struct {
 	Bucket string `json:"bucket"`
+	// Available secrets may be used by DbBackup resources to get env variables for backing up
+	AvailableSecrets map[string]*NamespacedName `json:"availableSecrets,omitempty"`
 }
 
 // DbInstanceMonitoring defines if exporter
