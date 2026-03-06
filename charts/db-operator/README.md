@@ -46,7 +46,6 @@ Kubernetes: `>= 1.32-prerelease`
 | controller.args.reconcileInterval | string | `"60"` |  |
 | controller.args.watchNamespace | string | `""` |  |
 | controller.args.checkForChanges | bool | `false` |  |
-| controller.args.backupNamespace | string | `""` |  |
 | controller.serviceMonitor.enabled | bool | `false` |  |
 | controller.config.instance.google.proxy.nodeSelector | object | `{}` |  |
 | controller.config.instance.google.proxy.image | string | `"ghcr.io/db-operator/db-auth-gateway:v0.1.10"` |  |

@@ -35,8 +35,6 @@ controller:
     # watchNamespace value is comma-separated list of namespace names. It's necessary to set "" to watch cluster wide.
     watchNamespace: ""
     checkForChanges: false
-    # Which namespace should be used for backup pods
-    backupNamespace: ""
   serviceMonitor:
     enabled: false
   config:

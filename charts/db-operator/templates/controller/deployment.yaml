@@ -51,9 +51,9 @@ spec:
             - name: OPERATOR_NAME
               value: "db-operator"
             - name: WATCH_NAMESPACE
-              value: {{ .Values.watchNamespace | quote }}
+              value: {{ .Values.controller.args.watchNamespace | quote }}
             - name: RECONCILE_INTERVAL
-              value: {{ .Values.reconcileInterval | quote }}
+              value: {{ .Values.controller.args.reconcileInterval | quote }}
             - name: POD_NAME
               valueFrom:
                 fieldRef:
