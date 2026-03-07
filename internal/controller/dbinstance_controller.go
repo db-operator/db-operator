@@ -68,6 +68,7 @@ type DbInstanceReconciler struct {
 //+kubebuilder:rbac:groups=kinda.rocks,resources=dbinstances/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=kinda.rocks,resources=dbinstances/finalizers,verbs=update
 //+kubebuilder:rbac:groups="",resources=secrets;configmaps,verbs=get;list;watch;update;patch
+//+kubebuilder:rbac:groups="events.k8s.io",resources=events,verbs=get;list;watch;update;patch;create
 
 func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
