@@ -12,11 +12,11 @@ DB Operator provides following features:
 * Creating of custom connection strings using **GO templates**
 
 ## Documentation
-* [Get Started](https://db-operator.github.io/documentation/)
-* [Configure instances](https://db-operator.github.io/documentation/dbinstance/)
-* [Manage databases](https://db-operator.github.io/documentation/database/)
-* [Manage users](https://db-operator.github.io/documentation/dbuser/)
-* [A deeper look at templates](https://db-operator.github.io/documentation/templates/)
+* [Get Started](./documentation/docs/index.md)
+* [Configure instances](./documentation/docs/dbinstances.md)
+* [Manage databases](./documentation/docs/database.md)
+* [Manage users](./documentation/docs/dbuser.md)
+* [A deeper look at templates](./documentation/docs/templates.md)
 
 ## Quickstart
 

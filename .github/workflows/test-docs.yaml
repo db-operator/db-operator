@@ -1,0 +1,15 @@
+name: Documentation test
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+      - uses: abatilo/actions-poetry@v3
+      - run: poetry -C documentation install --no-root
+      - run: poetry -C documentation run zensical build --clean
