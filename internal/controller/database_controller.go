@@ -1006,7 +1006,7 @@ func (r *DatabaseReconciler) handleBackupJob(ctx context.Context, dbcr *kindav1b
 		return err
 	}
 
-	cronjob, err := backup.GCSBackupCron(r.Conf, dbcr, instance)
+	cronjob, err := backup.BackupCronJobManifest(r.Conf, dbcr, instance)
 	if err != nil {
 		return err
 	}
