@@ -1,0 +1,29 @@
+name: Documentation publish
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/configure-pages@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+      - uses: abatilo/actions-poetry@v3
+      - run: poetry -C documentation install --no-root
+      - run: poetry -C documentation run zensical build --clean
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: ./documentation/site
+      - uses: actions/deploy-pages@v4
+        id: deployment
