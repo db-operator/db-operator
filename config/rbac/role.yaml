@@ -10,6 +10,27 @@ rules:
   - configmaps
   - secrets
   verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - cronjob
+  verbs:
+  - create
+  - get
+  - update
+  - watch
+- apiGroups:
+  - events.k8s.io
+  resources:
+  - events
+  verbs:
+  - create
   - get
   - list
   - patch
