@@ -26,6 +26,11 @@ const (
 	MYSQL_DB          = "DB"
 	MYSQL_USER        = "USER"
 	MYSQL_PASSWORD    = "PASSWORD"
+	GENERIC_DB        = "DB_NAME"
+	GENERIC_USER      = "DB_USERNAME"
+	GENERIC_PASSWORD  = "DB_PASSWORD"
+	GENERIC_HOST      = "DB_HOST"
+	GENERIC_PORT      = "DB_PORT"
 )
 
 // Database engines
