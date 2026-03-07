@@ -1,18 +1,18 @@
-# Preserve after regen
----
 apiVersion: v1
 kind: Service
 metadata:
   labels:
+    control-plane: controller-manager
     app.kubernetes.io/name: db-operator
     app.kubernetes.io/managed-by: kustomize
-  name: webhook-service
+  name: controller-manager-metrics-service
   namespace: system
 spec:
   ports:
-    - port: 443
-      protocol: TCP
-      targetPort: 9443
+  - name: https
+    port: 8443
+    protocol: TCP
+    targetPort: 8443
   selector:
-    control-plane: controller-webhook
+    control-plane: controller-manager
     app.kubernetes.io/name: db-operator

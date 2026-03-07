@@ -83,7 +83,9 @@ var (
 //+kubebuilder:rbac:groups=kinda.rocks,resources=databases,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=kinda.rocks,resources=databases/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=kinda.rocks,resources=databases/finalizers,verbs=update
-//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
+//+kubebuilder:rbac:groups="",resources=secrets;configmaps,verbs=get;list;watch;create;update
+//+kubebuilder:rbac:groups="events.k8s.io",resources=events,verbs=create
+//+kubebuilder:rbac:groups="batch",resources=cronjob,verbs=create;update;get;watch
 
 func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	phase := dbPhaseReconcile
