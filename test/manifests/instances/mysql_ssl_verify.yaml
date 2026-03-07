@@ -1,0 +1,52 @@
+---
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: admin-creds 
+  namespace: db-operator-e2e
+stringData:
+  user: root
+  password: qwertyu9
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-connect 
+  namespace: db-operator-e2e
+data:
+  host: mariadb-instance.databases.svc.cluster.local 
+  port: "3306"
+  publicIp: "1.2.3.4"
+
+---
+apiVersion: kinda.rocks/v1beta1
+kind: DbInstance
+metadata:
+  name: mysql
+spec:
+  adminSecretRef:
+    Namespace: db-operator-e2e
+    Name: admin-creds 
+  engine: mysql
+  generic:
+    hostFrom:
+      kind: ConfigMap
+      name: db-connect 
+      namespace: db-operator-e2e
+      key: host
+    portFrom:
+      kind: ConfigMap
+      name: db-connect 
+      namespace: db-operator-e2e
+      key: port
+    publicIpFrom:
+      kind: ConfigMap
+      name: db-connect 
+      namespace: db-operator-e2e
+      key: publicIp
+    backupHost: mariadb-instance.databases.svc.cluster.local 
+  sslConnection:
+    enabled: true
+    skip-verify: true

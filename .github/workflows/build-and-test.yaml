@@ -20,7 +20,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
       - name: Get go version
-        run: echo "GO_VERSION=$(make desired_go_version)" >> "${GITHUB_ENV}"
+        run: echo "GO_VERSION=$(make desired-go-version)" >> "${GITHUB_ENV}"
       - name: Setup GO
         uses: actions/setup-go@v6
         with:
@@ -35,7 +35,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
       - name: Get go version
-        run: echo "GO_VERSION=$(make desired_go_version)" >> "${GITHUB_ENV}"
+        run: echo "GO_VERSION=$(make desired-go-version)" >> "${GITHUB_ENV}"
       - name: Setup GO
         uses: actions/setup-go@v6
         with:
@@ -60,7 +60,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Get go version
-        run: echo "GO_VERSION=$(make desired_go_version)" >> "${GITHUB_ENV}"
+        run: echo "GO_VERSION=$(make desired-go-version)" >> "${GITHUB_ENV}"
       - name: Setup GO
         uses: actions/setup-go@v6
         with:
@@ -87,7 +87,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Get go version
-        run: echo "GO_VERSION=$(make desired_go_version)" >> "${GITHUB_ENV}"
+        run: echo "GO_VERSION=$(make desired-go-version)" >> "${GITHUB_ENV}"
       - name: Setup GO
         uses: actions/setup-go@v6
         with:
@@ -119,7 +119,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Get go version
-        run: echo "GO_VERSION=$(make desired_go_version)" >> "${GITHUB_ENV}"
+        run: echo "GO_VERSION=$(make desired-go-version)" >> "${GITHUB_ENV}"
       - name: Setup GO
         uses: actions/setup-go@v6
         with:
@@ -164,7 +164,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Get go version
-        run: echo "GO_VERSION=$(make desired_go_version)" >> "${GITHUB_ENV}"
+        run: echo "GO_VERSION=$(make desired-go-version)" >> "${GITHUB_ENV}"
       - name: Setup GO
         uses: actions/setup-go@v6
         with:
@@ -206,7 +206,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Get go version
-        run: echo "GO_VERSION=$(make desired_go_version)" >> "${GITHUB_ENV}"
+        run: echo "GO_VERSION=$(make desired-go-version)" >> "${GITHUB_ENV}"
       - name: Setup GO
         uses: actions/setup-go@v6
         with:
@@ -244,7 +244,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Get go version
-        run: echo "GO_VERSION=$(make desired_go_version)" >> "${GITHUB_ENV}"
+        run: echo "GO_VERSION=$(make desired-go-version)" >> "${GITHUB_ENV}"
       - name: Setup GO
         uses: actions/setup-go@v6
         with:
