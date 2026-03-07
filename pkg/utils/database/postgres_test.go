@@ -54,7 +54,7 @@ func testPostgres() (*Postgres, *DatabaseUser) {
 
 func getPostgresAdmin() *DatabaseUser {
 	return &DatabaseUser{
-		Username: "postgres",
+		Username: test.GetPostgresAdminUsername(),
 		Password: test.GetPostgresAdminPassword(),
 	}
 }

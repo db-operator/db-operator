@@ -77,3 +77,11 @@ func GetPostgresAdminPassword() string {
 	}
 	return "test1234"
 }
+
+// GetPostgresAdminUsername set postgres username which used by unit test
+func GetPostgresAdminUsername() string {
+	if value, ok := os.LookupEnv("POSTGRES_USER"); ok {
+		return value
+	}
+	return "postgres"
+}
