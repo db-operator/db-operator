@@ -1,0 +1,24 @@
+---
+repositories:
+  - name: jetstack
+    url: quay.io/jetstack/charts
+    oci: true
+
+releases:
+  - name: cert-manager
+    chart: jetstack/cert-manager
+    namespace: cert-manager
+    installed: {{ .Values.certManager.installed }}
+    version: v1.19.4
+    createNamespace: true
+    values:
+      - crds:
+          enabled: true
+
+  - name: cluster-issuer
+    chart: ./test/charts/self-signed-cluster-issuer
+    namespace: cert-manager
+    installed: {{ .Values.certManager.installed }}
+    needs:
+      - cert-manager/cert-manager
+

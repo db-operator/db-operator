@@ -1,7 +1,6 @@
 environments:
   default:
     values:
-      - e2e: false
       - certManager:
           installed: {{ env "CERT_MANAGER_INSTALL" | default true }}
       - databases:
@@ -72,10 +71,6 @@ releases:
     namespace: databases
     chart: cloudpirates/mariadb
     installed: {{ .Values.databases.mariadb.installed }}
-    {{- if .Values.certManager.installed }}
-    needs:
-      - cert-manager/cert-manager
-    {{- end }}
     version: 0.14.3
     values:
       - image:
@@ -252,11 +247,11 @@ releases:
           - accessKey: backups
             secretKey: qwertyu9
             policy: backups
-  
+  {{/* Not needed atm */}} 
   - name: test-data
     namespace: default
     chart: ./test/charts/test-data/
-    installed: {{ .Values.e2e }}
+    installed: false
     values:
       - engines:
         {{- if .Values.databases.postgres.installed }}

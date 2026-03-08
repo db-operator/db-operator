@@ -1,0 +1,10 @@
+---
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: admin-creds 
+  namespace: db-operator-e2e
+stringData:
+  user: root 
+  password: qwertyu9

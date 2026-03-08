@@ -1,0 +1,18 @@
+---
+apiVersion: kinda.rocks/v1beta1
+kind: DbInstance
+metadata:
+  name: mysql 
+spec:
+  adminSecretRef:
+    Namespace: db-operator-e2e
+    Name: admin-creds 
+  engine: mysql
+  generic:
+    host: mariadb-instance.databases.svc.cluster.local
+    port: 3306
+    publicIp: "1.2.3.4"
+    backupHost: mariadb-instance.databases.svc.cluster.local 
+  sslConnection:
+    enabled: true
+    skip-verify: true
