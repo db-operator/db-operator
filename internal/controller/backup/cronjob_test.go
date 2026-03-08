@@ -21,47 +21,14 @@ import (
 	"os"
 	"testing"
 
+	v1 "k8s.io/api/core/v1"
+
 	kindav1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
 	"github.com/db-operator/db-operator/v2/pkg/config"
 	"github.com/stretchr/testify/assert"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 )
 
-func TestGCSBackupCronGsql(t *testing.T) {
-	dbcr := &kindav1beta1.Database{}
-	dbcr.Namespace = "TestNS"
-	dbcr.Name = "TestDB"
-	instance := &kindav1beta1.DbInstance{}
-	instance.Status.Info = map[string]string{"DB_CONN": "TestConnection", "DB_PORT": "1234"}
-	instance.Spec.Google = &kindav1beta1.GoogleInstance{InstanceName: "google-instance-1"}
-	dbcr.Spec.Instance = "staging"
-	dbcr.Spec.Backup.Cron = "* * * * *"
-	os.Setenv("CONFIG_PATH", "./test/backup_config.yaml")
-	conf, _ := config.LoadConfig()
-
-	instance.Spec.Engine = "postgres"
-	funcCronObject, err := GCSBackupCron(conf, dbcr, instance)
-	if err != nil {
-		fmt.Print(err)
-	}
-
-	assert.Equal(t, "postgresbackupimage:latest", funcCronObject.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Image)
-
-	instance.Spec.Engine = "mysql"
-	funcCronObject, err = GCSBackupCron(conf, dbcr, instance)
-	if err != nil {
-		fmt.Print(err)
-	}
-
-	assert.Equal(t, "mysqlbackupimage:latest", funcCronObject.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Image)
-
-	assert.Equal(t, "TestNS", funcCronObject.Namespace)
-	assert.Equal(t, "TestNS-TestDB-backup", funcCronObject.Name)
-	assert.Equal(t, "* * * * *", funcCronObject.Spec.Schedule)
-}
-
-func TestUnitGCSBackupCronGeneric(t *testing.T) {
+func TestUnitBackupCronGeneric(t *testing.T) {
 	dbcr := &kindav1beta1.Database{}
 	dbcr.Namespace = "TestNS"
 	dbcr.Name = "TestDB"
@@ -75,7 +42,7 @@ func TestUnitGCSBackupCronGeneric(t *testing.T) {
 	conf, _ := config.LoadConfig()
 
 	instance.Spec.Engine = "postgres"
-	funcCronObject, err := GCSBackupCron(conf, dbcr, instance)
+	funcCronObject, err := BackupCronJobManifest(conf, dbcr, instance)
 	if err != nil {
 		fmt.Print(err)
 	}
@@ -83,7 +50,7 @@ func TestUnitGCSBackupCronGeneric(t *testing.T) {
 	assert.Equal(t, "postgresbackupimage:latest", funcCronObject.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Image)
 
 	instance.Spec.Engine = "mysql"
-	funcCronObject, err = GCSBackupCron(conf, dbcr, instance)
+	funcCronObject, err = BackupCronJobManifest(conf, dbcr, instance)
 	if err != nil {
 		fmt.Print(err)
 	}
@@ -91,19 +58,79 @@ func TestUnitGCSBackupCronGeneric(t *testing.T) {
 	assert.Equal(t, "mysqlbackupimage:latest", funcCronObject.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Image)
 
 	assert.Equal(t, "TestNS", funcCronObject.Namespace)
-	assert.Equal(t, "TestNS-TestDB-backup", funcCronObject.Name)
+	assert.Equal(t, "TestDB-backup", funcCronObject.Name)
 	assert.Equal(t, "* * * * *", funcCronObject.Spec.Schedule)
 	assert.Equal(t, len(funcCronObject.OwnerReferences), 0, "Unexpected size of an OwnerReference")
 }
 
-func TestUnitGetResourceRequirements(t *testing.T) {
+func TestUnitBackupCronGenericEnvFrom(t *testing.T) {
+	dbcr := &kindav1beta1.Database{}
+	dbcr.Namespace = "TestNS"
+	dbcr.Name = "TestDB"
+	instance := &kindav1beta1.DbInstance{}
+	instance.Status.Info = map[string]string{"DB_CONN": "TestConnection", "DB_PORT": "1234"}
+	instance.Spec.Generic = &kindav1beta1.GenericInstance{BackupHost: "slave.test"}
+	dbcr.Spec.Instance = "staging"
+	dbcr.Spec.Backup.Cron = "* * * * *"
+	dbcr.Spec.Backup.EnvFromSecret = "test-creds"
 	os.Setenv("CONFIG_PATH", "./test/backup_config.yaml")
 	conf, _ := config.LoadConfig()
 
-	expected := v1.ResourceRequirements{
-		Requests: map[v1.ResourceName]resource.Quantity{v1.ResourceCPU: resource.MustParse("50m"), v1.ResourceMemory: resource.MustParse("50Mi")},
-		Limits:   map[v1.ResourceName]resource.Quantity{v1.ResourceCPU: resource.MustParse("100m"), v1.ResourceMemory: resource.MustParse("100Mi")},
+	instance.Spec.Engine = "postgres"
+	funcCronObject, err := BackupCronJobManifest(conf, dbcr, instance)
+	if err != nil {
+		fmt.Print(err)
 	}
-	result := getResourceRequirements(conf)
-	assert.Equal(t, expected, result)
+
+	assert.Equal(t, "postgresbackupimage:latest", funcCronObject.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Image)
+
+	instance.Spec.Engine = "mysql"
+	funcCronObject, err = BackupCronJobManifest(conf, dbcr, instance)
+	if err != nil {
+		fmt.Print(err)
+	}
+
+	assert.Equal(t, "mysqlbackupimage:latest", funcCronObject.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Image)
+
+	assert.Equal(t, "TestNS", funcCronObject.Namespace)
+	assert.Equal(t, "TestDB-backup", funcCronObject.Name)
+	assert.Equal(t, "* * * * *", funcCronObject.Spec.Schedule)
+	assert.Equal(t, len(funcCronObject.OwnerReferences), 0, "Unexpected size of an OwnerReference")
+	assert.Equal(t, funcCronObject.Spec.JobTemplate.Spec.Template.Spec.Containers[0].EnvFrom[0].SecretRef.Name, "test-creds")
+}
+
+func TestUnitBackupCronGenericBucket(t *testing.T) {
+	dbcr := &kindav1beta1.Database{}
+	dbcr.Namespace = "TestNS"
+	dbcr.Name = "TestDB"
+	instance := &kindav1beta1.DbInstance{}
+	instance.Status.Info = map[string]string{"DB_CONN": "TestConnection", "DB_PORT": "1234"}
+	instance.Spec.Generic = &kindav1beta1.GenericInstance{BackupHost: "slave.test"}
+	dbcr.Spec.Instance = "staging"
+	dbcr.Spec.Backup.Cron = "* * * * *"
+	dbcr.Spec.Backup.Bucket = "test-bucket"
+	os.Setenv("CONFIG_PATH", "./test/backup_config.yaml")
+	conf, _ := config.LoadConfig()
+
+	instance.Spec.Engine = "postgres"
+	funcCronObject, err := BackupCronJobManifest(conf, dbcr, instance)
+	if err != nil {
+		fmt.Print(err)
+	}
+
+	assert.Equal(t, "postgresbackupimage:latest", funcCronObject.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Image)
+
+	instance.Spec.Engine = "mysql"
+	funcCronObject, err = BackupCronJobManifest(conf, dbcr, instance)
+	if err != nil {
+		fmt.Print(err)
+	}
+
+	assert.Equal(t, "mysqlbackupimage:latest", funcCronObject.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Image)
+
+	assert.Equal(t, "TestNS", funcCronObject.Namespace)
+	assert.Equal(t, "TestDB-backup", funcCronObject.Name)
+	assert.Equal(t, "* * * * *", funcCronObject.Spec.Schedule)
+	assert.Equal(t, len(funcCronObject.OwnerReferences), 0, "Unexpected size of an OwnerReference")
+	assert.Contains(t, funcCronObject.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Env, v1.EnvVar{Name: "STORAGE_BUCKET", Value: "test-bucket"})
 }
