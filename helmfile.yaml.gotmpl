@@ -1,7 +1,6 @@
 environments:
   default:
     values:
-      - e2e: false
       - certManager:
           installed: {{ env "CERT_MANAGER_INSTALL" | default true }}
       - databases:
@@ -72,10 +71,6 @@ releases:
     namespace: databases
     chart: cloudpirates/mariadb
     installed: {{ .Values.databases.mariadb.installed }}
-    {{- if .Values.certManager.installed }}
-    needs:
-      - cert-manager/cert-manager
-    {{- end }}
     version: 0.14.3
     values:
       - image:
@@ -252,22 +247,3 @@ releases:
           - accessKey: backups
             secretKey: qwertyu9
             policy: backups
-
-  - name: test-data
-    namespace: default
-    chart: ./test/charts/test-data/
-    installed: {{ .Values.e2e }}
-    values:
-      - engines:
-        {{- if .Values.databases.postgres.installed }}
-          - name: postgres
-            sslConfig:
-              enabled: {{ .Values.databases.postgres.ssl.enabled }}
-              skipVerify: {{ .Values.databases.postgres.ssl.skipVerify }}
-        {{- end }}
-        {{- if .Values.databases.mariadb.installed }}
-          - name: mysql
-            sslConfig:
-              enabled: {{ .Values.databases.mariadb.ssl.enabled }}
-              skipVerify: {{ .Values.databases.mariadb.ssl.skipVerify }}
-        {{- end }}

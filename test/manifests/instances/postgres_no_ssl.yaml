@@ -1,0 +1,15 @@
+---
+apiVersion: kinda.rocks/v1beta1
+kind: DbInstance
+metadata:
+  name: postgres 
+spec:
+  adminSecretRef:
+    Namespace: db-operator-e2e
+    Name: admin-creds 
+  engine: postgres
+  generic:
+    host: postgres-instance.databases.svc.cluster.local 
+    port: 5432
+    publicIp: "1.2.3.4"
+    backupHost: postgres-instance.databases.svc.cluster.local 
