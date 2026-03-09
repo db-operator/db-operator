@@ -169,6 +169,8 @@ jobs:
           kind load image-archive my-image.tar --name=$(kind get clusters)
           make install
           make deploy
+          kubectl rollout -n db-operator-system  status deployment/db-operator-controller-manager -w
+          kubectl rollout -n db-operator-system  status deployment/db-operator-controller-webhook -w
       - run: |-
           cd ./test    
           go test ./e2e -v -v ginkgo.v
