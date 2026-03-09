@@ -90,3 +90,17 @@ func DeleteManifest(path string) error {
 	_, err := Run(cmd)
 	return err
 }
+
+// CreateManifestInNs creates an object from a yaml file
+func CreateManifestInNs(path, namespace string) error {
+	cmd := exec.Command("kubectl", "create", "-f", path, "-n", namespace)
+	_, err := Run(cmd)
+	return err
+}
+
+// DeleteManifestInNs deletes an object from a yaml file
+func DeleteManifestInNs(path, namespace string) error {
+	cmd := exec.Command("kubectl", "delete", "-f", path, "-n", namespace)
+	_, err := Run(cmd)
+	return err
+}
