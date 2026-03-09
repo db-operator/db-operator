@@ -3,6 +3,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: tester 
+  namespace: db-operator-e2e
 spec:
   containers:
   - name: mysql-writer

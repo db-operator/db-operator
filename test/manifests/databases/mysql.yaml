@@ -11,3 +11,4 @@ spec:
   instance: mysql
   postgres: {}
   secretName: mysql-creds
+  cleanup: true
