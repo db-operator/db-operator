@@ -1,0 +1,14 @@
+apiVersion: kinda.rocks/v1beta1
+kind: Database
+metadata:
+  name: mysql
+  namespace: db-operator-e2e
+spec:
+  backup:
+    cron: 0 0 * * *
+    enable: false
+  deletionProtected: false
+  instance: mysql
+  postgres: {}
+  secretName: mysql-creds
+  cleanup: true

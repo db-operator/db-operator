@@ -1,0 +1,12 @@
+---
+environments:
+  default:
+    values:
+      - certManager:
+          installed: true
+
+---
+helmfiles:
+  - path: ./cert-manager.yaml
+    values:
+      - {{ .Values | toYaml | nindent 8 }}
