@@ -166,7 +166,7 @@ jobs:
       - uses: docker/setup-docker-action@v5
       - run: |-
           make docker-save
-          kind load image-archive my-image.tar  --name=db-operator-kind
+          kind load image-archive my-image.tar --name=$(kind get clusters)
           make install
           make deploy
       - run: 
