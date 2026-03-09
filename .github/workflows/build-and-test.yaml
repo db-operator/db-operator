@@ -169,6 +169,6 @@ jobs:
           kind load image-archive my-image.tar --name=$(kind get clusters)
           make install
           make deploy
-      - run: 
+      - run: |-
           cd ./test    
           go test ./e2e -v -v ginkgo.v
