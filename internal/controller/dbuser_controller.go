@@ -46,11 +46,12 @@ import (
 // DbUserReconciler reconciles a DbUser object
 type DbUserReconciler struct {
 	client.Client
-	Scheme       *runtime.Scheme
-	Interval     time.Duration
-	Recorder     events.EventRecorder
-	CheckChanges bool
-	kubeHelper   *kubehelper.KubeHelper
+	Scheme                      *runtime.Scheme
+	Interval                    time.Duration
+	Recorder                    events.EventRecorder
+	CheckChanges                bool
+	kubeHelper                  *kubehelper.KubeHelper
+	EnableExistingUserMigration bool
 }
 
 // +kubebuilder:rbac:groups=kinda.rocks,resources=dbusers,verbs=get;list;watch;create;update;patch;delete
@@ -91,6 +92,15 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	dbcr := &kindav1beta1.Database{}
 	if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: dbusercr.Spec.DatabaseRef}, dbcr); err != nil {
 		return r.manageError(ctx, dbusercr, err, false)
+	}
+	if r.EnableExistingUserMigration {
+		requeue, err := r.existingUserMigration(ctx, dbcr, dbusercr)
+		if err != nil {
+			return r.manageError(ctx, dbusercr, err, true)
+		}
+		if requeue {
+			return reconcile.Result{Requeue: true}, nil
+		}
 	}
 
 	// The secret is required for all kinds of the events, because it's used a storage for the
@@ -521,4 +531,94 @@ func (r *DbUserReconciler) addFinalizers(ctx context.Context, dbusercr *kindav1b
 		return err
 	}
 	return nil
+}
+
+// If the user status was updated in this function, it should return true, to stop current reconciliation loop.
+func (r *DbUserReconciler) existingUserMigration(ctx context.Context, dbcr *kindav1beta1.Database, dbusercr *kindav1beta1.DbUser) (bool, error) {
+	log := log.FromContext(ctx)
+	// When changing from an existing user to a generated one and another way around,
+	// we need to make sure that the generated user is removed from the instance,
+	// or the grants are dropped from the existing one.
+	// Also we need to remove the secret to enforce the secret rotation
+
+	isExistingUser := len(dbusercr.Spec.ExistingUser) > 0
+	// If status.isExisting user is not initialized, set to the value from the spec
+	if dbusercr.Status.IsExistingUser == nil {
+		dbusercr.Status.IsExistingUser = &isExistingUser
+	}
+
+	isDeleteGenerated := false
+	isCleanUpExisting := false
+
+	if *dbusercr.Status.IsExistingUser != isExistingUser {
+		if *dbusercr.Status.IsExistingUser {
+			log.Info("Switching from an existing user to a generated one, permissions will be removed")
+			isCleanUpExisting = true
+		} else {
+			log.Info("Switching from a generated user to an existing one, user will be removed")
+			isDeleteGenerated = true
+		}
+
+		var err error
+		var dbuserSecret *corev1.Secret
+		dbuserSecret, err = r.getDbUserSecret(ctx, dbusercr)
+		if err != nil {
+			log.Info("Couldn't get the secret with dbuser credentials, the permissions can't be cleaned up")
+			return false, err
+		}
+
+		databaseCred, err := dbhelper.ParseDatabaseSecretData(dbcr, dbuserSecret.Data)
+		if err != nil {
+			// failed to parse database credential from secret
+			return false, err
+		}
+		instance := &kindav1beta1.DbInstance{}
+		if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
+			return false, err
+		}
+		db, dbuser, err := dbhelper.FetchDatabaseData(ctx, dbcr, databaseCred, instance)
+		if err != nil {
+			// failed to determine database type
+			return false, err
+		}
+		dbuser.AccessType = dbusercr.Spec.AccessType
+
+		adminSecretResource, err := r.getAdminSecret(ctx, dbcr)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				log.Error(err, "can not find admin secret")
+				return false, err
+			}
+			return false, err
+		}
+
+		// found admin secret. parse it to connect database
+		adminCred, err := db.ParseAdminCredentials(ctx, adminSecretResource.Data)
+		if err != nil {
+			// failed to parse database admin secret
+			return false, err
+		}
+
+		if isDeleteGenerated {
+			if err := database.DeleteUser(ctx, db, dbuser, adminCred); err != nil {
+				return false, err
+			}
+		}
+		if isCleanUpExisting {
+			if err := database.RevokePermissions(ctx, db, dbuser, adminCred); err != nil {
+				return false, err
+			}
+		}
+
+		log.Info("Removing the credentials secret to re-generate the password")
+		if err := r.Client.Delete(ctx, dbuserSecret); err != nil {
+			return false, err
+		}
+		dbcr.Status.IsExistingUser = &isExistingUser
+		if err := r.Status().Update(ctx, dbcr); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+	return false, nil
 }
