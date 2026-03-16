@@ -20,7 +20,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
       - name: Get go version
-        run: echo "GO_VERSION=$(make desired_go_version)" >> "${GITHUB_ENV}"
+        run: echo "GO_VERSION=$(make desired-go-version)" >> "${GITHUB_ENV}"
       - name: Setup GO
         uses: actions/setup-go@v6
         with:
@@ -35,7 +35,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
       - name: Get go version
-        run: echo "GO_VERSION=$(make desired_go_version)" >> "${GITHUB_ENV}"
+        run: echo "GO_VERSION=$(make desired-go-version)" >> "${GITHUB_ENV}"
       - name: Setup GO
         uses: actions/setup-go@v6
         with:
@@ -60,194 +60,117 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Get go version
-        run: echo "GO_VERSION=$(make desired_go_version)" >> "${GITHUB_ENV}"
+        run: echo "GO_VERSION=$(make desired-go-version)" >> "${GITHUB_ENV}"
       - name: Setup GO
         uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: Prepare the test environment
-        run: make envtest
+        run: make setup-envtest
       - name: Run the kubernetes integration tests
         run: go test -tags tests -run "TestKubernetes" ./... -v -cover
 
-  gsql-test:
-    runs-on: ubuntu-latest
-    needs: lint
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Get go version
-        run: echo "GO_VERSION=$(make desired_go_version)" >> "${GITHUB_ENV}"
-      - name: Setup GO
-        uses: actions/setup-go@v6
-        with:
-          go-version: ${{ env.GO_VERSION }}
-      - name: Start dependencies using docker-compose
-        run: docker compose -f ./resources/test/docker-compose-gsql.yml up -d
-      - name: Run gsql tests
-        run: go test -tags tests -run "TestGsql" ./... -v -cover
   mysql-test:
     runs-on: ubuntu-latest
     needs: lint
+    env:
+      MARIADB_INSTALL: "true"
+      MYSQL_PORT: 30306
+      MYSQL_HOST: localhost
+      MYSQL_PASSWORD: qwertyu9
+      CERT_MANAGER_INSTALL: false
     strategy:
       matrix:
-        image:
-          - mysql:5.7
-          - mysql:8.0
-          - mysql:9.1
+        version:
+          - MARIADB_VERSION: 12.2
+          - MARIADB_VERSION: 11.8
+          - MARIADB_VERSION: 10.11
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Get go version
-        run: echo "GO_VERSION=$(make desired_go_version)" >> "${GITHUB_ENV}"
-      - name: Setup GO
-        uses: actions/setup-go@v6
+      - uses: actions/checkout@v6
+      - run: echo "GO_VERSION=$(make desired-go-version)" >> "${GITHUB_ENV}"
+      - uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
-      # The existing apparmor profile for mysql needs to be removed.
-      # https://github.com/actions/virtual-environments/issues/181
-      # https://github.com/moby/moby/issues/7512#issuecomment-51845976
-      - name: Remove MySQL App Armour Configuration
-        run: |
-          set -x
-          sudo apt-get update
-          sudo apt-get remove mysql-server --purge
-          sudo apt-get install apparmor-profiles
-          sudo apparmor_parser -R /etc/apparmor.d/usr.sbin.mysqld
-      - name: Run the unit tests
-        run: ./scripts/test_database -d mysql -i ${{ matrix.image }} -f ./resources/test/docker-compose-mysql-tmpl.yml
-  mariadb-test:
-    runs-on: ubuntu-latest
-    needs: lint
-    strategy:
-      matrix:
-        image:
-          - mariadb:10.5
-          - mariadb:10.6
-          - mariadb:10.11
-          - mariadb:11.2
-          - mariadb:11.3
-          - mariadb:11.4
-          - mariadb:11.5
+      - uses: azure/setup-helm@v4.3.1
+      - uses: helm/kind-action@v1.14.0
+        with:
+          config: ./kind-config.yaml
+      - uses: helmfile/helmfile-action@v2.1.0
+        with:
+          helmfile-auto-init: true
+          helmfile-args: sync --wait
+      - run: go test -count=1 -tags tests -run "TestMysql" ./... -v -cover
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Get go version
-        run: echo "GO_VERSION=$(make desired_go_version)" >> "${GITHUB_ENV}"
-      - name: Setup GO
-        uses: actions/setup-go@v6
-        with:
-          go-version: ${{ env.GO_VERSION }}
-      # The existing apparmor profile for mysql needs to be removed.
-      # https://github.com/actions/virtual-environments/issues/181
-      # https://github.com/moby/moby/issues/7512#issuecomment-51845976
-      - name: Remove MySQL App Armour Configuration
-        run: |
-          set -x
-          sudo apt-get update
-          sudo apt-get remove mysql-server --purge
-          sudo apt-get install apparmor-profiles
-          sudo apparmor_parser -R /etc/apparmor.d/usr.sbin.mysqld
-      - name: Run the unit tests
-        run: ./scripts/test_database -d mysql -i ${{ matrix.image }} -f ./resources/test/docker-compose-mariadb-tmpl.yml
   postgres-test:
     runs-on: ubuntu-latest
     needs: lint
+    env:
+      POSTGRES_INSTALL: "true"
+      POSTGRES_PORT: 30432
+      POSRGRES_HOST: localhost
+      POSTGRES_USER: db-operator
+      POSTGRES_PASSWORD: qwertyu9
+      CERT_MANAGER_INSTALL: false
     strategy:
       matrix:
-        image:
-          - postgres:18
-          - postgres:17
-          - postgres:16
-          - postgres:15
-          - postgres:14
+        version:
+          - POSTGRES_VERSION: 18
+          - POSTGRES_VERSION: 17
+          - POSTGRES_VERSION: 16
+          - POSTGRES_VERSION: 15
+          - POSTGRES_VERSION: 14
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Get go version
-        run: echo "GO_VERSION=$(make desired_go_version)" >> "${GITHUB_ENV}"
-      - name: Setup GO
-        uses: actions/setup-go@v6
+      - uses: actions/checkout@v6
+      - run: echo "GO_VERSION=$(make desired-go-version)" >> "${GITHUB_ENV}"
+      - uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
-      - name: Run the unit tests
-        run: ./scripts/test_database -d postgres -i ${{ matrix.image }} -f ./resources/test/docker-compose-postgres-tmpl.yml
-  # -------------------------------------------------------------------
-  # -- Azure Flexible Postgres test
-  # -- Azure doesn't give you a super-admin user, so there is an init 
-  # -- script that imitates the Azure Flexible Server behaviour
-  # -------------------------------------------------------------------
-  postgres-az-test:
+      - uses: azure/setup-helm@v4.3.1
+      - uses: helm/kind-action@v1.14.0
+        with:
+          config: ./kind-config.yaml
+      - uses: helmfile/helmfile-action@v2.1.0
+        with:
+          helmfile-auto-init: true
+          helmfile-args: sync --wait
+      - run: go test -count=1 -tags tests -run "TestPostgres" ./... -v -cover
+  e2e-tests:
     runs-on: ubuntu-latest
     needs: lint
-    strategy:
-      matrix:
-        image:
-        # -- Trusted extensions were added only in 13, we need them for tests
-          - postgres:18
-          - postgres:17
-          - postgres:16
-          - postgres:15
-          - postgres:14
+    env:
+      POSTGRES_INSTALL: "true"
+      POSTGRES_PORT: 30432
+      POSRGRES_HOST: localhost
+      POSTGRES_USER: db-operator
+      POSTGRES_PASSWORD: qwertyu9
+      MARIADB_INSTALL: "true"
+      MYSQL_PORT: 30306
+      MYSQL_HOST: localhost
+      MYSQL_PASSWORD: qwertyu9
+      CONTAINER_TOOL: docker
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Get go version
-        run: echo "GO_VERSION=$(make desired_go_version)" >> "${GITHUB_ENV}"
-      - name: Setup GO
-        uses: actions/setup-go@v6
+      - uses: actions/checkout@v6
+      - run: echo "GO_VERSION=$(make desired-go-version)" >> "${GITHUB_ENV}"
+      - uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
-      - name: Run the unit tests
-        run: ./scripts/test_database -d postgres -i ${{ matrix.image }} -f ./resources/test/docker-compose-az-flexible-postgres-tmpl.yml
+      - uses: azure/setup-helm@v4.3.1
+      - uses: docker/setup-docker-action@v5
+      - uses: helm/kind-action@v1.14.0
+        with:
+          config: ./kind-config.yaml
+          cluster_name: db-operator-kind
+      - uses: helmfile/helmfile-action@v2.1.0
+        with:
+          helmfile-auto-init: true
+          helmfile-args: sync --wait
+      - run: |-
+          make docker-save
+          kind load image-archive my-image.tar --name=$(kind get clusters)
+          make install
+          make deploy
+          kubectl rollout -n db-operator-system  status deployment/db-operator-controller-manager -w
+          kubectl rollout -n db-operator-system  status deployment/db-operator-controller-webhook -w
+      - run: |-
+          cd ./test    
+          go test ./e2e -v -v ginkgo.v
