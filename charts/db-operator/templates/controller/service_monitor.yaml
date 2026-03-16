@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ template "db-operator.controller.name" $ }}
+  name: {{ include "db-operator.controller.name" $ }}
   labels:
     {{- include "db-operator.controller.labels" $ | nindent 4 }}
   {{- with .Values.controller.service.annotations }}
@@ -25,7 +25,7 @@ spec:
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: {{ template "db-operator.controller.name" $ }}
+  name: {{ include "db-operator.controller.name" $ }}
   labels:
     {{- include "db-operator.controller.labels" $ | nindent 4 }}
 spec:

@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ template "db-operator.controller.name" . }}-config
+  name: {{ include "db-operator.controller.name" . }}-config
   labels:
     {{- include "db-operator.controller.labels" . | nindent 4 }}
 data:

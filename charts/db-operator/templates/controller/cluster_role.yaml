@@ -3,7 +3,7 @@
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: {{ template "db-operator.controller.name" . }}
+  name: {{ include "db-operator.controller.name" . }}
   labels:
     {{- include "db-operator.controller.labels" . | nindent 4 }}
 rules:
