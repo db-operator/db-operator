@@ -9,7 +9,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v6
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v6
 
       - name: Push Helm chart to OCI compatible registry (ghcr)
         run: |
