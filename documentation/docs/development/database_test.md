@@ -14,7 +14,7 @@ All the names of postgres-related test functions must start with `TestPostgres`,
 
 ### Generic Postgres
 
-All the postgres tests must be successfully executed against the regular self-hosted postgres instance. You can use the official docker image or use `helmfile` to prepare the enviornment.
+All the postgres tests must be successfully executed against the regular self-hosted postgres instance. You can use the official docker image or use `helmfile` to prepare the environment.
 
 First, start a `kind` cluster using the config from the repo:
 ```sh
