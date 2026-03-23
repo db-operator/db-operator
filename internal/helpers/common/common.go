@@ -19,11 +19,13 @@ package common
 import (
 	"context"
 	"reflect"
+	"slices"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 
 	kindav1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
+	"github.com/db-operator/db-operator/v2/pkg/consts"
 	"github.com/db-operator/db-operator/v2/pkg/utils/kci"
 	crdv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -58,7 +60,17 @@ func GenerateChecksumSecretValue(databaseSecret *corev1.Secret) string {
 	if databaseSecret == nil || databaseSecret.Data == nil {
 		return ""
 	}
-	hash, err := kci.GenerateChecksum(databaseSecret.Data)
+
+	// Not all the fields must be stored in the checksum, because templates are appending new entries, that should not trigger a new recocniliation
+	relevantKeys := []string{consts.POSTGRES_DB, consts.POSTGRES_PASSWORD, consts.POSTGRES_USER, consts.MYSQL_DB, consts.MYSQL_PASSWORD, consts.MYSQL_USER}
+	relevantData := map[string][]byte{}
+	for key, value := range databaseSecret.Data {
+		if slices.Contains(relevantKeys, key) {
+			relevantData[key] = value
+		}
+	}
+
+	hash, err := kci.GenerateChecksum(relevantData)
 	if err != nil {
 		return ""
 	}

@@ -28,7 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestUnitIsDBChanged(t *testing.T) {
+func TestUnitIsDBChangedPostgres(t *testing.T) {
 	db := testutils.NewPostgresTestDbCr(testutils.NewPostgresTestDbInstanceCr())
 
 	testDbSecret := &corev1.Secret{
@@ -41,6 +41,7 @@ func TestUnitIsDBChanged(t *testing.T) {
 	}
 
 	common.AddDBChecksum(db, testDbSecret)
+	assert.Equal(t, "11535687189846980805", db.Annotations["checksum/secret"])
 	nochange := common.IsDBChanged(db, testDbSecret)
 	assert.Equal(t, nochange, false, "expected false")
 
@@ -48,6 +49,52 @@ func TestUnitIsDBChanged(t *testing.T) {
 
 	change := common.IsDBChanged(db, testDbSecret)
 	assert.Equal(t, change, true, "expected true")
+}
+
+func TestUnitIsDBChangedMysql(t *testing.T) {
+	db := testutils.NewPostgresTestDbCr(testutils.NewPostgresTestDbInstanceCr())
+
+	testDbSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testutils.TestNamespace, Name: testutils.TestSecretName},
+		Data: map[string][]byte{
+			"DB":       []byte("testdb"),
+			"USER":     []byte("testuser"),
+			"PASSWORD": []byte("testpassword"),
+		},
+	}
+
+	common.AddDBChecksum(db, testDbSecret)
+	assert.Equal(t, "5437193145901086135", db.Annotations["checksum/secret"])
+	nochange := common.IsDBChanged(db, testDbSecret)
+	assert.Equal(t, nochange, false, "expected false")
+
+	testDbSecret.Data["POSTGRES_PASSWORD"] = []byte("testpasswordNEW")
+
+	change := common.IsDBChanged(db, testDbSecret)
+	assert.Equal(t, change, true, "expected true")
+}
+
+func TestUnitIsDBChangedExtraKeys(t *testing.T) {
+	db := testutils.NewPostgresTestDbCr(testutils.NewPostgresTestDbInstanceCr())
+
+	testDbSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testutils.TestNamespace, Name: testutils.TestSecretName},
+		Data: map[string][]byte{
+			"POSTGRES_DB":       []byte("testdb"),
+			"POSTGRES_USER":     []byte("testuser"),
+			"POSTGRES_PASSWORD": []byte("testpassword"),
+			"DB":                []byte("testdb"),
+			"USER":              []byte("testuser"),
+			"PASSWORD":          []byte("testpassword"),
+			"TEST_1":            []byte("Iwillchange"),
+		},
+	}
+
+	common.AddDBChecksum(db, testDbSecret)
+	testDbSecret.Data["TEST_1"] = []byte("Ihavechanged")
+
+	nochange := common.IsDBChanged(db, testDbSecret)
+	assert.Equal(t, nochange, false, "expected false")
 }
 
 func TestUnitGenerateDBInstanceChecksums(t *testing.T) {
