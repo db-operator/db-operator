@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/configure-pages@v5
       - uses: actions/checkout@v5
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
       - uses: abatilo/actions-poetry@v3
       - run: poetry -C documentation install --no-root
       - run: poetry -C documentation run zensical build --clean
