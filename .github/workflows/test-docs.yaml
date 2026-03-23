@@ -10,6 +10,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
-      - uses: abatilo/actions-poetry@v3
+      - uses: abatilo/actions-poetry@v4
       - run: poetry -C documentation install --no-root
       - run: poetry -C documentation run zensical build --clean
