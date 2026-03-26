@@ -7,8 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-//var testData *utils.TestData = &utils.TestData{}
-
+// var testData *utils.TestData = &utils.TestData{}
 func TestE2e(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "E2e Suite")

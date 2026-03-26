@@ -1,8 +1,9 @@
 package utils_test
 
 import (
-	"db-operator-test/utils"
 	"testing"
+
+	"db-operator-test/utils"
 
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/yaml"

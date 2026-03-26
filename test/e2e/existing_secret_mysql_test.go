@@ -1,11 +1,12 @@
 package e2e
 
 import (
-	"db-operator-test/utils"
 	"errors"
 	"fmt"
 	"os/exec"
 	"time"
+
+	"db-operator-test/utils"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
