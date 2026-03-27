@@ -1,6 +1,8 @@
 name: Please set a name for the test-case
 description: Please describe, what this test should do
+cleanup: true
 
+tests: []
 features:
   existingUser:
     enabled: false
