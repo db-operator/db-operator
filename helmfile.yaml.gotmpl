@@ -85,10 +85,8 @@ releases:
     namespace: databases
     chart: cloudpirates/postgres
     version: 0.15.5
-    {{- if .Values.certManager.installed }}
     needs:
       - cert-manager/cert-manager
-    {{- end }}
     installed: {{ .Values.databases.postgres.installed }}
     values:
       - image:
@@ -132,7 +130,6 @@ releases:
             aws_init.sh: |
               {{ $fileContent | nindent 14 }}
       {{- end }}
-      {{- if .Values.databases.postgres.ssl.enabled }}
       - extraObjects:
         - |-
             apiVersion: cert-manager.io/v1
@@ -166,7 +163,6 @@ releases:
         - ssl_cert_file=/pg/certs/tls.crt
         - -c
         - ssl_key_file=/pg/certs/tls.key
-      {{- end }}
 
   - name: prometheus-stack
     namespace: monitoring

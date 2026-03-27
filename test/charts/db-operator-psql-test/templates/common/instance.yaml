@@ -1,0 +1,33 @@
+---
+apiVersion: kinda.rocks/v1beta1
+kind: DbInstance
+metadata:
+  name:  {{ template "db-operator-psql-test.name" . }}-postgresql
+  labels:
+    {{- include "db-operator-psql-test.labels" . | nindent 4 }}
+spec:
+  adminSecretRef:
+    Namespace: {{ .Release.Namespace }}
+    Name:  {{ template "db-operator-psql-test.name" . }}-postgresql-admin-password
+  engine: postgres
+  sslConnection:
+    enabled: true
+    skip-verify: true
+  generic:
+    hostFrom:
+      kind: ConfigMap
+      name: {{ template "db-operator-psql-test.name" . }}-postgresql-config
+      namespace: {{ .Release.Namespace }}
+      key: host
+    portFrom:
+      kind: ConfigMap
+      name: {{ template "db-operator-psql-test.name" . }}-postgresql-config
+      namespace: {{ .Release.Namespace }}
+      key: port
+    publicIpFrom:
+      kind: ConfigMap
+      name: {{ template "db-operator-psql-test.name" . }}-postgresql-config
+      namespace: {{ .Release.Namespace }}
+      key: publicIp
+    backupHost: {{ .Values.postgresql.service.name }}.{{ .Values.postgresql.service.namespace }}.svc.cluster.local
+

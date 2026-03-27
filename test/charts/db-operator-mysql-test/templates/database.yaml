@@ -1,0 +1,18 @@
+---
+apiVersion: kinda.rocks/v1beta1
+kind: Database
+metadata:
+  name: {{ template "db-operator-mysql-test.name" . }}-mysql
+  labels:
+    {{- include "db-operator-mysql-test.labels" . | nindent 4 }}
+spec:
+  secretName: {{ template "db-operator-mysql-test.name" . }}-mysql-credentials # where to save db name user, password for application
+  instance: {{ template "db-operator-mysql-test.name" . }}-mysql
+  backup:
+    enable: false
+    cron: ""
+  deletionProtected: true
+  {{- if .Values.features.existingUser.enabled }}
+  existingUser: {{ .Values.features.existingUser.username }}
+  {{- end }}
+

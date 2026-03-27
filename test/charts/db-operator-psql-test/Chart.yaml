@@ -1,0 +1,8 @@
+apiVersion: v2
+name: db-operator-psql-test
+description: A suite of end-to-end tests for the db-operator
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+annotations:
+  test: "true"

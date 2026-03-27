@@ -1,0 +1,11 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name:  {{ template "db-operator-psql-test.name" . }}-postgresql-config
+  labels:
+    {{- include "db-operator-psql-test.labels" . | nindent 4 }}
+data:
+  host: {{ .Values.postgresql.service.name }}.{{ .Values.postgresql.service.namespace }}.svc.cluster.local
+  port: "5432"
+  publicIp: "1.2.3.4"

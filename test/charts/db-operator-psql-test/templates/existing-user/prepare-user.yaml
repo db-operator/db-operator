@@ -1,0 +1,54 @@
+{{- if .Values.features.existingUser.enabled }}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ template "db-operator-psql-test.name" . }}-create-user-{{ randAlphaNum 5 | lower }}
+  labels:
+    {{- include "db-operator-psql-test.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    {{- if .Values.cleanup }}
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- end }}
+    "helm.sh/hook-weight": "2"
+spec:
+  containers:
+  - name: postgres-writer
+    image: postgres
+    command:
+      - psql
+      - -c
+      - "CREATE USER {{ .Values.features.existingUser.username }} with PASSWORD '{{ .Values.features.existingUser.password }}'"
+    env:
+      - name: PGHOST
+        value: {{ .Values.postgresql.service.name }}.{{ .Values.postgresql.service.namespace }}.svc.cluster.local
+      - name: PGUSER
+        value: {{ .Values.postgresql.admin.user }}
+      - name: PGPASSWORD
+        value: {{ .Values.postgresql.admin.password }}
+      - name: PGDATABASE
+        value: postgres
+    imagePullPolicy: IfNotPresent
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+  restartPolicy: Never
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name:  {{ template "db-operator-psql-test.name" . }}-existing-user-password
+  labels:
+    {{- include "db-operator-psql-test.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    {{- if .Values.cleanup }}
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- end }}
+    "helm.sh/hook-weight": "2"
+type: Opaque
+data:
+  POSTGRES_PASSWORD: {{ .Values.features.existingUser.password | b64enc }}
+{{- end }}
