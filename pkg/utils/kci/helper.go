@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mitchellh/hashstructure"
+	"github.com/mitchellh/hashstructure/v2"
 )
 
 func appendIfMissing(slice []string, s string) []string {
