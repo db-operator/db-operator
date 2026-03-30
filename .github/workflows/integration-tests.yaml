@@ -36,7 +36,7 @@ jobs:
       - name: Add a helm repo to make "helm repo update" work
         run: helm repo add traefik https://traefik.github.io/charts
       - name: Deploy the helmfile
-        uses: helmfile/helmfile-action@v2.4.0
+        uses: helmfile/helmfile-action@v2.4.1
         with:
           helmfile-auto-init: true
           helmfile-args: sync -e ${{ matrix.chart }} --wait
@@ -65,7 +65,7 @@ jobs:
       - name: Add a helm repo to make "helm repo update" work
         run: helm repo add traefik https://traefik.github.io/charts
       - name: Deploy the helmfile
-        uses: helmfile/helmfile-action@v2.4.0
+        uses: helmfile/helmfile-action@v2.4.1
         with:
           helmfile-auto-init: true
           helmfile-args: sync -e tests --wait
