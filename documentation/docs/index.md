@@ -5,7 +5,6 @@ icon: lucide/package-open
 
 **DB Operator** is a Kubernetes operator for managing **MySQL** and **PostgreSQL** databases through **CRDs**.
 
-
 This operator does not launch database servers. Instead, it connects to existing ones. Because of this, the database does not need to run inside Kubernetes, the operator can work with any database server that is reachable from within the cluster.
 
 Once connected to a server, you can manage databases and users through Custom Resource Definitions (CRDs). When a user or database is created, the db-operator automatically creates a `Secret` and a `ConfigMap` in the same namespace where the CR is deployed. These resources can then be used by pods to establish connections to the database.
@@ -30,11 +29,13 @@ helm search repo db-operator
 OCI artifacts are available under `ghcr.io/db-operator/charts/`
 
 Then install the chart using the helm repo:
+
 ```sh
 helm install db-operator/db-operator
 ```
 
 Or using the OCI artifact:
+
 ```sh
 helm install ghcr.io/db-operator/charts/db-operator
 ```
@@ -53,6 +54,15 @@ make deploy
 ```
 
 Even though it's possible, this way is not supported and if you have issues with it, you will most probably fight them on your own. You might encounter problems with webhook, and the configuration in general will not be that flexible.
+
+## Image verification
+
+Starting from version 2.26.0, our images are signed using Cosign. To verify the image, run the following command:
+
+```shell
+export TAG=<desired operator version>
+cosign verify --certificate-identity=https://github.com/db-operator/db-operator/.github/workflows/image-publish.yaml@refs/tags/${TAG} --certificate-oidc-issuer=https://token.actions.githubusercontent.com  ghcr.io/db-operator/db-operator:${TAG}
+```
 
 ## Usage example
 
@@ -137,11 +147,10 @@ spec:
 
 [Read more about templates here](./templates.md)
 
-
 > (@allanger): This logic might be changed when the `Database` resource will be upgrade to the version `v1`
 After the reconciliation you should be able to find a `ConfigMap` and a `Secret` in the namespace `my-namespace`. They both will be called `my-app-db-creds`, and you can use them to connect your application to the database. No manual interactions are needed, everything is managed within a Kubernetes cluster.
 
-## F.A.Q.
+## F.A.Q
 
 ### How to add ownerReferences to Secrets and ConfigMaps created by the operator?
 
