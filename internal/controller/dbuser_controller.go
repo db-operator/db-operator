@@ -275,7 +275,7 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 				return r.manageError(ctx, dbusercr, err, true)
 			}
 
-			// If allow existing is set to true, always exexute UpdateOrCreate,
+			// If allow existing is set to true, always execute UpdateOrCreate,
 			// otherwise follow the old logic
 			if existingUser {
 				log.Info("existing user management is allowed")
@@ -476,7 +476,7 @@ func (r *DbUserReconciler) handleTemplatedCredentials(ctx context.Context, dbcr 
 			return err
 		}
 	} else {
-		// Render with an empty slice, so tempalted entries are removed from Data and Annotations
+		// Render with an empty slice, so templated entries are removed from Data and Annotations
 		if err := templateds.Render(kindav1beta1.Templates{}); err != nil {
 			return err
 		}

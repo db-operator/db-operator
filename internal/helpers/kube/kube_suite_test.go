@@ -259,7 +259,7 @@ var _ = Describe("KubeHelpers test", func() {
 			Expect(err).To(HaveOccurred())
 		})
 	})
-	Context("Test create or udpate handler", func() {
+	Context("Test create or update handler", func() {
 		It("Create a new object", func() {
 			secretName := "suite-4-test-1"
 			secretCopy := secret.DeepCopy()

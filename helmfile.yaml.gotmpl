@@ -114,7 +114,7 @@ releases:
       - extraEnvVars:
           - name: DB_USERNAME
             value: {{ .Values.databases.postgres.username }}
-          - name: DB_PASSWORD 
+          - name: DB_PASSWORD
             value: {{ .Values.databases.postgres.password }}
       {{- $fileContent := readFile "./test/scripts/az_flexible_postgres_init.sh" }}
       - initdb:
@@ -129,7 +129,7 @@ releases:
       - extraEnvVars:
           - name: DB_USERNAME
             value: {{ .Values.databases.postgres.username }}
-          - name: DB_PASSWORD 
+          - name: DB_PASSWORD
             value: {{ .Values.databases.postgres.password }}
       {{ $fileContent := readFile "./test/scripts/aws_rds_postgres_init.sh" }}
       - initdb:
@@ -165,11 +165,11 @@ releases:
       - args:
         - postgres
         - --config_file=/etc/postgresql/postgresql.conf
-        - -c 
-        - ssl=on 
-        - -c 
+        - -c
+        - ssl=on
+        - -c
         - ssl_cert_file=/pg/certs/tls.crt
-        - -c 
+        - -c
         - ssl_key_file=/pg/certs/tls.key
       {{- end }}
 
@@ -252,7 +252,7 @@ releases:
           - accessKey: backups
             secretKey: qwertyu9
             policy: backups
-  
+
   - name: test-data
     namespace: default
     chart: ./test/charts/test-data/

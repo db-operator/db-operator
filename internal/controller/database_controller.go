@@ -253,7 +253,7 @@ func (r *DatabaseReconciler) healthCheckAdmin(ctx context.Context, dbcr *kindav1
 func (r *DatabaseReconciler) isFullReconcile(ctx context.Context, dbcr *kindav1beta1.Database) (bool, error) {
 	log := log.FromContext(ctx)
 	// This is the first check, because even if the checkForChanges is false,
-	// the annotation is exptected to be removed
+	// the annotation is expected to be removed
 	if _, ok := dbcr.GetAnnotations()[consts.DATABASE_FORCE_FULL_RECONCILE]; ok {
 		r.Recorder.Eventf(dbcr, nil, corev1.EventTypeNormal, "Reconciling", "Force full reconcile", "Annotations %s was found", consts.DATABASE_FORCE_FULL_RECONCILE)
 
@@ -898,7 +898,7 @@ func (r *DatabaseReconciler) handleTemplatedCredentials(ctx context.Context, dbc
 			return err
 		}
 	} else {
-		// Render with an empty slice, so tempalted entries are removed from Data and Annotations
+		// Render with an empty slice, so templated entries are removed from Data and Annotations
 		if err := templateds.Render(kindav1beta1.Templates{}); err != nil {
 			return err
 		}

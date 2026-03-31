@@ -12,7 +12,7 @@ metadata:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: controller-config 
+  name: controller-config
   labels:
     control-plane: controller-manager
     app.kubernetes.io/name: db-operator
@@ -22,10 +22,10 @@ data:
     instance:
       generic: {}
     backup:
-      activeDeadlineSeconds: 60 
-      nodeSelector: {} 
+      activeDeadlineSeconds: 60
+      nodeSelector: {}
       postgres:
-        image: ghcr.io/db-operator/pgdump-rclone:latest 
+        image: ghcr.io/db-operator/pgdump-rclone:latest
       mysql:
         image: ghcr.io/db-operator/mydump-rclone:latest
       resources: {}
@@ -125,9 +125,9 @@ spec:
           - name: OPERATOR_NAME
             value: "db-operator"
           - name: WATCH_NAMESPACE
-            value: "" 
+            value: ""
           - name: RECONCILE_INTERVAL
-            value: "30" 
+            value: "30"
           - name: POD_NAME
             valueFrom:
               fieldRef:
@@ -138,6 +138,6 @@ spec:
       volumes:
         - name: config-volume
           configMap:
-            name: controller-config 
+            name: controller-config
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10

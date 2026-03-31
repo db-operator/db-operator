@@ -40,7 +40,7 @@ func (nn *NamespacedName) ToKubernetesType() types.NamespacedName {
 	}
 }
 
-// Tempaltes to add custom entries to ConfigMaps and Secrets
+// Templates to add custom entries to ConfigMaps and Secrets
 type Template struct {
 	Name     string `json:"name"`
 	Template string `json:"template"`

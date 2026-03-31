@@ -54,7 +54,7 @@ type DbInstanceStatus struct {
 }
 
 // GoogleInstance is used when instance type is Google Cloud SQL
-// and describes necessary informations to use google API to create sql instances
+// and describes necessary information to use google API to create sql instances
 type GoogleInstance struct {
 	InstanceName  string         `json:"instance"`
 	ConfigmapName NamespacedName `json:"configmapRef"`
@@ -71,7 +71,7 @@ type BackendServer struct {
 }
 
 // GenericInstance is used when instance type is generic
-// and describes necessary informations to use instance
+// and describes necessary information to use instance
 // generic instance can be any backend, it must be reachable by described address and port
 type GenericInstance struct {
 	Host     string `json:"host"`

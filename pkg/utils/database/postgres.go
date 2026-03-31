@@ -33,7 +33,7 @@ import (
 	"github.com/lib/pq"
 )
 
-// Postgres is a database interface, abstraced object
+// Postgres is a database interface, abstracted object
 // represents a database on postgres instance
 // can be used to execute query to postgres database
 type Postgres struct {

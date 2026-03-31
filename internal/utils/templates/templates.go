@@ -42,7 +42,7 @@ func (tds *TemplateDataSources) Render(templates v1beta1.Templates) error {
 	lastAppliedConfigMap := getPreviouslyApplied(tds.ConfigMapK8sObj.GetAnnotations())
 
 	// Populate the blocked data
-	// It's requred to get keys that were not added by templates
+	// It's required to get keys that were not added by templates
 	blockedSecretData := getBlockedData(tds.SecretK8sObj.Data, lastAppliedSecret)
 	blockedConfigMapData := getBlockedData(tds.ConfigMapK8sObj.Data, lastAppliedConfigMap)
 
@@ -200,7 +200,7 @@ func NewTemplateDataSource(
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- * Main getters funcions should be used to query the data
+ * Main getters functions should be used to query the data
  *  from main data source objects:
  *  - Secret
  *  - ConfigMap

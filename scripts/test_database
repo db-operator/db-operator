@@ -5,14 +5,14 @@ COMPOSE_TOOL="${COMPOSE_TOOL:=docker compose}"
 
 function usage() {
     cat <<EOF
-    Please provide 3 arguments 
+    Please provide 3 arguments
       - -d | a database type (mysql|postgres)
       - -i | image path (mysql:8)
-      - -f | a path to a docker-compose tempalte
+      - -f | a path to a docker-compose template
     EG:
       ./scripts/test_database -d postgres -i postgres:11 -f ./resources/test/docker-compose-psql-tmpl.yaml
 EOF
-    
+
     exit 2
 }
 
@@ -27,7 +27,7 @@ do
             ;;
         \:) usage
             ;;
-        \?) usage 
+        \?) usage
             ;;
         esac >&2
     done
@@ -60,4 +60,3 @@ sleep 10
 go test -count=1 -tags tests -run "Test${DATABASE^}" ./... -v -cover
 bash -c "${COMPOSE_TOOL} -f ${TARGET_COMPOSE} down"
 rm -f "$TARGET_COMPOSE"
-

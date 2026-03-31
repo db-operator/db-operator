@@ -77,14 +77,14 @@ jobs:
 
       - uses: sigstore/cosign-installer@v4.1.0
         if: (github.event_name == 'release' && (github.event.action == 'published' || github.event.action == 'edited'))
-      
+
       - uses: docker/login-action@v3.4.0
         if: (github.event_name == 'release' && (github.event.action == 'published' || github.event.action == 'edited'))
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      
+
       - name: Sign the images with GitHub OIDC Token
         if: (github.event_name == 'release' && (github.event.action == 'published' || github.event.action == 'edited'))
         env:

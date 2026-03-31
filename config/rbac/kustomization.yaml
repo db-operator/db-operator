@@ -31,4 +31,3 @@ resources:
 - dbinstance_admin_role.yaml
 - dbinstance_editor_role.yaml
 - dbinstance_viewer_role.yaml
-

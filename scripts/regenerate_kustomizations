@@ -41,4 +41,3 @@ make manifests
 while IFS= read -r FILE; do
   git restore "${FILE}"
 done <<< "${PRESERVED_FILES}"
-

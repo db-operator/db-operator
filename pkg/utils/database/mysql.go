@@ -31,7 +31,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-// Mysql is a database interface, abstraced object
+// Mysql is a database interface, abstracted object
 // represents a database on mysql instance
 // can be used to execute query to mysql database
 type Mysql struct {
@@ -233,7 +233,7 @@ func (m Mysql) QueryAsUser(ctx context.Context, query string, user *DatabaseUser
 
 	var result string
 	if err := db.QueryRow(query).Scan(&result); err != nil {
-		log.Error(err, "an error occured while executing a query")
+		log.Error(err, "an error occurred while executing a query")
 		return "", err
 	}
 	return result, nil
