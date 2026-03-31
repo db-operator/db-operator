@@ -1,0 +1,83 @@
+{{- if .Values.webhook.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "db-operator.webhook.name" . }}
+  labels:
+    {{- include "db-operator.webhook.labels" $ | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "db-operator.webhook.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "db-operator.webhook.labels" . | nindent 8 }}
+        {{- if .Values.webhook.podLabels }}
+        {{ toYaml .Values.webhook.podLabels | trim | nindent 8 }}
+        {{- end }}
+      {{- if .Values.annotations }}
+      annotations:
+        {{ toYaml .Values.annotations | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- if semverCompare ">=1.33-0" .Capabilities.KubeVersion.Version }}
+      hostUsers: {{ .Values.hostUsers }}
+      {{- end }}
+      {{- if .Values.webhook.serviceAccount.create }}
+      serviceAccountName: {{ include "db-operator.webhook.serviceAccountName" . }}
+      {{- end }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: webhook
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: {{ include "db-operator.imageBootsrap" (dict "image" $.Values.image "chart" $.Chart) }}
+          ports:
+          - containerPort: 9443
+            name: webhook-server
+            protocol: TCP
+          command:
+          - db-operator
+          args:
+            {{- range include "db-operator.webhook.args" $ | split "," }}
+            - {{ . }}
+            {{- end }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+          volumeMounts:
+            - mountPath: /tmp/k8s-webhook-server/serving-certs
+              name: cert
+              readOnly: true
+          resources:
+            {{ toYaml .Values.resources | nindent 12 }}
+      nodeSelector:
+        {{ toYaml .Values.nodeSelector | nindent 8 }}
+      affinity:
+        {{ toYaml .Values.affinity  | nindent 8 }}
+      tolerations:
+        {{ toYaml .Values.tolerations | nindent 8 }}
+    {{- if .Values.priorityClassName }}
+      priorityClassName: {{ .Values.priorityClassName }}
+    {{- end }}
+    {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.imagePullSecrets | nindent 8 }}
+    {{- end }}
+      volumes:
+        - name: cert
+          secret:
+            defaultMode: 420
+            secretName: {{ .Values.webhook.certificate.secretName }}
+{{- end }}

@@ -1,0 +1,11 @@
+crds:
+  keep: false
+secrets:
+  gsql:
+    admin: "sa-json"
+    readonly: "sa-json"
+rbac:
+  create: false
+priorityClassName: ""
+imagePullSecrets:
+  - name: myRegistrySecret

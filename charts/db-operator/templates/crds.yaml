@@ -1,0 +1,54 @@
+{{- if .Values.crds.install }}
+{{- $manifests := dict }}
+{{- range $path, $index :=  .Files.Glob  "crd/*" }}
+  {{- $file := $.Files.Get $path }}
+  {{- $_ := set $manifests ($index | toString ) $file }}
+{{- end }}
+{{- range $_, $file := $manifests }}
+---
+{{- $manifest := $file | fromYaml }}
+apiVersion: {{ get $manifest "apiVersion" }}
+kind: {{ get $manifest "kind" }}
+{{- $metadata := get $manifest "metadata" }}
+metadata:
+  name: {{ get $metadata "name" }}
+  {{- with $.Values.labels }}
+  labels:
+    {{- . | toYaml | nindent 4 }}
+  {{- end }}
+  {{- $crdAnnotations := get $metadata "annotations" }}
+  {{- $annotations :=  merge $crdAnnotations $.Values.crds.annotations }}
+  annotations:
+    {{- $annotations | toYaml | nindent 4 }}
+    {{- if $.Values.webhook.certificate.create }}
+    cert-manager.io/inject-ca-from: {{ $.Release.Namespace }}/{{ $.Values.webhook.certificate.name}}
+    {{ else }}
+    cert-manager.io/inject-ca-from-secret: {{ $.Release.Namespace }}/{{ $.Values.webhook.certificate.secretName}}
+    {{- end }}
+    {{- if $.Values.crds.keep }}
+    helm.sh/resource-policy: keep
+    {{- end }}
+spec:
+{{- if (or
+    (eq $manifest.metadata.name "databases.kinda.rocks")
+    (eq $manifest.metadata.name "dbinstances.kinda.rocks")
+  )
+}}
+{{- if $.Values.webhook.enabled }}
+  conversion:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          namespace: {{ $.Release.Namespace }}
+          name: {{ include "db-operator.webhook.name" . }}
+          path: /convert
+      conversionReviewVersions:
+        - v1alpha1
+        - v1beta1
+{{- end }}
+{{- end }}
+{{ get $manifest "spec" | toYaml | indent 2 }}
+{{- end }}
+
+{{- end }}

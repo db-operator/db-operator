@@ -1,0 +1,9 @@
+reconcileInterval: "10"
+crds:
+  keep: false
+  install: false
+tests:
+  enabled:
+    - crds
+  crds:
+    installed: false

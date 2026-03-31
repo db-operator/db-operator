@@ -1,0 +1,128 @@
+---
+# -- Long tests against the kubernetes API
+name: Helm integration tests
+
+on:
+  push:
+  release:
+    types:
+      - published
+
+jobs:
+  wait-for-chart:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: azure/setup-helm@v4.3.1
+      - name: Wait until chart is available
+        run: |-
+          CHART="oci://ghcr.io/${{ github.repository_owner }}/db-operator/helm/db-operator"
+          export SHA="+$(git rev-parse --short HEAD)"
+          VERSION=$(yq ".version += env(SHA) | .version" "./charts/db-operator/Chart.yaml")
+
+          MAX_ATTEMPTS=60
+          INTERVAL=10
+
+          for ((i=1; i<=MAX_ATTEMPTS; i++)); do
+            echo "Attempt $i/$MAX_ATTEMPTS: pulling $IMAGE..."
+
+            if helm pull "$CHART" --version "${VERSION}"; then
+              echo "Successfully pulled $CHART"
+              exit 0
+            fi
+
+            if [ "$i" -lt "$MAX_ATTEMPTS" ]; then
+              echo "Image not available yet. Retrying in $INTERVAL seconds..."
+              sleep $INTERVAL
+            fi
+          done
+
+          echo "Failed after $MAX_ATTEMPTS attempts (~10 minutes)"
+          exit 1
+
+  chart-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        k8s_version:
+          - v1.35.0
+          - v1.34.3
+          - v1.33.7
+          - v1.32.11
+        chart:
+          - db-operator
+          - db-instances
+    needs: wait-for-chart
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+      - uses: actions/setup-go@v6
+      - uses: azure/setup-helm@v4.3.1
+      - name: Set environment variables for db-instances test
+        if: matrix.chart == 'db-instances'
+        run: |-
+          echo "DB_OPERATOR_INSTALL=true" >> "$GITHUB_ENV"
+          echo "DB_OPERATOR_FROM_OCI=true" >> "$GITHUB_ENV"
+          export SHA="+$(git rev-parse --short HEAD)"
+          VERSION=$(yq ".version += env(SHA) | .version" "./charts/db-operator/Chart.yaml")
+          echo "DB_OPERATOR_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "DB_OPERATOR_LOCAL_IMAGE=false" >> "$GITHUB_ENV"
+
+      - uses: helm/chart-testing-action@v2.8.0
+      - name: Create kind cluster
+        uses: helm/kind-action@v1.14.0
+        with:
+          node_image: kindest/node:${{ matrix.k8s_version }}
+          config: kind-config.yaml
+      - name: Deploy the helmfile
+        uses: helmfile/helmfile-action@v2.4.0
+        with:
+          helmfile-auto-init: true
+          helmfile-args: sync --wait
+      - name: Test the db-operator chart install
+        run: |
+          ct install --target-branch main --charts ./charts/${{ matrix.chart }}
+      - name: Test the db-operator chart upgrade
+        run: |
+          ct install --target-branch main --charts ./charts/${{ matrix.chart }} --upgrade
+
+  logic-test:
+    runs-on: ubuntu-latest
+    env:
+      POSTGRES_INSTALL: "true"
+      MARIADB_INSTALL: "true"
+    needs: wait-for-chart
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+      - uses: actions/setup-go@v6
+      - uses: azure/setup-helm@v4.3.1
+      - uses: helm/chart-testing-action@v2.8.0
+      - name: Create kind cluster
+        uses: helm/kind-action@v1.14.0
+        with:
+          config: ./kind-config.yaml
+      - name: Add a helm repo to make "helm repo update" work
+        run: helm repo add traefik https://traefik.github.io/charts
+      - name: Set environment variables
+        run: |-
+          echo "DB_OPERATOR_INSTALL=true" >> "$GITHUB_ENV"
+          echo "DB_OPERATOR_FROM_OCI=true" >> "$GITHUB_ENV"
+          export SHA="+$(git rev-parse --short HEAD)"
+          VERSION=$(yq ".version += env(SHA) | .version" "./charts/db-operator/Chart.yaml")
+          echo "DB_OPERATOR_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "DB_OPERATOR_LOCAL_IMAGE=false" >> "$GITHUB_ENV"
+      - name: Deploy the helmfile
+        uses: helmfile/helmfile-action@v2.4.0
+        with:
+          helmfile-auto-init: true
+          helmfile-args: sync --wait
+      - name: Run end-to-end database tests
+        run: |
+          cd test && ct install --all  --excluded-charts=self-signed-cluster-issuer

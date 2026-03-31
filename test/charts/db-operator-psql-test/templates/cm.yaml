@@ -1,0 +1,11 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "db-operator-psql-test.name" . }}-mysql-test-script
+  labels:
+    {{- include "db-operator-psql-test.labels" . | nindent 4 }}
+data:
+  note: |-
+    We need to generate a random string to trigger helm tests update
+  random: {{ randAlphaNum 10 | toString}}

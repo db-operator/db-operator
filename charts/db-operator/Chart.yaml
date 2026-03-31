@@ -1,0 +1,21 @@
+---
+apiVersion: v2
+type: application
+name: db-operator
+version: 0.0.0-dev
+description: This operator lets you manage databases in a Kubernetes native way, even if they are not deployed to Kubernetes
+# All supported k8s versions are in the test:
+# https://github.com/db-operator/charts/blob/main/.github/workflows/integration-test.yaml
+kubeVersion: ">= 1.32-prerelease"
+appVersion: "2.25.0"
+home: https://github.com/db-operator
+maintainers:
+  - name: Nikolai Rodionov
+    email: iam@allanger.xyz
+    url: https://badhouseplants.net
+sources:
+  - https://github.com/db-operator/db-operator
+keywords:
+  - database
+  - mysql
+  - postgres

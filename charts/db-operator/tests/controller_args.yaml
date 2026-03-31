@@ -1,0 +1,87 @@
+---
+suite: Test controller argument builder
+templates:
+  - controller/*.yaml
+tests:
+  - it: logLevel=info, no extraArgs and no checkForChanges (default)
+    template: controller/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value:
+            - --zap-log-level=info
+  - it: logLevel=debug, no extraArgs and no checkForChanges
+    template: controller/deployment.yaml
+    set:
+      controller:
+        logLevel: debug
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value:
+            - --zap-log-level=debug
+  - it: logLevel=error, no extraArgs and no checkForChanges
+    template: controller/deployment.yaml
+    set:
+      controller:
+        logLevel: error
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value:
+            - --zap-log-level=error
+  - it: logLevel=info, checkForChanges and no extraArgs
+    template: controller/deployment.yaml
+    set:
+      controller:
+        args:
+          checkForChanges: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value:
+            - --zap-log-level=info
+            - --check-for-changes
+  - it: logLevel=info, extraArgs and no checkForChanges
+    template: controller/deployment.yaml
+    set:
+      controller:
+        extraArgs:
+          - --test
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value:
+            - --zap-log-level=info
+            - --test
+  - it: logLevel=info, extraArgs (multiple) and no checkForChanges
+    template: controller/deployment.yaml
+    set:
+      controller:
+        extraArgs:
+          - --test
+          - --test2
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value:
+            - --zap-log-level=info
+            - --test
+            - --test2
+  - it: logLevel=info, extraArgs and checkForChanges
+    template: controller/deployment.yaml
+    set:
+      controller:
+        args:
+          checkForChanges: true
+        extraArgs:
+          - --test
+          - --test2
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value:
+            - --zap-log-level=info
+            - --check-for-changes
+            - --test
+            - --test2

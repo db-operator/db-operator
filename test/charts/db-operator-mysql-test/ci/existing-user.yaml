@@ -1,0 +1,3 @@
+features:
+  existingUser:
+    enabled: true

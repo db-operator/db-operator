@@ -1,0 +1,86 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "db-operator.controller.name" $ }}
+  labels:
+    {{- include "db-operator.controller.labels" $ | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "db-operator.controller.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "db-operator.controller.labels" $ | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/controller/config.yaml") . | sha256sum }}
+        {{- if .Values.annotations }}
+        {{ toYaml .Values.annotations | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- if semverCompare ">=1.33-0" .Capabilities.KubeVersion.Version }}
+      hostUsers: {{ .Values.hostUsers }}
+      {{- end }}
+      serviceAccountName: {{ include "db-operator.controller.serviceAccountName" . }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: operator
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: {{ include "db-operator.imageBootsrap" (dict "image" $.Values.image "chart" $.Chart) }}
+          ports:
+          - containerPort: 60000
+            name: metrics
+          command:
+          - db-operator
+          {{- if (include "db-operator.controller.args" . ) }}
+          args:
+            {{- range include "db-operator.controller.args" $ | split "," }}
+            - {{ . }}
+            {{- end }}
+          {{- end }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: OPERATOR_NAME
+              value: "db-operator"
+            - name: WATCH_NAMESPACE
+              value: {{ .Values.controller.args.watchNamespace | quote }}
+            - name: RECONCILE_INTERVAL
+              value: {{ .Values.controller.args.reconcileInterval | quote }}
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: CONFIG_PATH
+              value: "/run/config/config.yaml"
+          volumeMounts:
+          - mountPath: /run/config/
+            name: config-volume
+            readOnly: true
+          resources:
+            {{ toYaml .Values.resources | nindent 12 }}
+      nodeSelector:
+        {{ toYaml .Values.nodeSelector | nindent 8 }}
+      affinity:
+        {{ toYaml .Values.affinity  | nindent 8 }}
+      tolerations:
+        {{ toYaml .Values.tolerations | nindent 8 }}
+    {{- if .Values.priorityClassName }}
+      priorityClassName: {{ .Values.priorityClassName }}
+    {{- end }}
+    {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.imagePullSecrets | nindent 8 }}
+    {{- end }}
+      volumes:
+        - name: config-volume
+          configMap:
+            name: {{ include "db-operator.controller.name" . }}-config
