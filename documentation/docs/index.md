@@ -55,6 +55,15 @@ task deploy
 
 Even though it's possible, this way is not supported and if you have issues with it, you will most probably fight them on your own. You might encounter problems with webhook, and the configuration in general will not be that flexible.
 
+## Image verification
+
+Starting from version 2.26.0, our images are signed using Cosign. To verify the image, run the following command:
+
+```shell
+export TAG=<desired operator version>
+cosign verify --certificate-identity=https://github.com/db-operator/db-operator/.github/workflows/image-publish.yaml@refs/tags/${TAG} --certificate-oidc-issuer=https://token.actions.githubusercontent.com  ghcr.io/db-operator/db-operator:${TAG}
+```
+
 ## Usage example
 
 Let's imagine, you have an application that requires a connection to a **Postgres DB**, it receives credentials from the environment variable `POSTGRES_DATASOURCE`, and it needs to be in a following format: `postgresql://${USER}:${PASSWORD}@${HOSTNAME}:${PORT}/${DATABASE}?search_path=myapp`
