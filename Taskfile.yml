@@ -1,0 +1,258 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: "3"
+
+vars:
+  LOCALBIN:
+    sh: echo "$(pwd)/bin"
+  CONTAINER_TOOL: '{{.CONTAINER_TOOL | default "podman"}}'
+  IMG: '{{.IMG | default "localhost/controller:latest"}}'
+  # Tools
+  CONTROLLER_GEN: "{{.LOCALBIN}}/controller-gen"
+  GOFUMPT: "{{.LOCALBIN}}/gofumpt"
+  GOLANGCI_LINT: "{{.LOCALBIN}}/golangci-lint"
+  KUSTOMIZE: "{{.LOCALBIN}}/kustomize"
+  ENVTEST: "{{.LOCALBIN}}/setup-envtest"
+  # Tool versions
+  CONTROLLER_TOOLS_VERSION: v0.20.1
+  GOLANGCI_LINT_VERSION: v2.8.0
+  KUSTOMIZE_VERSION: v5.8.1
+  ENVTEST_VERSION:
+    sh: |
+      v=$(go list -m -f '{{`{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}`}}' sigs.k8s.io/controller-runtime 2>/dev/null)
+      if [ -z "$v" ]; then
+        echo "Set ENVTEST_VERSION manually (controller-runtime replace has no tag)" >&2
+        exit 1
+      fi
+      printf '%s\n' "$v" | sed -E 's/^v?([0-9]+)\.([0-9]+).*/release-\1.\2/'
+
+  ENVTEST_K8S_VERSION:
+    sh: |
+      v=$(go list -m -f '{{`{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}`}}' k8s.io/api 2>/dev/null)
+      if [ -z "$v" ]; then
+        echo "Set ENVTEST_K8S_VERSION manually (k8s.io/api replace has no tag)" >&2
+        exit 1
+      fi
+      printf '%s\n' "$v" | sed -E 's/^v?[0-9]+\.([0-9]+).*/1.\1/'
+
+tasks:
+  default:
+    desc: List all tasks
+    cmd: task --list
+
+  desired-go-version:
+    desc: Print the go version from the Containerfile
+    cmds:
+      - grep -o -P '(?<=golang:).*(?=-alpine)' Containerfile
+
+  build:
+    desc: Build manager binary
+    cmd: go build -o bin/manager cmd/main.go
+
+  build-container:
+    desc: Build a container with the manager.
+    cmd: '"{{.CONTAINER_TOOL}}" build -t "{{.IMG}}" .'
+
+  save-container:
+    desc: Save a container image as an archive
+    deps:
+      - build-container
+    cmds:
+      - rm -f my-image.tar
+      - '"{{.CONTAINER_TOOL}}" save "{{.IMG}}" -o my-image.tar'
+
+  install:
+    desc: Install CRDs into the K8s cluster
+    silent: true
+    deps:
+      - manifests
+      - kustomize
+    cmd: |-
+      out="$({{.KUSTOMIZE}} build config/crd 2>/dev/null || true)"
+      if [ -n "$out" ]; then
+        echo "$out" | kubectl apply -f -
+      else
+        echo "No CRDs to install; skipping."
+      fi
+
+  uninstall:
+    desc: Uninstall CRDs from the K8s cluster
+    silent: true
+    deps:
+      - manifests
+      - kustomize
+    cmd: |-
+      out="$({{.KUSTOMIZE}} build config/crd 2>/dev/null || true)"
+      if [ -n "$out" ]; then
+        echo "$out" | kubectl delete -f -
+      else
+        echo "No CRDs to delete; skipping."
+      fi
+
+  deploy:
+    desc: Deploy controller to the K8s cluster
+    deps:
+      - install
+    cmds:
+      - |
+        cd config/manager
+        {{.KUSTOMIZE}} edit set image controller={{.IMG}}
+      - "{{.KUSTOMIZE}} build config/default | kubectl apply -f -"
+
+  undeploy:
+    desc: Undeploy controller from the K8s cluster
+    deps:
+      - kustomize
+    cmds:
+      - "{{.KUSTOMIZE}} build config/default | kubectl delete -f -"
+
+  manifests:
+    desc: Generate WebhookConfiguration, ClusterRole and CRDs
+    deps:
+      - controller-gen
+    cmd: '"{{.CONTROLLER_GEN}}" rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases'
+
+  generate:
+    desc: Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+    deps:
+      - controller-gen
+    cmd: '"{{.CONTROLLER_GEN}}" object:headerFile="hack/boilerplate.go.txt" paths="./..."'
+
+  fmt:
+    desc: Run gofumt fmt against code.
+    deps:
+      - gofumt
+    cmd: '"{{.GOFUMPT}}" -l -w .'
+
+  vet:
+    desc: Run go vet against code.
+    cmd: go vet ./...
+
+  unit-test:
+    desc: Run unit tests
+    cmd: go test -tags tests -run "TestUnit" ./... -v -cover
+
+  lint:
+    desc: Run golangci-lint linter
+    deps:
+      - golangci-lint
+    cmd: '"{{.GOLANGCI_LINT}}" run'
+
+  lint-fix:
+    desc: Run golangci-lint linter and perform fixes
+    deps:
+      - golangci-lint
+    cmd: '"{{.GOLANGCI_LINT}}" run --fix'
+
+  lint-config:
+    desc: Verify golangci-lint linter configuration
+    deps:
+      - golangci-lint
+    cmd: '"{{.GOLANGCI_LINT}}" config verify'
+
+  setup-envtest:
+    desc: Download the binaries required for ENVTEST in the local bin directory.
+    deps:
+      - envtest
+    cmds:
+      - 'echo "Setting up envtest binaries for Kubernetes version {{.ENVTEST_K8S_VERSION}}..."'
+      - |-
+        "{{.ENVTEST}}" use {{.ENVTEST_K8S_VERSION}} --bin-dir "{{.LOCALBIN}}" -p path || { \
+          echo "Error: Failed to set up envtest binaries for version {{.ENVTEST_K8S_VERSION}}."; \
+          exit 1; \
+         }
+
+  # Install required tools
+  localbin:
+    desc: Create local bin directory
+    silent: true
+    cmds:
+      - mkdir -p "{{.LOCALBIN}}"
+
+  controller-gen:
+    desc: Download controller-gen if necessary
+    silent: true
+    deps:
+      - localbin
+    cmds:
+      - task: go-install-tool
+        vars:
+          TARGET: "{{.CONTROLLER_GEN}}"
+          PACKAGE: sigs.k8s.io/controller-tools/cmd/controller-gen
+          VERSION: "{{.CONTROLLER_TOOLS_VERSION}}"
+
+  gofumt:
+    desc: Download latest gofumt
+    silent: true
+    deps:
+      - localbin
+    cmds:
+      - task: go-install-tool
+        vars:
+          TARGET: "{{.GOFUMPT}}"
+          PACKAGE: mvdan.cc/gofumpt
+          VERSION: "latest"
+
+  kustomize:
+    desc: Download kuztomize if necessary
+    silent: true
+    deps:
+      - localbin
+    cmds:
+      - task: go-install-tool
+        vars:
+          TARGET: "{{.KUSTOMIZE}}"
+          PACKAGE: sigs.k8s.io/kustomize/kustomize/v5
+          VERSION: "{{.KUSTOMIZE_VERSION}}"
+
+  golangci-lint:
+    desc: Install golangci-lint (with optional custom build)
+    silent: true
+    deps:
+      - localbin
+    cmds:
+      - task: go-install-tool
+        vars:
+          TARGET: "{{.GOLANGCI_LINT}}"
+          PACKAGE: github.com/golangci/golangci-lint/v2/cmd/golangci-lint
+          VERSION: "{{.GOLANGCI_LINT_VERSION}}"
+      - |
+        if [ -f .custom-gcl.yml ]; then
+          echo "Building custom golangci-lint with plugins..."
+          "{{.GOLANGCI_LINT}}" custom --destination "{{.LOCALBIN}}" --name golangci-lint-custom
+          mv -f "{{.LOCALBIN}}/golangci-lint-custom" "{{.GOLANGCI_LINT}}"
+        fi
+
+  envtest:
+    desc: Download setup-envtest if necessary
+    silent: true
+    deps:
+      - localbin
+    cmds:
+      - task: go-install-tool
+        vars:
+          TARGET: "{{.ENVTEST}}"
+          PACKAGE: sigs.k8s.io/controller-runtime/tools/setup-envtest
+          VERSION: "{{.ENVTEST_VERSION}}"
+
+  go-install-tool:
+    internal: true
+    silent: true
+    cmd: |-
+      set -e
+      TARGET="{{.TARGET}}"
+      PACKAGE="{{.PACKAGE}}@{{.VERSION}}"
+      VERSIONED="${TARGET}-{{.VERSION}}"
+
+      if [ -f "$VERSIONED" ] && [ "$(readlink -- "$TARGET" 2>/dev/null)" = "$VERSIONED" ]; then
+        echo "$PACKAGE already installed"
+        exit 0
+      fi
+
+      echo "Downloading $PACKAGE"
+      rm -f "$TARGET"
+
+      GOBIN="{{.LOCALBIN}}" go install "$PACKAGE"
+
+      mv "{{.LOCALBIN}}/$(basename "$TARGET")" "$VERSIONED"
+      ln -sf "$(realpath "$VERSIONED")" "$TARGET"
