@@ -1,0 +1,270 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name:  {{ template "db-operator-psql-test.name" . }}-postgresql-admin-password
+  labels:
+    {{- include "db-operator-psql-test.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    {{- if .Values.cleanup }}
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- end }}
+    "helm.sh/hook-weight": "1"
+type: Opaque
+data:
+  password: {{ .Values.postgresql.admin.password | b64enc }}
+  user: {{ .Values.postgresql.admin.user | b64enc }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name:  {{ template "db-operator-psql-test.name" . }}-postgresql-config
+  labels:
+    {{- include "db-operator-psql-test.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    {{- if .Values.cleanup }}
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- end }}
+    "helm.sh/hook-weight": "1"
+data:
+  host: {{ .Values.postgresql.service.name }}.{{ .Values.postgresql.service.namespace }}.svc.cluster.local
+  port: "5432"
+  publicIp: "1.2.3.4"
+---
+apiVersion: kinda.rocks/v1beta1
+kind: DbInstance
+metadata:
+  name:  {{ template "db-operator-psql-test.name" . }}-postgresql
+  labels:
+    {{- include "db-operator-psql-test.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    {{- if .Values.cleanup }}
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- end }}
+    "helm.sh/hook-weight": "1"
+spec:
+  adminSecretRef:
+    Namespace: {{ .Release.Namespace }}
+    Name:  {{ template "db-operator-psql-test.name" . }}-postgresql-admin-password
+  engine: postgres
+  generic:
+    hostFrom:
+      kind: ConfigMap
+      name: {{ template "db-operator-psql-test.name" . }}-postgresql-config
+      namespace: {{ .Release.Namespace }}
+      key: host
+    portFrom:
+      kind: ConfigMap
+      name: {{ template "db-operator-psql-test.name" . }}-postgresql-config
+      namespace: {{ .Release.Namespace }}
+      key: port
+    publicIpFrom:
+      kind: ConfigMap
+      name: {{ template "db-operator-psql-test.name" . }}-postgresql-config
+      namespace: {{ .Release.Namespace }}
+      key: publicIp
+    backupHost: {{ .Values.postgresql.service.name }}.{{ .Values.postgresql.service.namespace }}.svc.cluster.local
+
+{{- if .Values.features.existingUser.enabled }}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ template "db-operator-psql-test.name" . }}-create-user-{{ randAlphaNum 5 | lower }}
+  labels:
+    {{- include "db-operator-psql-test.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    {{- if .Values.cleanup }}
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- end }}
+    "helm.sh/hook-weight": "2"
+spec:
+  containers:
+  - name: postgres-writer
+    image: postgres
+    command:
+      - psql
+      - -c
+      - "CREATE USER {{ .Values.features.existingUser.username }} with PASSWORD '{{ .Values.features.existingUser.password }}'"
+    env:
+      - name: PGHOST
+        value: {{ .Values.postgresql.service.name }}.{{ .Values.postgresql.service.namespace }}.svc.cluster.local
+      - name: PGUSER
+        value: {{ .Values.postgresql.admin.user }}
+      - name: PGPASSWORD
+        value: {{ .Values.postgresql.admin.password }}
+      - name: PGDATABASE
+        value: postgres
+    imagePullPolicy: IfNotPresent
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+  restartPolicy: Never
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name:  {{ template "db-operator-psql-test.name" . }}-existing-user-password
+  labels:
+    {{- include "db-operator-psql-test.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    {{- if .Values.cleanup }}
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- end }}
+    "helm.sh/hook-weight": "2"
+type: Opaque
+data:
+  POSTGRES_PASSWORD: {{ .Values.features.existingUser.password | b64enc }}
+{{- end }}
+---
+apiVersion: "kinda.rocks/v1beta1"
+kind: "Database"
+metadata:
+  name: {{ template "db-operator-psql-test.name" . }}-postgresql
+  labels:
+    {{- include "db-operator-psql-test.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    {{- if .Values.cleanup }}
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- end }}
+    "helm.sh/hook-weight": "3"
+spec:
+  secretName: {{ template "db-operator-psql-test.name" . }}-postgresql-credentials
+  instance: {{ template "db-operator-psql-test.name" . }}-postgresql
+  backup:
+    enable: false
+    cron: ""
+  deletionProtected: true
+  {{- if .Values.features.existingUser.enabled }}
+  existingUser: {{ .Values.features.existingUser.username }}
+  {{- end }}
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "db-operator-psql-test.name" . }}-postgresql-test-script
+  labels:
+    {{- include "db-operator-psql-test.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    {{- if .Values.cleanup }}
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- end }}
+    "helm.sh/hook-weight": "4"
+data:
+  write.sh: |
+{{ .Files.Get "scripts/test_write.sh" | indent 4}}
+  read.sh: |
+{{ .Files.Get "scripts/test_read.sh" | indent 4}}
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ template "db-operator-psql-test.name" . }}-tester-app-{{ randAlphaNum 5 | lower }}
+  labels:
+    {{- include "db-operator-psql-test.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    {{- if .Values.cleanup }}
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- end }}
+    "helm.sh/hook-weight": "5"
+spec:
+  containers:
+  - name: postgres-writer
+    image: postgres
+    command:
+      - sh
+      - -c
+      - exec sh /app/write.sh
+    env:
+      - name: POSTGRES_PASSWORD_FILE
+        value: /run/secrets/postgres/POSTGRES_PASSWORD
+      - name: POSTGRES_USERNAME
+        valueFrom:
+          secretKeyRef:
+            name: {{ template "db-operator-psql-test.name" . }}-postgresql-credentials
+            key: POSTGRES_USER
+      - name: POSTGRES_DB
+        valueFrom:
+          secretKeyRef:
+            name: {{ template "db-operator-psql-test.name" . }}-postgresql-credentials
+            key: POSTGRES_DB
+      - name: POSTGRES_HOST
+        valueFrom:
+          configMapKeyRef:
+            name: {{ template "db-operator-psql-test.name" . }}-postgresql-credentials
+            key: DB_CONN
+    volumeMounts:
+      - name: db-secret
+        mountPath: /run/secrets/postgres/
+        readOnly: true
+      - name: script
+        mountPath: /app/
+      - name: shared-data
+        mountPath: /tmp
+    imagePullPolicy: IfNotPresent
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+  - name: postgres-reader
+    image: postgres
+    command:
+      - sh
+      - -c
+      - exec sh /app/read.sh
+    env:
+      - name: POSTGRES_PASSWORD_FILE
+        value: /run/secrets/postgres/POSTGRES_PASSWORD
+      - name: POSTGRES_USERNAME
+        valueFrom:
+          secretKeyRef:
+            name: {{ template "db-operator-psql-test.name" . }}-postgresql-credentials
+            key: POSTGRES_USER
+      - name: POSTGRES_DB
+        valueFrom:
+          secretKeyRef:
+            name: {{ template "db-operator-psql-test.name" . }}-postgresql-credentials
+            key: POSTGRES_DB
+      - name: POSTGRES_HOST
+        valueFrom:
+          configMapKeyRef:
+            name: {{ template "db-operator-psql-test.name" . }}-postgresql-credentials
+            key: DB_CONN
+    volumeMounts:
+      - name: db-secret
+        mountPath: /run/secrets/postgres/
+        readOnly: true
+      - name: script
+        mountPath: /app/
+      - name: shared-data
+        mountPath: /tmp
+    imagePullPolicy: IfNotPresent
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+  restartPolicy: Never
+  volumes:
+    - name: db-secret
+      secret:
+        {{- if .Values.features.existingUser.enabled }}
+        secretName:  {{ template "db-operator-psql-test.name" . }}-existing-user-password
+        {{- else }}
+        secretName: {{ template "db-operator-psql-test.name" . }}-postgresql-credentials
+        {{- end }}
+    - name: script
+      configMap:
+        name: {{ template "db-operator-psql-test.name" . }}-postgresql-test-script
+    - name: shared-data
+      emptyDir: {}

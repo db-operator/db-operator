@@ -1,0 +1,35 @@
+---
+suite: Test webhook argument builder
+templates:
+  - webhook/*.yaml
+tests:
+  - it: logLevel=info
+    template: webhook/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value:
+            - --zap-log-level=info
+            - --webhook
+  - it: logLevel=debug
+    template: webhook/deployment.yaml
+    set:
+      webhook:
+        logLevel: debug
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value:
+            - --zap-log-level=debug
+            - --webhook
+  - it: logLevel=error
+    template: webhook/deployment.yaml
+    set:
+      webhook:
+        logLevel: error
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value:
+            - --zap-log-level=error
+            - --webhook

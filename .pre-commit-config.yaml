@@ -3,6 +3,12 @@ repos:
     rev: v6.0.0
     hooks:
       - id: end-of-file-fixer
+        # -- Pre commit hook is conflicting with the helm-docs
+        exclude: |
+          (?x)(
+            ^charts/db-instances/README.md|
+            ^charts/db-operator/README.md
+          )
       - id: trailing-whitespace
       - id: detect-private-key
   - repo: https://github.com/codespell-project/codespell

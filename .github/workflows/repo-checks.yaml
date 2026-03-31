@@ -15,14 +15,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-      - uses: actions/setup-go@v6
-      - uses: pre-commit/action@v3.0.1
       - uses: go-task/setup-task@v1
+      - uses: actions/setup-python@v6
+      - run: echo "GO_VERSION=$(task desired-go-version)" >> "${GITHUB_ENV}"
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: pre-commit/action@v3.0.1
+      - uses: suzuki-shunsuke/github-action-renovate-config-validator@v2.1.0
       - name: Check code generation
         run: |-
           task manifest && task generate
           if [[ -n $(git status --porcelain) ]]; then
             echo "Please update generated code using 'task manifest and task generate' and push the changes"
+            exit 1
+          fi
+      - name: Check crds sync
+        run: |-
+          task sync-crds
+          if [[ -n $(git status --porcelain) ]]; then
+            echo "Please update generated code using 'task sync-crds' and push the changes"
             exit 1
           fi

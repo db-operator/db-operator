@@ -1,0 +1,18 @@
+---
+suite: Test issuer templating
+templates:
+  - webhook/certificates/issuer.yaml
+tests:
+  - it: Issuer should be rendered by default
+    asserts:
+      - hasDocuments:
+          count: 1
+  - it: Each template should not be rendered when webhooks are disabled
+    set:
+      webhook:
+        certificate:
+          issuer:
+            create: false
+    asserts:
+      - hasDocuments:
+          count: 0

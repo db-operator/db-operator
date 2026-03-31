@@ -1,0 +1,20 @@
+dbinstances: {}
+nodeSelector: {}
+exporter:
+  postgres:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+mysql:
+  enabled: false
+postgresql:
+  enabled: false
+# Overwrite Namespace if secrets get created and release namespace != operator ns
+# operatorNamespace:
+
+# ---------------------------------------------------------------------
+# -- Internal values, used for testing, please don't set them if you
+# --  don't have an intention of testing the helm chart
+# ---------------------------------------------------------------------
+tests:
+  # Test that the metrics can be scraped by Prometheus
+  monitoring:
+    enabled: false

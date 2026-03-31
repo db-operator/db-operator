@@ -1,0 +1,135 @@
+{{- $selectorLabels := include "db-instances.selectorLabels" . }}
+{{- $operatorNs := include "db-instances.operatorNs" . -}}
+{{- if .Values.dbinstances }}
+{{- range $name, $value := .Values.dbinstances }}
+---
+apiVersion: "kinda.rocks/v1beta1"
+kind: "DbInstance"
+metadata:
+  name: {{ $name }}
+  annotations:
+    {{- if $value.google }}
+    checksum/config: {{ $value.google.configMap.data | sha256sum }}
+    {{- end }}
+  labels:
+    {{- include "db-instances.labels" $ | nindent 4 }}
+    {{- with $value.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- with $value.instanceVars }}
+  instanceVars:
+    {{- . | toYaml | nindent 4 }}
+  {{- end }}
+  engine: {{ $value.engine }}
+  {{- if $value.existingAdminSecret }}
+  adminSecretRef:
+    Namespace: {{ $value.existingAdminSecret.namespace }}
+    Name: {{ $value.existingAdminSecret.name }}
+  {{- else }}
+  adminSecretRef:
+    Namespace: {{ $operatorNs }}
+    Name: {{ $name }}-admin-secret
+  {{- end }}
+  {{- if $value.backup }}
+  backup:
+    {{ toYaml $value.backup | nindent 4 }}
+  {{- end }}
+  monitoring:
+    enabled: {{ $value.monitoring.enabled }}
+  {{- if $value.sslConnection }}
+  sslConnection:
+    enabled: {{ $value.sslConnection.enabled }}
+    skip-verify: {{ $value.sslConnection.skipVerify }}
+  {{- end }}
+  {{- with $value.allowExtraGrants }}
+  allowExtraGrants: {{ . }}
+  {{- end }}
+  {{- if $value.google }}
+  google:
+    instance: {{ $value.google.instanceName }}
+    configmapRef:
+      Namespace: {{ $operatorNs }}
+      Name: {{ $name }}-config
+  {{- if $value.google.clientSecret }}
+    clientSecretRef:
+      Namespace: {{ $operatorNs }}
+      Name: {{ $name }}-client-secret
+  {{- end }}
+  {{- end }}
+  {{- if $value.generic }}
+  generic:
+    hostFrom:
+      kind: ConfigMap
+      name: {{ $name }}-config
+      namespace: {{ $.Release.Namespace }}
+      key: host
+    portFrom:
+      kind: ConfigMap
+      name: {{ $name }}-config
+      namespace: {{ $.Release.Namespace }}
+      key: port
+  {{- if $value.generic.publicIp }}
+    publicIpFrom:
+      kind: ConfigMap
+      name: {{ $name }}-config
+      namespace: {{ $.Release.Namespace }}
+      key: publicIp
+  {{- end }}
+
+  {{- if $value.generic.backupHost }}
+    backupHost: {{ $value.generic.backupHost }}
+  {{- end }}
+  {{- end }}
+{{- if not $value.existingAdminSecret }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $name }}-admin-secret
+  namespace: {{ $operatorNs }}
+  labels:
+    {{ include "db-instances.labels" $ | nindent 4 }}
+type: Opaque
+data:
+  user: {{ $value.secrets.adminUser | b64enc }}
+  password: {{ $value.secrets.adminPassword | b64enc }}
+{{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-config
+  namespace: {{ $operatorNs }}
+  labels:
+    {{- include "db-instances.labels" $ | nindent 4 }}
+data:
+{{- if $value.google }}
+  config: |
+    {{ $value.google.configMap.data | nindent 4 }}
+{{- end }}
+{{- if $value.generic }}
+  host: {{ $value.generic.host }}
+  port: {{ $value.generic.port | quote }}
+  {{- if $value.generic.publicIp }}
+  publicIp: {{ $value.generic.publicIp }}
+  {{- end }}
+{{- end }}
+
+{{- if $value.google }}
+{{- if $value.google.clientSecret }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $name }}-client-secret
+  namespace: {{ $operatorNs }}
+  labels:
+    {{- include "db-instances.labels" $ | nindent 4 }}
+data:
+  credentials.json: |-
+    {{ $value.google.clientSecret | b64enc | nindent 4 }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,19 @@
+dbinstances:
+  instance1:
+    serviceMonitor:
+      enabled: true
+    podMonitor:
+      enabled: true
+    engine: postgres
+    monitoring:
+      autodiscovery: true
+      enabled: true
+    generic:
+      host: postgres-instance-postgresql.postgres
+      port: 5432
+    secrets:
+      adminUser: postgres
+      adminPassword: 123123!!
+tests:
+  monitoring:
+    enabled: true
