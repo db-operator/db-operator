@@ -134,7 +134,7 @@ func main() {
 		setupLog.Info("Starting controller")
 		conf, err := config.LoadConfig()
 		if err != nil {
-			setupLog.Error(err, "an error occured when reading the config")
+			setupLog.Error(err, "an error occurred when reading the config")
 			os.Exit(1)
 		}
 

@@ -158,7 +158,7 @@ func (kh *KubeHelper) IsUsedByCaller(obj client.Object) bool {
 
 func (kh *KubeHelper) SetOwnerReference(obj client.Object, ownerRef metav1.OwnerReference) client.Object {
 	// It's required in order to remove the owner reference
-	// that was previosly set by the cleanup feature
+	// that was previously set by the cleanup feature
 	newOwnerRefs := []metav1.OwnerReference{}
 	for _, ref := range obj.GetOwnerReferences() {
 		if ref.UID != kh.Caller.GetUID() {

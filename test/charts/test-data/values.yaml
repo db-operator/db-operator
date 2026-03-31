@@ -1,4 +1,4 @@
-engines: 
+engines:
   - name: postgres
     sslConfig:
       enabled: false

@@ -87,7 +87,7 @@ func (ins *Generic) exist(ctx context.Context) error {
 }
 
 func (ins *Generic) create() error {
-	return errors.New("creating generic db instance is not yet implimented")
+	return errors.New("creating generic db instance is not yet implemented")
 }
 
 func (ins *Generic) update() error {

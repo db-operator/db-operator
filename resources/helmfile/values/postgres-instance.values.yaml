@@ -1,4 +1,4 @@
-global: 
+global:
   postgresql:
     auth:
       postgresPassword: 123123!!

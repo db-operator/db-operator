@@ -62,7 +62,7 @@ type DbInstanceStatus struct {
 }
 
 // GoogleInstance is used when instance type is Google Cloud SQL
-// and describes necessary informations to use google API to create sql instances
+// and describes necessary information to use google API to create sql instances
 type GoogleInstance struct {
 	InstanceName  string         `json:"instance"`
 	ConfigmapName NamespacedName `json:"configmapRef"`

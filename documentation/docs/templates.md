@@ -114,6 +114,6 @@ These variables can be accessed by the `Database`/`DbUser` templates like this:
 ...
 ```
 
-Then the secret that is created by the operator should contain the following entry: `DB_INSTANCE_VAR: TEST_VALUE`. 
+Then the secret that is created by the operator should contain the following entry: `DB_INSTANCE_VAR: TEST_VALUE`.
 
 When the value is changed on the instance level, it should also trigger reconciliation of the databases and hence the values should also be updated in the target secrets.

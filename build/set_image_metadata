@@ -4,7 +4,7 @@
 # --------------------------------------------
 #
 # --------------------------------------------
-# -- To have a multi-line env var in github, 
+# -- To have a multi-line env var in github,
 # --  we must define the EOF
 # --------------------------------------------
 EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
@@ -21,7 +21,7 @@ org.opencontainers.image.revision=$GITHUB_SHA
 org.opencontainers.image.vendor=$GITHUB_REPOSITORY_OWNER
 org.opencontainers.image.license=Apache License v2
 org.opencontainers.image.title=$GITHUB_REPOSITORY
-org.opencontainers.image.description=The DB Operator creates databases and make them available in the cluster via Custom Resource. 
+org.opencontainers.image.description=The DB Operator creates databases and make them available in the cluster via Custom Resource.
 EOF
 )
 
@@ -31,5 +31,3 @@ echo "$EOF" >> "$GITHUB_ENV"
 # -- Set the image tag by commit sha
 # --------------------------------------------
 echo "TAGS=${GITHUB_SHA}" >> "${GITHUB_ENV}"
-
-

@@ -51,7 +51,7 @@ const (
 	DATABASE_FORCE_FULL_RECONCILE = "kinda.rocks/db-force-full-reconcile"
 	USED_OBJECTS                  = "kinda.rocks/used-objects"
 	// ----------------------------------------------------------------------
-	// EXPIREMENTAL FEATURES
+	// EXPERIMENTAL FEATURES
 	// This annotation should be used, when a DbUser is not allowed to log in
 	// with password, should be used on the RDS instances, when the SSO is
 	// for authentication
@@ -65,7 +65,7 @@ const (
 	// When this annotations is set to "true", the operator would not
 	// try to force the user creation
 	ALLOW_EXISTING_USER = "kinda.rocks/allow-existing-user"
-	// Delete a postgres database with present connectins,
+	// Delete a postgres database with present connections,
 	// might be useful when pgbouncer is used
 	POSTGRES_FORCE_DELETE_DB = "kinda.rocks/postgres-force-delete-db"
 )

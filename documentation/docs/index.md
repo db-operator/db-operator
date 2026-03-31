@@ -63,7 +63,7 @@ And with the following credentials: `admin:qwertyu9`
 
 ### Instance creation
 
-We assume that you already have installed the operator, and now we need to create a `DbInstance` resource to connect the operator to the database. `DbInstance` is a cluster resource, so it will be available from any namespace in the cluster. 
+We assume that you already have installed the operator, and now we need to create a `DbInstance` resource to connect the operator to the database. `DbInstance` is a cluster resource, so it will be available from any namespace in the cluster.
 
 You'll need to prepare a secret with credentials like this:
 
@@ -75,7 +75,7 @@ metadata:
   namespace: postgres
 stringData:
   user: admin
-  password: qwertyu9 
+  password: qwertyu9
 ```
 
 And now you can create a `DbInstance` resource:

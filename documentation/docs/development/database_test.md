@@ -25,7 +25,7 @@ kind create cluster --config=kind-config.yaml
 
 The config will forward the `NodePort` used by the postgres service, so you can reach it from your machine.
 
-Then set enviornment variables:
+Then set environment variables:
 
 ```sh
 # cert-manager is not needed
@@ -56,7 +56,7 @@ You can also use any tag found here: <https://hub.docker.com/_/postgres/>
 
 To do so, set the `POSTGRES_VERSION` variable to a tag name, for example `latest` or `18.3`
 
-If you don't want to use `helmfile`, you can point the tests to any server using the following enviornment variables:
+If you don't want to use `helmfile`, you can point the tests to any server using the following environment variables:
 
 ```sh
 export POSTGRES_PORT=<Postgres port>
@@ -66,7 +66,7 @@ export POSTGRES_PASSWORD=<Admin password>
 ```
 ### Cloud-provider specific instances
 
-Officially we do not support any cloud-provider integration, but we expect though, that it must be possible to use the DB Operator in any enviornment. 
+Officially we do not support any cloud-provider integration, but we expect though, that it must be possible to use the DB Operator in any environment.
 Different cloud providers have different sets of permissions, so we have scripts that are bootstrapping instances in a way, we think, cloud providers do, but since we don't have any proven information about how it's actually done on their sides, we are rather guessing here.
 
 #### AZ Flexible
@@ -87,9 +87,9 @@ Currently, not all the tests will pass with `RDS` configuration.
 
 ## MySQL
 
-To test `MySQL` you will also need a running server. 
+To test `MySQL` you will also need a running server.
 
-You can use `kind` and `helmfile` to start a `Mariadb` server and run tests against it. 
+You can use `kind` and `helmfile` to start a `Mariadb` server and run tests against it.
 
 ```sh
 make setup-test-e2e
@@ -115,7 +115,7 @@ You can also use any tag found here: <https://hub.docker.com/_/mariadb/>
 
 To do so, set the `MARIADB_VERSION` variable to a tag name, for example `latest` or `11.4`
 
-If you don't want to use `helmfile`, you can point the tests to any server using the following enviornment variables:
+If you don't want to use `helmfile`, you can point the tests to any server using the following environment variables:
 
 ```sh
 export MYSQL_PORT=<MySQL port>
