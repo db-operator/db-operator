@@ -49,7 +49,7 @@ func newDbPasswordRule() *dbPasswordRule {
 func (r *dbPasswordRule) Config() *password.Configuration {
 	return &password.Configuration{
 		Length: 20,
-		CharacterClasses: []password.CharacterClassConfiguration{
+		CharacterClasses: []password.CharacterClassConfiguration{ // codespell:ignore
 			{Characters: password.LowercaseCharacters + password.UppercaseCharacters, Minimum: 10},
 			{Characters: password.DigitCharacters, Minimum: 8},
 			{Characters: password.URLSafeSpecialCharacters, Minimum: 2},

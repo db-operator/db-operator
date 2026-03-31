@@ -132,6 +132,20 @@ tasks:
     desc: Run unit tests
     cmd: go test -tags tests -run "TestUnit" ./... -v -cover
 
+  postgres-test:
+    desc: Run postgres tests
+    cmd: go test -count=1 -tags tests -run "TestPostgres" ./... -v -cover
+
+  mysql-test:
+    desc: Run mysql tests
+    cmd: go test -count=1 -tags tests -run "TestMysql" ./... -v -cover
+
+  kubernetes-test:
+    desc: Run kubernetes integration tests
+    deps:
+      - setup-envtest
+    cmd: go test -tags tests -run "TestKubernetes" ./... -v -cover
+
   lint:
     desc: Run golangci-lint linter
     deps:
