@@ -354,20 +354,11 @@ func (r *DbUserReconciler) manageError(ctx context.Context, dbucr *kindav1beta1.
 	retryInterval := 60 * time.Second
 
 	r.Recorder.Eventf(dbucr, nil, corev1.EventTypeWarning, "Reconcile error", "Can't reconcile", issue.Error())
-	err := r.Status().Update(ctx, dbucr)
-	if err != nil {
-		log.Error(err, "unable to update status")
-		return reconcile.Result{
-			RequeueAfter: retryInterval,
-			Requeue:      requeue,
-		}, nil
-	}
-
 	// TODO: implementing reschedule calculation based on last updated time
 	return reconcile.Result{
 		RequeueAfter: retryInterval,
 		Requeue:      requeue,
-	}, nil
+	}, issue
 }
 
 func parseDbUserSecretData(engine string, data map[string][]byte) (database.Credentials, error) {
