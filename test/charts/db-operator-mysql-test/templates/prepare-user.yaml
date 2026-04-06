@@ -1,0 +1,40 @@
+{{- if .Values.features.existingUser.enabled }}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ template "db-operator-mysql-test.name" . }}-create-user-{{ randAlphaNum 5 | lower }}
+  labels:
+    {{- include "db-operator-mysql-test.labels" . | nindent 4 }}
+spec:
+  containers:
+  - name: postgres-writer
+    image: mysql
+    command:
+      - mysql
+      - -h
+      - {{ .Values.mysql.service.name }}.{{ .Values.mysql.service.namespace }}.svc.cluster.local
+      - -u
+      - {{ .Values.mysql.admin.user }}
+      - -p{{ .Values.mysql.admin.password }}
+      - mysql
+      - -e
+      - "CREATE USER '${USERNAME}' IDENTIFIED BY '${PASSWORD}'"
+    imagePullPolicy: IfNotPresent
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+  restartPolicy: Never
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name:  {{ template "db-operator-mysql-test.name" . }}-existing-user-password
+  labels:
+    {{- include "db-operator-mysql-test.labels" . | nindent 4 }}
+type: Opaque
+data:
+  POSTGRES_PASSWORD: {{ .Values.features.existingUser.password | b64enc }}
+{{- end }}

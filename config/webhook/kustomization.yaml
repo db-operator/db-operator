@@ -1,3 +1,6 @@
+# Preserve after regen
+---
 resources:
   - manifests.yaml
   - service.yaml
+  - deployment.yaml

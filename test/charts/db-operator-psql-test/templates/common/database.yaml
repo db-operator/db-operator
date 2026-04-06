@@ -1,0 +1,23 @@
+---
+apiVersion: "kinda.rocks/v1beta1"
+kind: "Database"
+metadata:
+  name: {{ template "db-operator-psql-test.name" . }}-postgresql
+  labels:
+    {{- include "db-operator-psql-test.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    {{- if .Values.cleanup }}
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- end }}
+    "helm.sh/hook-weight": "3"
+spec:
+  secretName: {{ template "db-operator-psql-test.name" . }}-postgresql-credentials
+  instance: {{ template "db-operator-psql-test.name" . }}-postgresql
+  backup:
+    enable: false
+    cron: ""
+  deletionProtected: true
+  {{- if .Values.features.existingUser.enabled }}
+  existingUser: {{ .Values.features.existingUser.username }}
+  {{- end }}

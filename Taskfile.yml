@@ -132,6 +132,7 @@ tasks:
     desc: Run unit tests
     cmd: go test -tags tests -run "TestUnit" ./... -v -cover
 
+<<<<<<< HEAD
   postgres-test:
     desc: Run postgres tests
     cmd: go test -count=1 -tags tests -run "TestPostgres" ./... -v -cover
@@ -146,6 +147,9 @@ tasks:
       - setup-envtest
     cmd: go test -tags tests -run "TestKubernetes" ./... -v -cover
 
+||||||| parent of 0075e33 (Add a first version of the Taskfile)
+=======
+>>>>>>> 0075e33 (Add a first version of the Taskfile)
   lint:
     desc: Run golangci-lint linter
     deps:

@@ -1,0 +1,7 @@
+---
+name: Existing user workflow test
+description: It should create a database and test if an existing user has access to it
+
+features:
+  existingUser:
+    enabled: true

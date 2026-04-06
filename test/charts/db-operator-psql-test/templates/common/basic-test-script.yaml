@@ -1,0 +1,18 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "db-operator-psql-test.name" . }}-postgresql-test-script
+  labels:
+    {{- include "db-operator-psql-test.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    {{- if .Values.cleanup }}
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- end }}
+    "helm.sh/hook-weight": "4"
+data:
+  write.sh: |
+{{ .Files.Get "scripts/test_write.sh" | indent 4}}
+  read.sh: |
+{{ .Files.Get "scripts/test_read.sh" | indent 4}}

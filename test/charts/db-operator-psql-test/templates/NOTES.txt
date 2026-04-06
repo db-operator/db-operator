@@ -1,0 +1,4 @@
+------
+Name: {{ .Values.name }}
+Description: {{ .Values.description }}
+------

@@ -125,3 +125,43 @@ jobs:
           helmfile-auto-init: true
           helmfile-args: sync --wait
       - run: task postgres-test
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    needs: lint
+    env:
+      POSTGRES_INSTALL: "true"
+      POSTGRES_PORT: 30432
+      POSRGRES_HOST: localhost
+      POSTGRES_USER: db-operator
+      POSTGRES_PASSWORD: qwertyu9
+      MARIADB_INSTALL: "true"
+      MYSQL_PORT: 30306
+      MYSQL_HOST: localhost
+      MYSQL_PASSWORD: qwertyu9
+      CONTAINER_TOOL: docker
+    steps:
+      - uses: actions/checkout@v6
+      - run: echo "GO_VERSION=$(make desired-go-version)" >> "${GITHUB_ENV}"
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: azure/setup-helm@v4.3.1
+      - uses: docker/setup-docker-action@v5
+      - uses: helm/kind-action@v1.14.0
+        with:
+          config: ./kind-config.yaml
+          cluster_name: db-operator-kind
+      - uses: helmfile/helmfile-action@v2.1.0
+        with:
+          helmfile-auto-init: true
+          helmfile-args: sync --wait
+      - run: |-
+          make docker-save
+          kind load image-archive my-image.tar --name=$(kind get clusters)
+          make install
+          make deploy
+          kubectl rollout -n db-operator-system  status deployment/db-operator-controller-manager -w
+          kubectl rollout -n db-operator-system  status deployment/db-operator-controller-webhook -w
+          cd ./test    
+          go test ./e2e -v -v ginkgo.v

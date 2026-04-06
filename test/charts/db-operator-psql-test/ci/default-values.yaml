@@ -1,0 +1,3 @@
+---
+name: Basic workflow test
+description: It should create a database and test the main user access to it

@@ -1,0 +1,18 @@
+name: Please set a name for the test-case
+description: Please describe, what this test should do
+cleanup: true
+
+tests: []
+features:
+  existingUser:
+    enabled: false
+    username: testuser
+    password: qwertyu9
+
+postgresql:
+  admin:
+    password: qwertyu9
+    user: db-operator
+  service:
+    name: postgres-instance
+    namespace: databases

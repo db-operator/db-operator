@@ -1,0 +1,18 @@
+---
+apiVersion: kinda.rocks/v1beta1
+kind: DbInstance
+metadata:
+  name:  {{ template "db-operator-mysql-test.name" . }}-mysql
+  labels:
+    {{- include "db-operator-mysql-test.labels" . | nindent 4 }}
+spec:
+  adminSecretRef:
+    Namespace: {{ .Release.Namespace }}
+    Name:  {{ template "db-operator-mysql-test.name" . }}-mysql-admin-password
+  engine: mysql
+  generic:
+    host: {{ .Values.mysql.service.name }}.{{ .Values.mysql.service.namespace }}.svc.cluster.local
+    port: 3306
+    publicIp: "1.2.3.4"
+    backupHost: {{ .Values.mysql.service.name }}.{{ .Values.mysql.service.namespace }}.svc.cluster.local
+

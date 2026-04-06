@@ -1,0 +1,6 @@
+---
+description: |-
+  Testing the creation of a database with an existing user
+features:
+  existingUser:
+    enabled: true
