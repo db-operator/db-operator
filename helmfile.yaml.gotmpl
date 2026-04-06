@@ -89,7 +89,7 @@ releases:
   - name: postgres-instance
     namespace: databases
     chart: cloudpirates/postgres
-    version: 0.15.5
+    version: 0.18.3
     {{- if .Values.certManager.installed }}
     needs:
       - cert-manager/cert-manager
