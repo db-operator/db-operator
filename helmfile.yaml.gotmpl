@@ -76,7 +76,7 @@ releases:
     needs:
       - cert-manager/cert-manager
     {{- end }}
-    version: 0.14.3
+    version: 0.15.3
     values:
       - image:
           tag: {{ .Values.databases.mariadb.imageTag | quote }}
