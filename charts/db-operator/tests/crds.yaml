@@ -1,0 +1,61 @@
+---
+suite: Test CRDs templating
+templates:
+  - crds.yaml
+tests:
+  - it: When crds are not installed, should be empty
+    set:
+      crds:
+        install: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: When crds are installed (by default), should be 3
+    asserts:
+      - hasDocuments:
+          count: 3
+      - isKind:
+          of: CustomResourceDefinition
+      - equal:
+          path: metadata.name
+          value: databases.kinda.rocks
+        documentSelector:
+          path: metadata.name
+          value: databases.kinda.rocks
+      - equal:
+          path: metadata.name
+          value: dbusers.kinda.rocks
+        documentSelector:
+          path: metadata.name
+          value: dbusers.kinda.rocks
+      - equal:
+          path: metadata.name
+          value: dbinstances.kinda.rocks
+        documentSelector:
+          path: metadata.name
+          value: dbinstances.kinda.rocks
+
+  - it: When keep is set to true (by default), helm annotation must be added
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/resource-policy"]
+          value: keep
+
+  - it: When keep is set to false, helm annotation must not be added
+    set:
+      crds:
+        keep: false
+    asserts:
+      - notExists:
+          path: metadata.annotations["helm.sh/resource-policy"]
+
+  - it: Test extra annotations
+    set:
+      crds:
+        annotations:
+          test: test
+    asserts:
+      - equal:
+          path: metadata.annotations["test"]
+          value: test

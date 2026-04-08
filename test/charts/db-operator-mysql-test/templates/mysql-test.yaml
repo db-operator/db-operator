@@ -1,0 +1,239 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name:  {{ template "db-operator-mysql-test.name" . }}-mysql-admin-password
+  labels:
+    {{- include "db-operator-mysql-test.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    {{- if .Values.cleanup }}
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- end }}
+    "helm.sh/hook-weight": "1"
+type: Opaque
+data:
+  password: {{ .Values.mysql.admin.password | b64enc }}
+  user: {{ .Values.mysql.admin.user | b64enc }}
+
+---
+apiVersion: kinda.rocks/v1beta1
+kind: DbInstance
+metadata:
+  name:  {{ template "db-operator-mysql-test.name" . }}-mysql
+  labels:
+    {{- include "db-operator-mysql-test.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    {{- if .Values.cleanup }}
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- end }}
+    "helm.sh/hook-weight": "1"
+spec:
+  adminSecretRef:
+    Namespace: {{ .Release.Namespace }}
+    Name:  {{ template "db-operator-mysql-test.name" . }}-mysql-admin-password
+  engine: mysql
+  generic:
+    host: {{ .Values.mysql.service.name }}.{{ .Values.mysql.service.namespace }}.svc.cluster.local
+    port: 3306
+    publicIp: "1.2.3.4"
+    backupHost: {{ .Values.mysql.service.name }}.{{ .Values.mysql.service.namespace }}.svc.cluster.local
+
+{{- if .Values.features.existingUser.enabled }}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ template "db-operator-mysql-test.name" . }}-create-user-{{ randAlphaNum 5 | lower }}
+  labels:
+    {{- include "db-operator-mysql-test.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    {{- if .Values.cleanup }}
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- end }}
+    "helm.sh/hook-weight": "2"
+spec:
+  containers:
+  - name: postgres-writer
+    image: mysql
+    command:
+      - mysql
+      - -h
+      - {{ .Values.mysql.service.name }}.{{ .Values.mysql.service.namespace }}.svc.cluster.local
+      - -u
+      - {{ .Values.mysql.admin.user }}
+      - -p{{ .Values.mysql.admin.password }}
+      - mysql
+      - -e
+      - "CREATE USER '${USERNAME}' IDENTIFIED BY '${PASSWORD}'"
+    imagePullPolicy: IfNotPresent
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+  restartPolicy: Never
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name:  {{ template "db-operator-mysql-test.name" . }}-existing-user-password
+  labels:
+    {{- include "db-operator-mysql-test.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    {{- if .Values.cleanup }}
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- end }}
+    "helm.sh/hook-weight": "2"
+type: Opaque
+data:
+  POSTGRES_PASSWORD: {{ .Values.features.existingUser.password | b64enc }}
+{{- end }}
+---
+apiVersion: kinda.rocks/v1beta1
+kind: Database
+metadata:
+  name: {{ template "db-operator-mysql-test.name" . }}-mysql
+  labels:
+    {{- include "db-operator-mysql-test.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    {{- if .Values.cleanup }}
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- end }}
+    "helm.sh/hook-weight": "3"
+spec:
+  secretName: {{ template "db-operator-mysql-test.name" . }}-mysql-credentials # where to save db name user, password for application
+  instance: {{ template "db-operator-mysql-test.name" . }}-mysql
+  backup:
+    enable: false
+    cron: ""
+  deletionProtected: true
+  {{- if .Values.features.existingUser.enabled }}
+  existingUser: {{ .Values.features.existingUser.username }}
+  {{- end }}
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "db-operator-mysql-test.name" . }}-mysql-test-script
+  labels:
+    {{- include "db-operator-mysql-test.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    {{- if .Values.cleanup }}
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- end }}
+    "helm.sh/hook-weight": "4"
+data:
+  write.sh: |
+{{ .Files.Get "scripts/test_write.sh" | indent 4}}
+  read.sh: |
+{{ .Files.Get "scripts/test_read.sh" | indent 4}}
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ template "db-operator-mysql-test.name" . }}-tester-app-{{ randAlphaNum 5 | lower }}
+  labels:
+    {{- include "db-operator-mysql-test.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    {{- if .Values.cleanup }}
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- end }}
+    "helm.sh/hook-weight": "5"
+spec:
+  containers:
+  - name: mysql-writer
+    image: mysql
+    command:
+      - sh
+      - -c
+      - exec sh /app/write.sh
+    env:
+      - name: MYSQL_PASSWORD_FILE
+        value: /run/secrets/mysql/PASSWORD
+      - name: MYSQL_USERNAME
+        valueFrom:
+          secretKeyRef:
+            name: {{ template "db-operator-mysql-test.name" . }}-mysql-credentials
+            key: USER
+      - name: MYSQL_DB
+        valueFrom:
+          secretKeyRef:
+            name: {{ template "db-operator-mysql-test.name" . }}-mysql-credentials
+            key: DB
+      - name: MYSQL_HOST
+        valueFrom:
+          configMapKeyRef:
+            name: {{ template "db-operator-mysql-test.name" . }}-mysql-credentials
+            key: DB_CONN
+    volumeMounts:
+      - name: db-secret
+        mountPath: /run/secrets/mysql/
+        readOnly: true
+      - name: script
+        mountPath: /app/
+      - name: shared-data
+        mountPath: /tmp
+    imagePullPolicy: IfNotPresent
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+  - name: mysql-reader
+    image: mysql
+    command:
+      - sh
+      - -c
+      - exec sh /app/read.sh
+    env:
+      - name: MYSQL_PASSWORD_FILE
+        value: /run/secrets/mysql/PASSWORD
+      - name: MYSQL_USERNAME
+        valueFrom:
+          secretKeyRef:
+            name: {{ template "db-operator-mysql-test.name" . }}-mysql-credentials
+            key: USER
+      - name: MYSQL_DB
+        valueFrom:
+          secretKeyRef:
+            name: {{ template "db-operator-mysql-test.name" . }}-mysql-credentials
+            key: DB
+      - name: MYSQL_HOST
+        valueFrom:
+          configMapKeyRef:
+            name: {{ template "db-operator-mysql-test.name" . }}-mysql-credentials
+            key: DB_CONN
+    volumeMounts:
+      - name: db-secret
+        mountPath: /run/secrets/mysql/
+        readOnly: true
+      - name: script
+        mountPath: /app/
+      - name: shared-data
+        mountPath: /tmp
+    imagePullPolicy: IfNotPresent
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+  restartPolicy: Never
+  volumes:
+    - name: db-secret
+      secret:
+        {{- if .Values.features.existingUser.enabled }}
+        secretName:  {{ template "db-operator-mysql-test.name" . }}-existing-user-password
+        {{- else }}
+        secretName: {{ template "db-operator-mysql-test.name" . }}-mysql-credentials
+        {{- end }}
+    - name: script
+      configMap:
+        name: {{ template "db-operator-mysql-test.name" . }}-mysql-test-script
+    - name: shared-data
+      emptyDir: {}

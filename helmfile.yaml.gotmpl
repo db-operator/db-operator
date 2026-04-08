@@ -2,6 +2,11 @@ environments:
   default:
     values:
       - e2e: false
+      - dbOperator:
+          installed: {{ env "DB_OPERATOR_INSTALL" | default false }}
+          fromOCI: {{ env "DB_OPERATOR_FROM_OCI" | default false }}
+          version: {{ env "DB_OPERATOR_VERSION" | default "latest" }}
+          localImage: {{ env "DB_OPERATOR_LOCAL_IMAGE" | default true }}
       - certManager:
           installed: {{ env "CERT_MANAGER_INSTALL" | default true }}
       - databases:
@@ -49,6 +54,11 @@ repositories:
     oci: true
   - name: minio-standalone
     url: https://charts.min.io/
+  {{- if .Values.dbOperator.fromOCI }}
+  - name: db-operator
+    url: ghcr.io/db-operator/db-operator/helm
+    oci: true
+  {{- end }}
 
 releases:
   - name: cert-manager
@@ -67,6 +77,27 @@ releases:
     installed: {{ .Values.certManager.installed }}
     needs:
       - cert-manager/cert-manager
+
+  - name: db-operator
+    {{- if .Values.dbOperator.fromOCI }}
+    chart: db-operator/db-operator
+    version: {{ .Values.dbOperator.version }}
+    {{- else }}
+    chart: ./charts/db-operator
+    {{- end }}
+    namespace: db-operator
+    installed: {{ .Values.dbOperator.installed }}
+    needs:
+      - cert-manager/cert-manager
+    {{- if .Values.dbOperator.localImage }}
+    values:
+      - image:
+          registry: localhost
+          repository: controller
+          tag: latest
+          pullPolicy: Never
+    {{- end }}
+
 
   - name: mariadb-instance
     namespace: databases
@@ -206,68 +237,3 @@ releases:
             ruleSelectorNilUsesHelmValues: false
             serviceMonitorSelector: {}
             serviceMonitorSelectorNilUsesHelmValues: false
-
-  - name: minio
-    namespace: minio
-    chart: minio-standalone/minio
-    version: 5.4.0
-    createNamespace: true
-    installed: {{ .Values.minio.installed }}
-    values:
-      - rootUser: {{ .Values.minio.username }}
-        rootPassword: {{ .Values.minio.password }}
-        replicas: 1
-        mode: standalone
-        resources:
-          requests:
-            memory: 512Mi
-        environment:
-          MINIO_SERVER_URL: "http://minio.minio.svc.cluster.local:9000"
-        tls:
-          enabled: false
-        persistence:
-          enabled: true
-          accessMode: ReadWriteOnce
-          size: 1Gi
-        service:
-          type: ClusterIP
-          port: '9000'
-        consoleService:
-          type: NodePort
-          port: '9001'
-          nodePort: {{ .Values.minio.nodePort }}
-        buckets:
-          - name: backups
-            policy: download
-            purge: false
-        policies:
-          - name: backups
-            statements:
-              - resources:
-                  - 'arn:aws:s3:::backups'
-                  - 'arn:aws:s3:::backups/*'
-                actions:
-                  - 's3:*'
-        users:
-          - accessKey: backups
-            secretKey: qwertyu9
-            policy: backups
-
-  - name: test-data
-    namespace: default
-    chart: ./test/charts/test-data/
-    installed: {{ .Values.e2e }}
-    values:
-      - engines:
-        {{- if .Values.databases.postgres.installed }}
-          - name: postgres
-            sslConfig:
-              enabled: {{ .Values.databases.postgres.ssl.enabled }}
-              skipVerify: {{ .Values.databases.postgres.ssl.skipVerify }}
-        {{- end }}
-        {{- if .Values.databases.mariadb.installed }}
-          - name: mysql
-            sslConfig:
-              enabled: {{ .Values.databases.mariadb.ssl.enabled }}
-              skipVerify: {{ .Values.databases.mariadb.ssl.skipVerify }}
-        {{- end }}

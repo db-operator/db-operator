@@ -1,0 +1,13 @@
+features:
+  existingUser:
+    enabled: false
+    username: testuser
+    password: qwertyu9
+
+postgresql:
+  admin:
+    password: qwertyu9
+    user: db-operator
+  service:
+    name: postgres-instance
+    namespace: databases

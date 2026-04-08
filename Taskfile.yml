@@ -13,27 +13,12 @@ vars:
   GOLANGCI_LINT: "{{.LOCALBIN}}/golangci-lint"
   KUSTOMIZE: "{{.LOCALBIN}}/kustomize"
   ENVTEST: "{{.LOCALBIN}}/setup-envtest"
+  YAMLFMT: "{{.LOCALBIN}}/yamlfmt"
+  HELM_DOCS: "{{.LOCALBIN}}/helm-docs"
   # Tool versions
   CONTROLLER_TOOLS_VERSION: v0.20.1
   GOLANGCI_LINT_VERSION: v2.8.0
   KUSTOMIZE_VERSION: v5.8.1
-  ENVTEST_VERSION:
-    sh: |
-      v=$(go list -m -f '{{`{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}`}}' sigs.k8s.io/controller-runtime 2>/dev/null)
-      if [ -z "$v" ]; then
-        echo "Set ENVTEST_VERSION manually (controller-runtime replace has no tag)" >&2
-        exit 1
-      fi
-      printf '%s\n' "$v" | sed -E 's/^v?([0-9]+)\.([0-9]+).*/release-\1.\2/'
-
-  ENVTEST_K8S_VERSION:
-    sh: |
-      v=$(go list -m -f '{{`{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}`}}' k8s.io/api 2>/dev/null)
-      if [ -z "$v" ]; then
-        echo "Set ENVTEST_K8S_VERSION manually (k8s.io/api replace has no tag)" >&2
-        exit 1
-      fi
-      printf '%s\n' "$v" | sed -E 's/^v?[0-9]+\.([0-9]+).*/1.\1/'
 
 tasks:
   default:
@@ -168,6 +153,15 @@ tasks:
     desc: Download the binaries required for ENVTEST in the local bin directory.
     deps:
       - envtest
+    vars:
+      ENVTEST_K8S_VERSION:
+        sh: |
+          v=$(go list -m -f '{{`{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}`}}' k8s.io/api 2>/dev/null)
+          if [ -z "$v" ]; then
+            echo "Set ENVTEST_K8S_VERSION manually (k8s.io/api replace has no tag)" >&2
+            exit 1
+          fi
+          printf '%s\n' "$v" | sed -E 's/^v?[0-9]+\.([0-9]+).*/1.\1/'
     cmds:
       - 'echo "Setting up envtest binaries for Kubernetes version {{.ENVTEST_K8S_VERSION}}..."'
       - |-
@@ -175,6 +169,70 @@ tasks:
           echo "Error: Failed to set up envtest binaries for version {{.ENVTEST_K8S_VERSION}}."; \
           exit 1; \
          }
+  image-metadata:
+    desc: Set the image metadata in the Github Actions
+    silent: true
+    cmd: |-
+      EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+      echo "ANNOTATIONS<<$EOF" >> "$GITHUB_ENV"
+      ANNOTATIONS=$(cat << EOF
+      org.opencontainers.image.created=$(date +"%Y-%m-%d %T")
+      org.opencontainers.image.authors=$GITHUB_ACTOR
+      org.opencontainers.image.url=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+      org.opencontainers.image.documentation=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/main/README.md
+      org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY
+      org.opencontainers.image.version=$GITHUB_SHA
+      org.opencontainers.image.revision=$GITHUB_SHA
+      org.opencontainers.image.vendor=$GITHUB_REPOSITORY_OWNER
+      org.opencontainers.image.license=Apache License v2
+      org.opencontainers.image.title=$GITHUB_REPOSITORY
+      org.opencontainers.image.description=The DB Operator creates databases and make them available in the cluster via Custom Resource.
+      EOF
+      )
+      echo "${ANNOTATIONS}" >> "${GITHUB_ENV}"
+      echo "$EOF" >> "$GITHUB_ENV"
+      echo "TAGS=${GITHUB_SHA}" >> "${GITHUB_ENV}"
+
+  helm-lint:
+    desc: Execute the helm linter
+    silent: true
+    cmd: |-
+      ct lint --target-branch main \
+        --validate-maintainers=false \
+        --check-version-increment=false
+
+  helm-unit:
+    desc: Execute helm unit tests
+    silent: true
+    cmd: |-
+      files=$(find charts/db-operator/tests -name '*.yaml')
+      for file in $files; do
+        helm unittest -f $file charts/db-operator
+      done
+
+  sync-crds:
+    desc: Sync generated CRDs to the the helm chart
+    silent: true
+    deps:
+      - manifests
+      - yamlfmt
+    cmds:
+      - rm -rf ./charts/db-operator/crd
+      - cp -r "./config/crd/bases" ./charts/db-operator/crd
+      - '"{{.YAMLFMT}}" ./charts/db-operator/crd'
+
+  helm-gen-docs:
+    desc: Generate readme file for helm charts
+    silent: true
+    deps:
+      - helm-docs
+    cmds:
+      - |-
+        "{{.HELM_DOCS}}" --template-files=./charts/db-operator/README.md.gotmpl \
+          --sort-values-order file --chart-to-generate=charts/db-operator
+      - |-
+        "{{.HELM_DOCS}}" --template-files=./charts/db-isntances/README.md.gotmpl \
+          --sort-values-order file --chart-to-generate=charts/db-instances
 
   # Install required tools
   localbin:
@@ -242,12 +300,45 @@ tasks:
     silent: true
     deps:
       - localbin
+    vars:
+      ENVTEST_VERSION:
+        sh: |
+          v=$(go list -m -f '{{`{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}`}}' sigs.k8s.io/controller-runtime 2>/dev/null)
+          if [ -z "$v" ]; then
+            echo "Set ENVTEST_VERSION manually (controller-runtime replace has no tag)" >&2
+            exit 1
+          fi
+          printf '%s\n' "$v" | sed -E 's/^v?([0-9]+)\.([0-9]+).*/release-\1.\2/'
     cmds:
       - task: go-install-tool
         vars:
           TARGET: "{{.ENVTEST}}"
           PACKAGE: sigs.k8s.io/controller-runtime/tools/setup-envtest
           VERSION: "{{.ENVTEST_VERSION}}"
+
+  helm-docs:
+    desc: Download helm docs if necessary
+    silent: true
+    deps:
+      - localbin
+    cmds:
+      - task: go-install-tool
+        vars:
+          TARGET: "{{.HELM_DOCS}}"
+          PACKAGE: github.com/norwoodj/helm-docs/cmd/helm-docs
+          VERSION: "latest"
+
+  yamlfmt:
+    desc: Download yaml if necessary
+    silent: true
+    deps:
+      - localbin
+    cmds:
+      - task: go-install-tool
+        vars:
+          TARGET: "{{.YAMLFMT}}"
+          PACKAGE: github.com/google/yamlfmt/cmd/yamlfmt
+          VERSION: "latest"
 
   go-install-tool:
     internal: true

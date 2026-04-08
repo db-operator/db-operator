@@ -1,0 +1,52 @@
+---
+suite: test-webhook-generation
+templates:
+  - webhook/*.yaml
+tests:
+  - it: Each template should be rendered
+    asserts:
+      - hasDocuments:
+          count: 1
+          filterAware: true
+        template: webhook/service.yaml
+      - hasDocuments:
+          count: 1
+          filterAware: true
+        template: webhook/deployment.yaml
+      - hasDocuments:
+          count: 1
+          filterAware: true
+        template: webhook/service_account.yaml
+      - hasDocuments:
+          count: 1
+          filterAware: true
+        template: webhook/configs/mutating_webhook.yaml
+      - hasDocuments:
+          count: 1
+          filterAware: true
+        template: webhook/configs/validating_webhook.yaml
+  - it: Each template should not be rendered when webhooks are disabled
+    set:
+      webhook:
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+          filterAware: true
+        template: webhook/service.yaml
+      - hasDocuments:
+          count: 0
+          filterAware: true
+        template: webhook/deployment.yaml
+      - hasDocuments:
+          count: 0
+          filterAware: true
+        template: webhook/service_account.yaml
+      - hasDocuments:
+          count: 0
+          filterAware: true
+        template: webhook/configs/mutating_webhook.yaml
+      - hasDocuments:
+          count: 0
+          filterAware: true
+        template: webhook/configs/validating_webhook.yaml
