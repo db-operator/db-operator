@@ -17,23 +17,6 @@ vars:
   CONTROLLER_TOOLS_VERSION: v0.20.1
   GOLANGCI_LINT_VERSION: v2.8.0
   KUSTOMIZE_VERSION: v5.8.1
-  ENVTEST_VERSION:
-    sh: |
-      v=$(go list -m -f '{{`{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}`}}' sigs.k8s.io/controller-runtime 2>/dev/null)
-      if [ -z "$v" ]; then
-        echo "Set ENVTEST_VERSION manually (controller-runtime replace has no tag)" >&2
-        exit 1
-      fi
-      printf '%s\n' "$v" | sed -E 's/^v?([0-9]+)\.([0-9]+).*/release-\1.\2/'
-
-  ENVTEST_K8S_VERSION:
-    sh: |
-      v=$(go list -m -f '{{`{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}`}}' k8s.io/api 2>/dev/null)
-      if [ -z "$v" ]; then
-        echo "Set ENVTEST_K8S_VERSION manually (k8s.io/api replace has no tag)" >&2
-        exit 1
-      fi
-      printf '%s\n' "$v" | sed -E 's/^v?[0-9]+\.([0-9]+).*/1.\1/'
 
 tasks:
   default:
@@ -144,6 +127,15 @@ tasks:
     desc: Run kubernetes integration tests
     deps:
       - setup-envtest
+    vars:
+      ENVTEST_K8S_VERSION:
+        sh: |
+          v=$(go list -m -f '{{`{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}`}}' k8s.io/api 2>/dev/null)
+          if [ -z "$v" ]; then
+            echo "Set ENVTEST_K8S_VERSION manually (k8s.io/api replace has no tag)" >&2
+            exit 1
+          fi
+          printf '%s\n' "$v" | sed -E 's/^v?[0-9]+\.([0-9]+).*/1.\1/'
     cmd: go test -tags tests -run "TestKubernetes" ./... -v -cover
 
   lint:
@@ -242,6 +234,15 @@ tasks:
     silent: true
     deps:
       - localbin
+    vars:
+      ENVTEST_VERSION:
+        sh: |
+          v=$(go list -m -f '{{`{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}`}}' sigs.k8s.io/controller-runtime 2>/dev/null)
+          if [ -z "$v" ]; then
+            echo "Set ENVTEST_VERSION manually (controller-runtime replace has no tag)" >&2
+            exit 1
+          fi
+          printf '%s\n' "$v" | sed -E 's/^v?([0-9]+)\.([0-9]+).*/release-\1.\2/'
     cmds:
       - task: go-install-tool
         vars:
