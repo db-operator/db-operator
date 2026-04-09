@@ -76,16 +76,21 @@ jobs:
           password: ${{ github.token }}
 
       - uses: sigstore/cosign-installer@v4.1.0
-        if: (github.event_name == 'release' && (github.event.action == 'published' || github.event.action == 'edited'))
 
       - uses: docker/login-action@v3.4.0
-        if: (github.event_name == 'release' && (github.event.action == 'published' || github.event.action == 'edited'))
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Sign the images with GitHub OIDC Token
+      - name: Sign the dev image with GitHub OIDC Token
+        env:
+          DIGEST: ${{ steps.push-to-ghcr.outputs.digest }}
+          IMAGE: ${{ steps.push-to-ghcr.outputs.registry-path }}
+        run: |
+          cosign sign --yes ${IMAGE}@${DIGEST}
+
+      - name: Sign the release images with GitHub OIDC Token
         if: (github.event_name == 'release' && (github.event.action == 'published' || github.event.action == 'edited'))
         env:
           DIGEST: ${{ steps.push-release.outputs.digest }}
