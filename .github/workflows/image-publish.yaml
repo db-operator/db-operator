@@ -83,12 +83,25 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Run Trivy vulnerability dev image scanner
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: "${{ steps.push-to-ghcr.outputs.registry-path }}"
+          scan-type: image
+          format: "cosign-vuln"
+          exit-code: "1"
+          ignore-unfixed: false
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
+          output: ./dev-report.json
+
       - name: Sign the dev image with GitHub OIDC Token
         env:
           DIGEST: ${{ steps.push-to-ghcr.outputs.digest }}
           IMAGE: ${{ steps.push-to-ghcr.outputs.registry-path }}
         run: |
           cosign sign --yes ${IMAGE}@${DIGEST}
+          cosign attest --type vuln --predicate dev-report.json ${IMAGE}@${DIGEST}
 
       - name: Sign the release images with GitHub OIDC Token
         if: (github.event_name == 'release' && (github.event.action == 'published' || github.event.action == 'edited'))
