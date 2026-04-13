@@ -18,7 +18,7 @@ jobs:
       - uses: actions/setup-python@v6
       - uses: actions/setup-go@v6
       - uses: pre-commit/action@v3.0.1
-      - uses: go-task/setup-task@v1
+      - uses: go-task/setup-task@v2
       - name: Check code generation
         run: |-
           task manifest && task generate
