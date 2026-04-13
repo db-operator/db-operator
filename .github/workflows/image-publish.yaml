@@ -75,7 +75,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      - uses: sigstore/cosign-installer@v4.1.0
+      - uses: sigstore/cosign-installer@v4.1.1
         if: (github.event_name == 'release' && (github.event.action == 'published' || github.event.action == 'edited'))
 
       - uses: docker/login-action@v3.4.0
