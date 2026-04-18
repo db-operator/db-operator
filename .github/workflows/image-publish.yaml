@@ -45,6 +45,38 @@ jobs:
             ./Containerfile
           labels: ${{ env.ANNOTATIONS }}
 
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          image-ref: ${{ steps.build-image.outputs.image-with-tag }}
+          format: 'table'
+          # Never fail pipeline due to vulnerabilities, we want to report them but not block the release
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: "CRITICAL"
+          output: 'trivy-report.txt'
+        env:
+          TRIVY_DISABLE_VEX_NOTICE: 'false'
+
+      - name: Wrap report in markdown
+        if: always()
+        run: |
+          {
+            echo "## 🔍 Trivy Scan: \`${{ steps.build-image.outputs.image-with-tag }}\`"
+            echo ""
+            echo '```'
+            cat trivy-report.txt
+            echo '```'
+          } > trivy-comment.md
+
+      # Replaces same trivy scan PR comment on every commit
+      - name: Comment PR with Trivy report
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: trivy-scan-${{ steps.build-image.outputs.image-with-tag }}
+          path: trivy-comment.md
+
       - name: Push the image to GHCR
         id: push-to-ghcr
         uses: redhat-actions/push-to-registry@v2
