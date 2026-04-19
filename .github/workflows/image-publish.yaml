@@ -12,6 +12,7 @@ jobs:
       contents: read
       packages: write
       id-token: write
+      pull-requests: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -45,16 +46,25 @@ jobs:
             ./Containerfile
           labels: ${{ env.ANNOTATIONS }}
 
+      - name: Push the image to GHCR
+        id: push-to-ghcr
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: ${{ steps.build-image.outputs.image }}
+          tags: ${{ steps.build-image.outputs.tags }}
+          registry: ghcr.io/${{ github.repository_owner }}
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@0.35.0
         with:
-          image-ref: ${{ steps.build-image.outputs.image-with-tag }}
+          image-ref: ${{ steps.push-to-ghcr.outputs.registry-path }}
           format: 'table'
-          # Never fail pipeline due to vulnerabilities, we want to report them but not block the release
-          exit-code: '0'
+          exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
-          severity: "CRITICAL"
+          severity: "CRITICAL,HIGH"
           output: 'trivy-report.txt'
         env:
           TRIVY_DISABLE_VEX_NOTICE: 'false'
@@ -63,7 +73,7 @@ jobs:
         if: always()
         run: |
           {
-            echo "## 🔍 Trivy Scan: \`${{ steps.build-image.outputs.image-with-tag }}\`"
+            echo "## 🔍 Trivy Scan: \`${{ steps.push-to-ghcr.outputs.registry-path }}\`"
             echo ""
             echo '```'
             cat trivy-report.txt
@@ -74,18 +84,8 @@ jobs:
       - name: Comment PR with Trivy report
         uses: marocchino/sticky-pull-request-comment@v2
         with:
-          header: trivy-scan-${{ steps.build-image.outputs.image-with-tag }}
+          header: trivy-scan-${{ steps.push-to-ghcr.outputs.registry-path }}
           path: trivy-comment.md
-
-      - name: Push the image to GHCR
-        id: push-to-ghcr
-        uses: redhat-actions/push-to-registry@v2
-        with:
-          image: ${{ steps.build-image.outputs.image }}
-          tags: ${{ steps.build-image.outputs.tags }}
-          registry: ghcr.io/${{ github.repository_owner }}
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
 
       - name: Set the version tag (only if released)
         id: retag-version
