@@ -76,7 +76,7 @@ releases:
     needs:
       - cert-manager/cert-manager
     {{- end }}
-    version: 0.15.3
+    version: 0.16.1
     values:
       - image:
           tag: {{ .Values.databases.mariadb.imageTag | quote }}
@@ -89,7 +89,7 @@ releases:
   - name: postgres-instance
     namespace: databases
     chart: cloudpirates/postgres
-    version: 0.18.3
+    version: 0.19.1
     {{- if .Values.certManager.installed }}
     needs:
       - cert-manager/cert-manager
@@ -175,7 +175,7 @@ releases:
 
   - name: prometheus-stack
     namespace: monitoring
-    version: 82.18.0
+    version: 83.6.0
     installed: {{ .Values.monitoring.installed }}
     createNamespace: true
     disableValidation: true
