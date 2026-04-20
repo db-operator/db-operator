@@ -85,7 +85,7 @@ jobs:
       - uses: helm/kind-action@v1.14.0
         with:
           config: ./kind-config.yaml
-      - uses: helmfile/helmfile-action@v2.4.1
+      - uses: helmfile/helmfile-action@v2.4.2
         with:
           helmfile-auto-init: true
           helmfile-args: sync --wait
@@ -120,7 +120,7 @@ jobs:
       - uses: helm/kind-action@v1.14.0
         with:
           config: ./kind-config.yaml
-      - uses: helmfile/helmfile-action@v2.4.1
+      - uses: helmfile/helmfile-action@v2.4.2
         with:
           helmfile-auto-init: true
           helmfile-args: sync --wait
