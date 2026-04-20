@@ -6,7 +6,7 @@ go 1.25.9
 
 require (
 	bou.ke/monkey v1.0.2
-	github.com/GoogleCloudPlatform/cloudsql-proxy v1.37.14
+	github.com/GoogleCloudPlatform/cloudsql-proxy v1.37.15
 	github.com/db-operator/can-haz-password v0.1.1
 	github.com/go-logr/logr v1.4.3
 	github.com/go-sql-driver/mysql v1.9.3
