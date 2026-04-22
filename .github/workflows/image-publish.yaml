@@ -34,14 +34,6 @@ jobs:
         run: |-
           echo OPERATOR_VERSION=${{ github.sha }} >> "$GITHUB_ENV"
 
-      - name: Set registry
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "REGISTRY=ghcr.io/${{ github.event.pull_request.head.repo.owner.login }}" >> "$GITHUB_ENV"
-          else
-            echo "REGISTRY=ghcr.io/${{ github.repository_owner }}" >> "$GITHUB_ENV"
-          fi
-
       - name: Build an image
         id: build-image
         uses: redhat-actions/buildah-build@v2
@@ -61,7 +53,7 @@ jobs:
         with:
           image: ${{ steps.build-image.outputs.image }}
           tags: ${{ steps.build-image.outputs.tags }}
-          registry: ${{ env.REGISTRY }}
+          registry: ghcr.io/cloudoutloud
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
@@ -102,17 +94,17 @@ jobs:
         run: |
           buildah tag \
           ${{ steps.build-image.outputs.image }}:${{ github.sha }} \
-          ${{ env.REGISTRY }}/db-operator:latest
+          ghcr.io/${{ github.repository_owner }}/db-operator:latest
           buildah tag \
           ${{ steps.build-image.outputs.image }}:${{ github.sha }} \
-          ${{ env.REGISTRY }}/db-operator:${{ github.event.release.tag_name }}
+          ghcr.io/${{ github.repository_owner }}/db-operator:${{ github.event.release.tag_name }}
 
       - name: Push the release image to GHCR
         if: (github.event_name == 'release' && (github.event.action == 'published' || github.event.action == 'edited'))
         id: push-release
         uses: redhat-actions/push-to-registry@v2
         with:
-          tags: ${{ env.REGISTRY }}/db-operator:latest ${{ env.REGISTRY }}/db-operator:${{ github.event.release.tag_name }}
+          tags: ghcr.io/${{ github.repository_owner }}/db-operator:latest ghcr.io/${{ github.repository_owner }}/db-operator:${{ github.event.release.tag_name }}
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
