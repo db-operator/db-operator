@@ -1,5 +1,6 @@
 /*
  * Copyright 2021 kloeckner.i GmbH
+ * Copyright 2026 DB-Operator Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,31 +26,32 @@ import (
 	"github.com/db-operator/db-operator/v2/pkg/utils/kci"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// GCSBackupCron builds kubernetes cronjob object
+// BackupCronJobManifest builds kubernetes cronjob object
 // to create database backup regularly with defined schedule from dbcr
 // this job will database dump and upload to google bucket storage for backup
-func GCSBackupCron(conf *config.Config, dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) (*batchv1.CronJob, error) {
+func BackupCronJobManifest(conf *config.Config, dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) (*batchv1.CronJob, error) {
 	cronJobSpec, err := buildCronJobSpec(conf, dbcr, instance)
 	if err != nil {
 		return nil, err
 	}
 
-	return &batchv1.CronJob{
+	cronJob := &batchv1.CronJob{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "CronJob",
 			APIVersion: "batch",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      dbcr.Namespace + "-" + dbcr.Name + "-" + "backup",
+			Name:      dbcr.Name + "-" + "backup",
 			Namespace: dbcr.Namespace,
 			Labels:    kci.BaseLabelBuilder(),
 		},
 		Spec: cronJobSpec,
-	}, nil
+	}
+
+	return cronJob, nil
 }
 
 func buildCronJobSpec(conf *config.Config, dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) (batchv1.CronJobSpec, error) {
@@ -58,15 +60,22 @@ func buildCronJobSpec(conf *config.Config, dbcr *kindav1beta1.Database, instance
 		return batchv1.CronJobSpec{}, err
 	}
 
-	return batchv1.CronJobSpec{
+	spec := batchv1.CronJobSpec{
 		JobTemplate: jobTemplate,
 		Schedule:    dbcr.Spec.Backup.Cron,
-	}, nil
+	}
+
+	return spec, nil
 }
 
 func buildJobTemplate(conf *config.Config, dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) (batchv1.JobTemplateSpec, error) {
-	ActiveDeadlineSeconds := int64(conf.Backup.ActiveDeadlineSeconds)
-	BackoffLimit := int32(3)
+	var activeDeadlineSeconds int64
+	if conf.Backup.ActiveDeadlineSeconds > 0 {
+		activeDeadlineSeconds = int64(conf.Backup.ActiveDeadlineSeconds)
+	} else {
+		activeDeadlineSeconds = 600
+	}
+	backoffLimit := int32(3)
 
 	var backupContainer v1.Container
 	var err error
@@ -92,8 +101,8 @@ func buildJobTemplate(conf *config.Config, dbcr *kindav1beta1.Database, instance
 			Labels: kci.BaseLabelBuilder(),
 		},
 		Spec: batchv1.JobSpec{
-			ActiveDeadlineSeconds: &ActiveDeadlineSeconds,
-			BackoffLimit:          &BackoffLimit,
+			ActiveDeadlineSeconds: &activeDeadlineSeconds,
+			BackoffLimit:          &backoffLimit,
 			Template: v1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: kci.BaseLabelBuilder(),
@@ -109,38 +118,6 @@ func buildJobTemplate(conf *config.Config, dbcr *kindav1beta1.Database, instance
 	}, nil
 }
 
-func getResourceRequirements(conf *config.Config) v1.ResourceRequirements {
-	resourceRequirements := v1.ResourceRequirements{}
-
-	requests := make(v1.ResourceList)
-	cpuRequests, err := resource.ParseQuantity(conf.Backup.Resource.Requests.Cpu)
-	if err == nil {
-		requests["cpu"] = cpuRequests
-	}
-	memRequests, err := resource.ParseQuantity(conf.Backup.Resource.Requests.Memory)
-	if err == nil {
-		requests["memory"] = memRequests
-	}
-	if len(requests) != 0 {
-		resourceRequirements.Requests = requests
-	}
-
-	limits := make(v1.ResourceList)
-	cpuLimits, err := resource.ParseQuantity(conf.Backup.Resource.Limits.Cpu)
-	if err == nil {
-		limits["cpu"] = cpuLimits
-	}
-	memLimits, err := resource.ParseQuantity(conf.Backup.Resource.Limits.Memory)
-	if err == nil {
-		limits["memory"] = memLimits
-	}
-	if len(limits) != 0 {
-		resourceRequirements.Limits = limits
-	}
-
-	return resourceRequirements
-}
-
 func postgresBackupContainer(conf *config.Config, dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) (v1.Container, error) {
 	env, err := postgresEnvVars(conf, dbcr, instance)
 	if err != nil {
@@ -151,9 +128,10 @@ func postgresBackupContainer(conf *config.Config, dbcr *kindav1beta1.Database, i
 		Name:            "postgres-dump",
 		Image:           conf.Backup.Postgres.Image,
 		ImagePullPolicy: v1.PullAlways,
-		VolumeMounts:    volumeMounts(),
+		VolumeMounts:    volumeMounts(dbcr),
 		Env:             env,
-		Resources:       getResourceRequirements(conf),
+		EnvFrom:         envFrom(dbcr),
+		Resources:       *conf.Backup.Resources.DeepCopy(),
 	}, nil
 }
 
@@ -167,44 +145,50 @@ func mysqlBackupContainer(conf *config.Config, dbcr *kindav1beta1.Database, inst
 		Name:            "mysql-dump",
 		Image:           conf.Backup.Mysql.Image,
 		ImagePullPolicy: v1.PullAlways,
-		VolumeMounts:    volumeMounts(),
+		VolumeMounts:    volumeMounts(dbcr),
 		Env:             env,
-		Resources:       getResourceRequirements(conf),
+		EnvFrom:         envFrom(dbcr),
+		Resources:       *conf.Backup.Resources.DeepCopy(),
 	}, nil
 }
 
-func volumeMounts() []v1.VolumeMount {
-	return []v1.VolumeMount{
-		{
-			Name:      "gcloud-secret",
-			MountPath: "/srv/gcloud/",
-		},
-		{
-			Name:      "db-cred",
-			MountPath: "/srv/k8s/db-cred/",
-		},
+func volumeMounts(dbcr *kindav1beta1.Database) []v1.VolumeMount {
+	mounts := []v1.VolumeMount{}
+
+	dbCreds := &v1.VolumeMount{
+		Name:      "db-cred",
+		MountPath: "/srv/k8s/db-cred/",
 	}
+	mounts = append(mounts, *dbCreds)
+
+	storage := &v1.VolumeMount{
+		Name:      "storage",
+		MountPath: "/backup",
+	}
+	mounts = append(mounts, *storage)
+	return mounts
 }
 
 func volumes(dbcr *kindav1beta1.Database) []v1.Volume {
-	return []v1.Volume{
-		{
-			Name: "gcloud-secret",
-			VolumeSource: v1.VolumeSource{
-				Secret: &v1.SecretVolumeSource{
-					SecretName: "google-cloud-storage-bucket-cred",
-				},
-			},
-		},
-		{
-			Name: "db-cred",
-			VolumeSource: v1.VolumeSource{
-				Secret: &v1.SecretVolumeSource{
-					SecretName: dbcr.Spec.SecretName,
-				},
+	volumes := []v1.Volume{}
+	dbCreds := &v1.Volume{
+		Name: "db-cred",
+		VolumeSource: v1.VolumeSource{
+			Secret: &v1.SecretVolumeSource{
+				SecretName: dbcr.Spec.SecretName,
 			},
 		},
 	}
+	volumes = append(volumes, *dbCreds)
+	// TODO: Add PVC support
+	storage := &v1.Volume{
+		Name: "storage",
+		VolumeSource: v1.VolumeSource{
+			EmptyDir: &v1.EmptyDirVolumeSource{},
+		},
+	}
+	volumes = append(volumes, *storage)
+	return volumes
 }
 
 func postgresEnvVars(conf *config.Config, dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) ([]v1.EnvVar, error) {
@@ -236,15 +220,16 @@ func postgresEnvVars(conf *config.Config, dbcr *kindav1beta1.Database, instance 
 		{
 			Name: "DB_USERNAME_FILE", Value: "/srv/k8s/db-cred/POSTGRES_USER",
 		},
-		{
-			Name: "GCS_BUCKET", Value: instance.Spec.Backup.Bucket,
-		},
 	}
 
 	if instance.IsMonitoringEnabled() {
 		envList = append(envList, v1.EnvVar{
 			Name: "PROMETHEUS_PUSH_GATEWAY", Value: conf.Monitoring.PromPushGateway,
 		})
+	}
+
+	if dbcr.Spec.Backup.Bucket != "" {
+		envList = append(envList, v1.EnvVar{Name: "STORAGE_BUCKET", Value: dbcr.Spec.Backup.Bucket})
 	}
 
 	return envList, nil
@@ -257,7 +242,7 @@ func mysqlEnvVars(dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance
 	}
 	port := instance.Status.Info["DB_PORT"]
 
-	return []v1.EnvVar{
+	envList := []v1.EnvVar{
 		{
 			Name: "DB_HOST", Value: host,
 		},
@@ -286,7 +271,12 @@ func mysqlEnvVars(dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance
 		{
 			Name: "GCS_BUCKET", Value: instance.Spec.Backup.Bucket,
 		},
-	}, nil
+	}
+	if dbcr.Spec.Backup.Bucket != "" {
+		envList = append(envList, v1.EnvVar{Name: "STORAGE_BUCKET", Value: dbcr.Spec.Backup.Bucket})
+	}
+
+	return envList, nil
 }
 
 func getBackupHost(dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) (string, error) {
@@ -302,11 +292,25 @@ func getBackupHost(dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstanc
 		host = "db-" + dbcr.Name + "-svc" // cloud proxy service name
 		return host, nil
 	case "generic":
-		if instance.Spec.Generic.BackupHost != "" {
-			return instance.Spec.Generic.BackupHost, nil
-		}
-		return instance.Spec.Generic.Host, nil
+		return instance.Status.Info["DB_CONN"], nil
 	default:
 		return host, errors.New("unknown backend type")
 	}
+}
+
+func envFrom(dbcr *kindav1beta1.Database) []v1.EnvFromSource {
+	envFrom := []v1.EnvFromSource{}
+	optional := false
+	if dbcr.Spec.Backup.EnvFromSecret != "" {
+		envFromSecret := v1.EnvFromSource{
+			SecretRef: &v1.SecretEnvSource{
+				LocalObjectReference: v1.LocalObjectReference{
+					Name: dbcr.Spec.Backup.EnvFromSecret,
+				},
+				Optional: &optional,
+			},
+		}
+		envFrom = append(envFrom, envFromSecret)
+	}
+	return envFrom
 }
