@@ -53,7 +53,7 @@ jobs:
         with:
           image: ${{ steps.build-image.outputs.image }}
           tags: ${{ steps.build-image.outputs.tags }}
-          registry: ghcr.io/cloudoutloud
+          registry: gchr.io/db-operator/db-operator-dev
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
