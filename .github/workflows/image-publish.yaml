@@ -53,11 +53,12 @@ jobs:
         with:
           image: ${{ steps.build-image.outputs.image }}
           tags: ${{ steps.build-image.outputs.tags }}
-          registry: ghcr.io/db-operator
+          registry: ghcr.io/${{ github.repository_owner }}
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
       - name: Run Trivy vulnerability scanner
+        id: trivy-scan
         uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: ${{ steps.push-to-ghcr.outputs.registry-path }}
@@ -71,7 +72,7 @@ jobs:
           TRIVY_DISABLE_VEX_NOTICE: 'false'
 
       - name: Wrap report in markdown
-        if: always()
+        if: steps.trivy-scan.conclusion == 'success' || steps.trivy-scan.conclusion == 'failure'
         run: |
           {
             echo "## 🔍 Trivy Scan: \`${{ steps.push-to-ghcr.outputs.registry-path }}\`"
@@ -83,6 +84,7 @@ jobs:
 
       # Replaces same trivy scan PR comment on every commit
       - name: Comment PR with Trivy report
+        if: steps.trivy-scan.conclusion == 'success' || steps.trivy-scan.conclusion == 'failure'
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           header: trivy-scan-${{ steps.push-to-ghcr.outputs.registry-path }}
