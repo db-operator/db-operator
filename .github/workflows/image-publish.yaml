@@ -49,13 +49,14 @@ jobs:
         id: export-image
         run: |
           buildah push ${{ steps.build-image.outputs.image }}:${{ env.TAGS }} \
-            oci-archive:/tmp/scan-image.tar
+            docker-archive:/tmp/scan-image.tar
 
       - name: Run Trivy vulnerability scanner
         id: trivy-scan
         uses: aquasecurity/trivy-action@0.35.0
         with:
-          image-ref: oci-archive:/tmp/scan-image.tar
+          scan-type: 'image'
+          input: /tmp/scan-image.tar
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true
