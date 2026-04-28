@@ -2,6 +2,7 @@ name: Publish a container image
 
 on:
   push:
+  pull_request:
   release:
     types: [published, edited]
 
@@ -44,6 +45,26 @@ jobs:
           containerfiles: |
             ./Containerfile
           labels: ${{ env.ANNOTATIONS }}
+
+      - name: Export image for scanning locally
+        id: export-image
+        run: |
+          buildah push ${{ steps.build-image.outputs.image }}:${{ env.TAGS }} \
+            docker-archive:/tmp/scan-image.tar
+
+      - name: Run Trivy vulnerability scanner
+        id: trivy-scan
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          scan-type: 'image'
+          input: /tmp/scan-image.tar
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: "CRITICAL,HIGH"
+        env:
+          TRIVY_DISABLE_VEX_NOTICE: 'false'
 
       - name: Push the image to GHCR
         id: push-to-ghcr
