@@ -253,10 +253,7 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 						return r.manageError(ctx, dbusercr, err, false)
 					}
 				}
-				kci.RemoveFinalizer(&dbusercr.ObjectMeta, "dbuser."+dbusercr.Name)
-				err = r.Update(ctx, dbusercr)
-				if err != nil {
-					log.Error(err, "error resource updating")
+				if err := r.kubeHelper.HandleDelete(ctx, userSecret); err != nil {
 					return r.manageError(ctx, dbusercr, err, false)
 				}
 				kci.RemoveFinalizer(&dbcr.ObjectMeta, "dbuser."+dbusercr.Name)
@@ -265,7 +262,10 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 					log.Error(err, "error resource updating")
 					return r.manageError(ctx, dbusercr, err, false)
 				}
-				if err := r.kubeHelper.HandleDelete(ctx, userSecret); err != nil {
+				kci.RemoveFinalizer(&dbusercr.ObjectMeta, "dbuser."+dbusercr.Name)
+				err = r.Update(ctx, dbusercr)
+				if err != nil {
+					log.Error(err, "error resource updating")
 					return r.manageError(ctx, dbusercr, err, false)
 				}
 			}
