@@ -68,6 +68,7 @@ jobs:
 
       - name: Push the image to GHCR
         id: push-to-ghcr
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: redhat-actions/push-to-registry@v2
         with:
           image: ${{ steps.build-image.outputs.image }}
