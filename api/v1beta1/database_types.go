@@ -30,11 +30,11 @@ type DatabaseSpec struct {
 	SecretName        string            `json:"secretName"`
 	Instance          string            `json:"instance"`
 	DeletionProtected bool              `json:"deletionProtected"`
-	Backup            DatabaseBackup    `json:"backup"`
+	Backup            *DatabaseBackup   `json:"backup,omitempty"`
 	SecretsTemplates  map[string]string `json:"secretsTemplates,omitempty"`
-	Postgres          Postgres          `json:"postgres,omitempty"`
+	Postgres          *Postgres         `json:"postgres,omitempty"`
 	Cleanup           bool              `json:"cleanup,omitempty"`
-	Credentials       Credentials       `json:"credentials,omitempty"`
+	Credentials       *Credentials      `json:"credentials,omitempty"`
 	ExtraGrants       []*ExtraGrant     `json:"extraGrants,omitempty"`
 	// If specified, DB Operator will try to use an existing user to assign permissions
 	// User will not be removed, when a database is removed, but the permissions added by the
