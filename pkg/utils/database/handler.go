@@ -101,6 +101,8 @@ func New(engine string) Database {
 		return &Postgres{}
 	case "mysql":
 		return &Mysql{}
+	case "clickhouse":
+		return &ClickHouse{}
 	case "dummy":
 		return &Dummy{}
 	}

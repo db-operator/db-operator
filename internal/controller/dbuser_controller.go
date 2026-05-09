@@ -405,6 +405,26 @@ func parseDbUserSecretData(engine string, data map[string][]byte) (database.Cred
 		}
 
 		return cred, nil
+	case "clickhouse":
+		if name, ok := data[consts.CLICKHOUSE_DB]; ok {
+			cred.Name = string(name)
+		} else {
+			return cred, errors.New("CLICKHOUSE_DB key does not exist in secret data")
+		}
+
+		if user, ok := data[consts.CLICKHOUSE_USER]; ok {
+			cred.Username = string(user)
+		} else {
+			return cred, errors.New("CLICKHOUSE_USER key does not exist in secret data")
+		}
+
+		if pass, ok := data[consts.CLICKHOUSE_PASSWORD]; ok {
+			cred.Password = string(pass)
+		} else {
+			return cred, errors.New("CLICKHOUSE_PASSWORD key does not exist in secret data")
+		}
+
+		return cred, nil
 	default:
 		return cred, errors.New("not supported engine type")
 	}

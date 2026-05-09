@@ -113,6 +113,14 @@ func FetchDatabaseData(ctx context.Context, dbcr *kindav1beta1.Database, dbCred 
 		}
 
 		return db, dbuser, nil
+	case "clickhouse":
+		db := database.ClickHouse{
+			Host:        host,
+			Port:        uint16(port),
+			Database:    dbCred.Name,
+			ClusterName: dbcr.Spec.Clickhouse.ClusterName,
+		}
+		return db, dbuser, nil
 	default:
 		err := errors.New("not supported engine type")
 		return nil, nil, err
@@ -163,6 +171,26 @@ func ParseDatabaseSecretData(dbcr *kindav1beta1.Database, data map[string][]byte
 		}
 
 		return cred, nil
+	case "clickhouse":
+		if name, ok := data[consts.CLICKHOUSE_DB]; ok {
+			cred.Name = string(name)
+		} else {
+			return cred, errors.New("CLICKHOUSE_DB key does not exist in secret data")
+		}
+
+		if user, ok := data[consts.CLICKHOUSE_USER]; ok {
+			cred.Username = string(user)
+		} else {
+			return cred, errors.New("CLICKHOUSE_USER key does not exist in secret data")
+		}
+
+		if pass, ok := data[consts.CLICKHOUSE_PASSWORD]; ok {
+			cred.Password = string(pass)
+		} else {
+			return cred, errors.New("CLICKHOUSE_PASSWORD key does not exist in secret data")
+		}
+
+		return cred, nil
 	default:
 		return cred, errors.New("not supported engine type")
 	}
@@ -207,6 +235,13 @@ func GenerateDatabaseSecretData(objectMeta metav1.ObjectMeta, engine, dbName, ex
 			consts.MYSQL_DB:       []byte(kci.StringSanitize(dbName, mysqlDBNameLengthLimit)),
 			consts.MYSQL_USER:     []byte(kci.StringSanitize(dbUser, mysqlUserLengthLimit)),
 			consts.MYSQL_PASSWORD: []byte(dbPassword),
+		}
+		return data, nil
+	case "clickhouse":
+		data := map[string][]byte{
+			consts.CLICKHOUSE_DB:       []byte(dbName),
+			consts.CLICKHOUSE_USER:     []byte(dbUser),
+			consts.CLICKHOUSE_PASSWORD: []byte(dbPassword),
 		}
 		return data, nil
 	default:

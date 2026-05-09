@@ -160,7 +160,7 @@ func init() {
 
 // ValidateEngine checks if defined engine by DbInstance object is supported by db-operator
 func (dbin *DbInstance) ValidateEngine() error {
-	if (dbin.Spec.Engine == "mysql") || (dbin.Spec.Engine == "postgres") {
+	if (dbin.Spec.Engine == "mysql") || (dbin.Spec.Engine == "postgres") || (dbin.Spec.Engine == "clickhouse") {
 		return nil
 	}
 

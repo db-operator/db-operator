@@ -33,6 +33,7 @@ type DatabaseSpec struct {
 	Backup            DatabaseBackup    `json:"backup"`
 	SecretsTemplates  map[string]string `json:"secretsTemplates,omitempty"`
 	Postgres          Postgres          `json:"postgres,omitempty"`
+	Clickhouse        Clickhouse        `json:"clickhouse,omitempty"`
 	Cleanup           bool              `json:"cleanup,omitempty"`
 	Credentials       Credentials       `json:"credentials,omitempty"`
 	ExtraGrants       []*ExtraGrant     `json:"extraGrants,omitempty"`
@@ -56,6 +57,12 @@ type Postgres struct {
 	Schemas []string `json:"schemas,omitempty"`
 	// Let user create database from template
 	Template string `json:"template,omitempty"`
+}
+
+// Clickhouse struct should be used to provide resource that only applicable to ClickHouse
+type Clickhouse struct {
+	// ClusterName is the name of the ClickHouse cluster (used for ON CLUSTER queries)
+	ClusterName string `json:"clusterName,omitempty"`
 }
 
 // DatabaseStatus defines the observed state of Database

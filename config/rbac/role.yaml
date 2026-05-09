@@ -40,8 +40,6 @@ rules:
   - kinda.rocks
   resources:
   - databases
-  - dbinstances
-  - dbusers
   verbs:
   - create
   - delete
@@ -54,15 +52,63 @@ rules:
   - kinda.rocks
   resources:
   - databases/finalizers
-  - dbinstances/finalizers
-  - dbusers/finalizers
   verbs:
   - update
 - apiGroups:
   - kinda.rocks
   resources:
   - databases/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - kinda.rocks
+  resources:
+  - dbinstances
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - kinda.rocks
+  resources:
+  - dbinstances/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - kinda.rocks
+  resources:
   - dbinstances/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - kinda.rocks
+  resources:
+  - dbusers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - kinda.rocks
+  resources:
+  - dbusers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - kinda.rocks
+  resources:
   - dbusers/status
   verbs:
   - get

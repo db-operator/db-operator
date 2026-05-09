@@ -166,8 +166,13 @@ func ValidateConfigFrom(dbin *kindarocksv1beta1.GenericInstance) error {
 }
 
 func ValidateEngine(engine string) error {
-	if !(slices.Contains([]string{"postgres", "mysql"}, engine)) {
-		return fmt.Errorf("unsupported engine: %s. please use either postgres or mysql", engine)
+	supported := []string{
+		consts.ENGINE_POSTGRES,
+		consts.ENGINE_MYSQL,
+		consts.ENGINE_CLICKHOUSE,
+	}
+	if !slices.Contains(supported, engine) {
+		return fmt.Errorf("unsupported engine: %s. please use one of: %v", engine, supported)
 	}
 	return nil
 }

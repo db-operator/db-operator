@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.1
+    controller-gen.kubebuilder.io/version: v0.14.0
   name: databases.kinda.rocks
 spec:
   group: kinda.rocks
@@ -382,14 +382,25 @@ spec:
                 type: object
               cleanup:
                 type: boolean
+              clickhouse:
+                description: Clickhouse struct should be used to provide resource
+                  that only applicable to ClickHouse
+                properties:
+                  clusterName:
+                    description: ClusterName is the name of the ClickHouse cluster
+                      (used for ON CLUSTER queries)
+                    type: string
+                type: object
               credentials:
-                description: Credentials should be used to setup everything relates
-                  to k8s secrets and configmaps
+                description: |-
+                  Credentials should be used to setup everything relates to k8s secrets and configmaps
+                  TODO(@allanger): Field .spec.secretName should be moved here in the v1beta2 version
                 properties:
                   metadata:
                     description: |-
                       Metadata defines additional metadata that should be applied to
                       k8s resources created from credentials configuration.
+
 
                       For Database and DbUser, this metadata is applied to the Secret
                       that stores generated credentials.
