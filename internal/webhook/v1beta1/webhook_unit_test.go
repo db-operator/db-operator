@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/db-operator/db-operator/v2/api/common"
 	"github.com/db-operator/db-operator/v2/api/v1beta1"
 	webhook "github.com/db-operator/db-operator/v2/internal/webhook/v1beta1"
 	"github.com/db-operator/db-operator/v2/pkg/consts"
@@ -121,7 +122,7 @@ func TestUnitEngineInvalid(t *testing.T) {
 }
 
 func TestValidateFromSecret(t *testing.T) {
-	from := &v1beta1.FromRef{
+	from := &common.FromRef{
 		Kind: "Secret",
 		Name: "name",
 		Key:  "key",
@@ -135,7 +136,7 @@ func TestValidateFromSecret(t *testing.T) {
 }
 
 func TestValidateFromCM(t *testing.T) {
-	from := &v1beta1.FromRef{
+	from := &common.FromRef{
 		Kind: "ConfigMap",
 		Name: "name",
 		Key:  "key",
@@ -149,7 +150,7 @@ func TestValidateFromCM(t *testing.T) {
 }
 
 func TestValidateFromUnknown(t *testing.T) {
-	from := &v1beta1.FromRef{
+	from := &common.FromRef{
 		Kind: "dummy",
 		Name: "name",
 		Key:  "key",
@@ -165,7 +166,7 @@ func TestValidateFromUnknown(t *testing.T) {
 func TestUnitConfigHostErr(t *testing.T) {
 	spec := &v1beta1.GenericInstance{
 		Host: "host",
-		HostFrom: &v1beta1.FromRef{
+		HostFrom: &common.FromRef{
 			Kind: "ConfigMap",
 			Name: "name",
 			Key:  "key",
@@ -183,7 +184,7 @@ func TestUnitConfigHostVal(t *testing.T) {
 
 func TestUnitConfigHostFrom(t *testing.T) {
 	spec := &v1beta1.GenericInstance{
-		HostFrom: &v1beta1.FromRef{
+		HostFrom: &common.FromRef{
 			Kind: "ConfigMap",
 			Name: "name",
 			Key:  "key",
@@ -195,7 +196,7 @@ func TestUnitConfigHostFrom(t *testing.T) {
 func TestUnitConfigPortErr(t *testing.T) {
 	spec := &v1beta1.GenericInstance{
 		Port: 5432,
-		PortFrom: &v1beta1.FromRef{
+		PortFrom: &common.FromRef{
 			Kind: "ConfigMap",
 			Name: "name",
 			Key:  "key",
@@ -213,7 +214,7 @@ func TestUnitConfigPortVal(t *testing.T) {
 
 func TestUnitConfigPortFrom(t *testing.T) {
 	spec := &v1beta1.GenericInstance{
-		PortFrom: &v1beta1.FromRef{
+		PortFrom: &common.FromRef{
 			Kind: "ConfigMap",
 			Name: "name",
 			Key:  "key",
@@ -225,7 +226,7 @@ func TestUnitConfigPortFrom(t *testing.T) {
 func TestUnitConfigPublicIPErr(t *testing.T) {
 	spec := &v1beta1.GenericInstance{
 		PublicIP: "123.123.123.123",
-		PublicIPFrom: &v1beta1.FromRef{
+		PublicIPFrom: &common.FromRef{
 			Kind: "ConfigMap",
 			Name: "name",
 			Key:  "key",
@@ -243,7 +244,7 @@ func TestUnitConfigPublicIPVal(t *testing.T) {
 
 func TestUnitConfigPublicIPFrom(t *testing.T) {
 	spec := &v1beta1.GenericInstance{
-		PublicIPFrom: &v1beta1.FromRef{
+		PublicIPFrom: &common.FromRef{
 			Kind: "ConfigMap",
 			Name: "name",
 			Key:  "key",

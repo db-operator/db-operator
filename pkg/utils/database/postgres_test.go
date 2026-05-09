@@ -37,7 +37,6 @@ func testPostgres() (*Postgres, *DatabaseUser) {
 	}
 
 	return &Postgres{
-			Backend:          "local",
 			Host:             test.GetPostgresHost(),
 			Port:             test.GetPostgresPort(),
 			Database:         "testdb",
@@ -86,7 +85,7 @@ func TestPostgresCreateDatabaseTemplate(t *testing.T) {
 	assert.NoErrorf(t, err, "Unexpected error %v", err)
 
 	// Create a table to test template later
-	testquery := `CREATE TABLE test (
+	testquery := `CREATE TABLE IF NOT EXISTS test (
   role_id serial PRIMARY KEY,
   role_name VARCHAR (255) UNIQUE NOT NULL
 );`
@@ -736,7 +735,8 @@ func TestPostgresPresentConnectionNoForce(t *testing.T) {
 	p.Database = "testactiveconnection1"
 	sleepQuery := "SELECT PG_SLEEP(30.0);"
 
-	p.createDatabase(t.Context(), admin)
+	assert.NoError(t, p.createDatabase(t.Context(), admin))
+	assert.NoError(t, p.createOrUpdateUser(t.Context(), admin, user))
 
 	go p.execAsUser(t.Context(), sleepQuery, user)
 
@@ -753,7 +753,8 @@ func TestPostgresPresentConnectionForce(t *testing.T) {
 	p.ForceDelete = true
 	sleepQuery := "SELECT PG_SLEEP(20.0);"
 
-	p.createDatabase(t.Context(), admin)
+	assert.NoError(t, p.createDatabase(t.Context(), admin))
+	assert.NoError(t, p.createOrUpdateUser(t.Context(), admin, user))
 
 	go p.execAsUser(t.Context(), sleepQuery, user)
 	time.Sleep(5 * time.Second)

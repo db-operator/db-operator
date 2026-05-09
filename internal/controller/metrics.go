@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package controller
+package controllers
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
@@ -74,24 +74,6 @@ var (
 			"phase",
 		})
 )
-
-func dbInstancePhaseToFloat64(phase string) float64 {
-	phaseMap := map[string]float64{
-		"default":                  -10,
-		"":                         0,
-		dbInstancePhaseValidate:    10,
-		dbInstancePhaseCreate:      20,
-		dbInstancePhaseBroadcast:   -25,
-		dbInstancePhaseProxyCreate: 50,
-		dbInstancePhaseRunning:     100,
-	}
-
-	if _, found := phaseMap[phase]; found {
-		return phaseMap[phase]
-	}
-
-	return phaseMap["default"]
-}
 
 func boolToFloat64(b bool) float64 {
 	if b {

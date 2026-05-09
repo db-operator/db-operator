@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM registry.hub.docker.com/library/golang:1.25.9-alpine3.23 AS builder
+FROM --platform=$BUILDPLATFORM registry.hub.docker.com/library/golang:1.23.1-alpine3.20 AS builder
 
 ARG OPERATOR_VERSION=1.0.0-dev
 
@@ -21,7 +21,7 @@ RUN GOOS=linux GOARCH=$TARGETARCH CGO_ENABLED=0 \
   -tags build -o /usr/local/bin/db-operator cmd/main.go
 
 
-FROM gcr.io/distroless/static
+FROM registry.hub.docker.com/library/alpine:3.20
 LABEL org.opencontainers.image.authors="Nikolai Rodionov<allanger@badhouseplants.net>"
 COPY --from=builder /usr/local/bin/db-operator /usr/local/bin/db-operator
 USER 1001

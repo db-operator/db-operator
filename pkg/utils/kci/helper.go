@@ -18,6 +18,7 @@ package kci
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/mitchellh/hashstructure"
@@ -79,13 +80,13 @@ func Retry(attempts int, intervals time.Duration, fn func() error) error {
 }
 
 // GenerateChecksum generates hash value of given interface
-func GenerateChecksum(v interface{}) (string, error) {
+func GenerateChecksum(v interface{}) string {
 	hash, err := hashstructure.Hash(v, nil)
 	if err != nil {
-		return "", err
+		log.Fatalf("Failed to generate hash: %v", err)
 	}
 
-	return fmt.Sprintf("%d", hash), nil
+	return fmt.Sprintf("%d", hash)
 }
 
 // TimeTrack tracks seconds since given start time

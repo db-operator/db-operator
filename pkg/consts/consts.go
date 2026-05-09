@@ -43,11 +43,8 @@ const (
 
 // Kubernetes Annotations
 const (
-	TEMPLATE_ANNOTATION_KEY = "kinda.rocks/db-operator-templated-keys"
-	SECRET_FORCE_RECONCILE  = "kinda.rocks/secret-force-reconcile"
-	// When set to "true" db-operator will run full reconciliation,
-	// even if it wasn't required, after a full reconcile cycle,
-	// the annotation is removed from the database
+	TEMPLATE_ANNOTATION_KEY       = "kinda.rocks/db-operator-templated-keys"
+	SECRET_FORCE_RECONCILE        = "kinda.rocks/secret-force-reconcile"
 	DATABASE_FORCE_FULL_RECONCILE = "kinda.rocks/db-force-full-reconcile"
 	USED_OBJECTS                  = "kinda.rocks/used-objects"
 	// ----------------------------------------------------------------------
@@ -68,6 +65,9 @@ const (
 	// Delete a postgres database with present connections,
 	// might be useful when pgbouncer is used
 	POSTGRES_FORCE_DELETE_DB = "kinda.rocks/postgres-force-delete-db"
+	// When this annotation is set to "true" on a DbInstance, the operator allows
+	// changing the connection data even if the instance is already connected.
+	DBINSTANCE_ALLOW_MIGRATION = "kinda.rocks/db-instance-allow-migration"
 )
 
 // Kubernetes Labels

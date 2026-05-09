@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.1
+    controller-gen.kubebuilder.io/version: v0.14.0
   name: dbusers.kinda.rocks
 spec:
   group: kinda.rocks
@@ -68,13 +68,15 @@ spec:
               cleanup:
                 type: boolean
               credentials:
-                description: Credentials should be used to setup everything relates
-                  to k8s secrets and configmaps
+                description: |-
+                  Credentials should be used to setup everything relates to k8s secrets and configmaps
+                  TODO(@allanger): Field .spec.secretName should be moved here in the v1beta2 version
                 properties:
                   metadata:
                     description: |-
                       Metadata defines additional metadata that should be applied to
                       k8s resources created from credentials configuration.
+
 
                       For Database and DbUser, this metadata is applied to the Secret
                       that stores generated credentials.
@@ -144,6 +146,7 @@ spec:
                   privilege is added
                   By default is set to true
                   Only applies to Postgres, doesn't have any effect on Mysql
+                  TODO: Default should be false, but not to introduce breaking
                         changes it's now set to true. It should be changed in
                         in the next API version
                 type: boolean
@@ -154,6 +157,140 @@ spec:
             - accessType
             - databaseRef
             - secretName
+            type: object
+          status:
+            description: DbUserStatus defines the observed state of DbUser
+            properties:
+              created:
+                description: It's required to let the operator update users
+                type: boolean
+              database:
+                type: string
+              operatorVersion:
+                type: string
+              status:
+                type: boolean
+            required:
+            - created
+            - database
+            - status
+            type: object
+        type: object
+    served: true
+    storage: false
+    subresources:
+      status: {}
+  - additionalPrinterColumns:
+    - description: current dbuser status
+      jsonPath: .status.status
+      name: Status
+      type: boolean
+    - description: To which database user should have access
+      jsonPath: .spec.databaseRef
+      name: DatabaseName
+      type: string
+    - description: A type of access the user has
+      jsonPath: .spec.accessType
+      name: AccessType
+      type: string
+    - description: time since creation of resos¡urce
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1beta2
+    schema:
+      openAPIV3Schema:
+        description: DbUser is the Schema for the dbusers API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: DbUserSpec defines the desired state of DbUser
+            properties:
+              accessType:
+                description: |-
+                  AccessType that should be given to a user
+                  Currently only readOnly and readWrite are supported by the operator
+                type: string
+              credentials:
+                description: Credentials should be used to setup everything relates
+                  to k8s secrets and configmaps
+                properties:
+                  secretName:
+                    description: A secret with database credentials
+                    type: string
+                  setOwnerReference:
+                    description: |-
+                      When set to true, a secret with credentials will have
+                      an owner reference of a Database CR. That means that once
+                      a Database is removed, the secret will follow
+                    type: boolean
+                  templates:
+                    description: Templates to add custom entries to ConfigMaps and
+                      Secrets
+                    items:
+                      description: Templates to add custom entries to ConfigMaps and
+                        Secrets
+                      properties:
+                        name:
+                          type: string
+                        secret:
+                          type: boolean
+                        template:
+                          type: string
+                      required:
+                      - name
+                      - secret
+                      - template
+                      type: object
+                    type: array
+                required:
+                - secretName
+                - setOwnerReference
+                type: object
+              databaseRef:
+                description: |-
+                  DatabaseRef should contain a name of a Database to create a user there
+                  Database should be in the same namespace with the user
+                type: string
+              extraPrivileges:
+                description: A list of additional roles that should be added to the
+                  user
+                items:
+                  type: string
+                type: array
+              postgres:
+                properties:
+                  grantToAdmin:
+                    default: false
+                    description: |-
+                      Should the user be granted to the admin user
+                      For example, it should be set to true on Azure instance,
+                      because the admin given by them is not a super user,
+                      but should be set to false on AWS, when rds_iam extra
+                      privilege is added
+                      By default is set to true
+                      Only applies to Postgres, doesn't have any effect on Mysql
+                    type: boolean
+                type: object
+            required:
+            - accessType
+            - databaseRef
             type: object
           status:
             description: DbUserStatus defines the observed state of DbUser

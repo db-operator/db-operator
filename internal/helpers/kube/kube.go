@@ -26,9 +26,9 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/events"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	dbotypes "github.com/db-operator/db-operator/v2/pkg/types"
 )
@@ -45,13 +45,13 @@ for an internal resource
 */
 type KubeHelper struct {
 	Cli client.Client
-	Rec events.EventRecorder
+	Rec record.EventRecorder
 	// Caller is a db-operator object that is requesting modifications
 	Caller dbotypes.KindaObject
 }
 
 // Init a Kubehelper struct
-func NewKubeHelper(cli client.Client, rec events.EventRecorder, caller dbotypes.KindaObject) *KubeHelper {
+func NewKubeHelper(cli client.Client, rec record.EventRecorder, caller dbotypes.KindaObject) *KubeHelper {
 	return &KubeHelper{cli, rec, caller}
 }
 
@@ -103,16 +103,15 @@ func (kh *KubeHelper) HandleCreateOrUpdate(ctx context.Context, obj client.Objec
 
 func (kh *KubeHelper) Create(ctx context.Context, obj client.Object) (client.Object, error) {
 	err := kh.Cli.Create(ctx, obj)
-	log := log.FromContext(ctx)
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
-		log.Error(err, "couldn't create a Kubernetes resource", "kind", obj.GetObjectKind().GroupVersionKind().Kind, "name", obj.GetName())
+		ctrllog.Log.Error(err, "couldn't create object", "kind", obj.GetObjectKind().GroupVersionKind().Kind, "name", obj.GetName())
 		return nil, err
 	}
 	// Return an updated object already
 	// I'm not sure how to make it better
 	refreshedObj := obj.DeepCopyObject().(client.Object)
 	if err := kh.Cli.Get(ctx, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, refreshedObj); err != nil {
-		log.Error(err, "сouldn't get a Kubernetes resource", "kind", obj.GetObjectKind().GroupVersionKind().Kind, "name", obj.GetName())
+		ctrllog.Log.Error(err, "couldn't get object", "kind", obj.GetObjectKind().GroupVersionKind().Kind, "name", obj.GetName())
 		return nil, err
 	}
 	return refreshedObj, nil
@@ -158,7 +157,7 @@ func (kh *KubeHelper) IsUsedByCaller(obj client.Object) bool {
 
 func (kh *KubeHelper) SetOwnerReference(obj client.Object, ownerRef metav1.OwnerReference) client.Object {
 	// It's required in order to remove the owner reference
-	// that was previously set by the cleanup feature
+	// that was previosly set by the cleanup feature
 	newOwnerRefs := []metav1.OwnerReference{}
 	for _, ref := range obj.GetOwnerReferences() {
 		if ref.UID != kh.Caller.GetUID() {
