@@ -594,8 +594,17 @@ spec:
           spec:
             description: DatabaseSpec defines the desired state of Database
             properties:
-              credentials:
+              clickhouse:
                 description: Mysql             Mysql       `json:"mysql,omitempty"`
+                properties:
+                  clusterName:
+                    description: ClusterName is the name of the ClickHouse cluster
+                      (used for ON CLUSTER queries)
+                    type: string
+                type: object
+              credentials:
+                description: Credentials should be used to setup everything relates
+                  to k8s secrets and configmaps
                 properties:
                   secretName:
                     description: A secret with database credentials
@@ -679,6 +688,7 @@ spec:
                 enum:
                 - postgres
                 - mysql
+                - clickhouse
                 type: string
               monitorUserSecret:
                 type: string

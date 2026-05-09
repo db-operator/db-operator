@@ -33,7 +33,14 @@ type DatabaseSpec struct {
 	DeletionProtected bool     `json:"deletionProtected"`
 	Postgres          Postgres `json:"postgres,omitempty"`
 	// Mysql             Mysql       `json:"mysql,omitempty"`
+	Clickhouse  Clickhouse  `json:"clickhouse,omitempty"`
 	Credentials Credentials `json:"credentials,omitempty"`
+}
+
+// Clickhouse struct should be used to provide resource that only applicable to ClickHouse
+type Clickhouse struct {
+	// ClusterName is the name of the ClickHouse cluster (used for ON CLUSTER queries)
+	ClusterName string `json:"clusterName,omitempty"`
 }
 
 // Postgres struct should be used to provide resource that only applicable to postgres

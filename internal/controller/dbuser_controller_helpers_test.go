@@ -5,6 +5,7 @@ import (
 
 	kindav1beta2 "github.com/db-operator/db-operator/v2/api/v1beta2"
 	commonhelper "github.com/db-operator/db-operator/v2/internal/helpers/common"
+	"github.com/db-operator/db-operator/v2/pkg/consts"
 	"github.com/db-operator/db-operator/v2/pkg/utils/kci"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -39,12 +40,29 @@ func TestParseDbUserSecretDataMysql(t *testing.T) {
 	assert.Equal(t, "apppass", cred.Password)
 }
 
+func TestParseDbUserSecretDataClickhouse(t *testing.T) {
+	data := map[string][]byte{
+		consts.CLICKHOUSE_DB:       []byte("appdb"),
+		consts.CLICKHOUSE_USER:     []byte("appuser"),
+		consts.CLICKHOUSE_PASSWORD: []byte("apppass"),
+	}
+
+	cred, err := parseDbUserSecretData("clickhouse", data)
+	assert.NoError(t, err)
+	assert.Equal(t, "appdb", cred.Name)
+	assert.Equal(t, "appuser", cred.Username)
+	assert.Equal(t, "apppass", cred.Password)
+}
+
 func TestParseDbUserSecretDataErrors(t *testing.T) {
 	_, err := parseDbUserSecretData("postgres", map[string][]byte{})
 	assert.ErrorContains(t, err, "POSTGRES_DB key does not exist")
 
 	_, err = parseDbUserSecretData("mysql", map[string][]byte{})
 	assert.ErrorContains(t, err, "DB key does not exist")
+
+	_, err = parseDbUserSecretData("clickhouse", map[string][]byte{})
+	assert.ErrorContains(t, err, "CLICKHOUSE_DB key does not exist")
 
 	_, err = parseDbUserSecretData("oracle", map[string][]byte{})
 	assert.ErrorContains(t, err, "not supported engine type")

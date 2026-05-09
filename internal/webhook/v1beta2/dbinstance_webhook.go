@@ -144,6 +144,7 @@ func ValidateEngine(engine kindarocksv1beta2.Engine) error {
 	supported := []kindarocksv1beta2.Engine{
 		kindarocksv1beta2.Engine(consts.ENGINE_POSTGRES),
 		kindarocksv1beta2.Engine(consts.ENGINE_MYSQL),
+		kindarocksv1beta2.Engine(consts.ENGINE_CLICKHOUSE),
 	}
 	if !slices.Contains(supported, engine) {
 		return fmt.Errorf("unsupported engine: %s. please use one of: %v", engine, supported)

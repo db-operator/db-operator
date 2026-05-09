@@ -121,6 +121,9 @@ func TestUnitEngineValid(t *testing.T) {
 
 	err = webhook.ValidateEngine("mysql")
 	assert.NoError(t, err)
+
+	err = webhook.ValidateEngine("clickhouse")
+	assert.NoError(t, err)
 }
 
 func TestUnitEngineInvalid(t *testing.T) {

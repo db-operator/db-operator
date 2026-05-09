@@ -117,6 +117,13 @@ func (e *secretEventHandler) Update(ctx context.Context, evt event.TypedUpdateEv
 				consts.MYSQL_USER,
 			}
 
+		case "clickhouse":
+			inputsKeys = []string{
+				consts.CLICKHOUSE_DB,
+				consts.CLICKHOUSE_PASSWORD,
+				consts.CLICKHOUSE_USER,
+			}
+
 		default:
 			log.Info("unknown database engine", "engine", dbcr.Status.Engine)
 		}

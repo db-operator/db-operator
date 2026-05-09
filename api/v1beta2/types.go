@@ -38,5 +38,5 @@ type Credentials struct {
 	Templates Templates `json:"templates,omitempty"`
 }
 
-// +kubebuilder:validation:Enum:=postgres;mysql
+// +kubebuilder:validation:Enum:=postgres;mysql;clickhouse
 type Engine string

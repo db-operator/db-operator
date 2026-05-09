@@ -520,6 +520,7 @@ spec:
                 enum:
                 - postgres
                 - mysql
+                - clickhouse
                 type: string
               instanceData:
                 description: |-
