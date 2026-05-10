@@ -194,12 +194,12 @@ func (p Postgres) dropPublicSchema(ctx context.Context, admin *DatabaseUser) err
 	return nil
 }
 
-func (p Postgres) createSchemas(ctx context.Context, ac4tor *DatabaseUser) error {
+func (p Postgres) createSchemas(ctx context.Context, actor *DatabaseUser) error {
 	log := log.FromContext(ctx)
-	for _, s := range p.Schemas {
-		createSchema := fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS \"%s\";", s)
-		if err := p.executeExec(ctx, p.Database, createSchema, ac4tor); err != nil {
-			log.Error(err, "failed to create schema", "schema", s)
+	for _, schema := range p.Schemas {
+		createSchema := fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s;", pq.QuoteIdentifier(schema))
+		if err := p.executeExec(ctx, p.Database, createSchema, actor); err != nil {
+			log.Error(err, "failed to create schema", "schema", schema)
 			return err
 		}
 	}
@@ -215,7 +215,7 @@ func (p Postgres) checkSchemas(ctx context.Context, user *DatabaseUser) error {
 		}
 	}
 	for _, s := range p.Schemas {
-		query := fmt.Sprintf("SELECT 1 FROM pg_cataLog.pg_namespace WHERE nspname = '%s';", s)
+		query := fmt.Sprintf("SELECT 1 FROM pg_cataLog.pg_namespace WHERE nspname = %s;", pq.QuoteLiteral(s))
 		if !p.isRowExist(ctx, p.Database, query, user.Username, user.Password) {
 			return fmt.Errorf("couldn't find schema %s in database %s", s, p.Database)
 		}
@@ -225,7 +225,8 @@ func (p Postgres) checkSchemas(ctx context.Context, user *DatabaseUser) error {
 
 func (p Postgres) addExtensions(ctx context.Context, admin *DatabaseUser) error {
 	for _, ext := range p.Extensions {
-		query := fmt.Sprintf("CREATE EXTENSION IF NOT EXISTS \"%s\";", ext)
+		query := fmt.Sprintf("CREATE EXTENSION IF NOT EXISTS %s;", pq.QuoteIdentifier(ext))
+		fmt.Println(query)
 		err := p.executeExec(ctx, p.Database, query, admin)
 		if err != nil {
 			return err
@@ -237,7 +238,7 @@ func (p Postgres) addExtensions(ctx context.Context, admin *DatabaseUser) error 
 func (p Postgres) enableMonitoring(ctx context.Context, admin *DatabaseUser) error {
 	monitoringExtension := "pg_stat_statements"
 
-	query := fmt.Sprintf("CREATE EXTENSION IF NOT EXISTS \"%s\";", monitoringExtension)
+	query := fmt.Sprintf("CREATE EXTENSION IF NOT EXISTS %s;", pq.QuoteIdentifier(monitoringExtension))
 	err := p.executeExec(ctx, p.Database, query, admin)
 	if err != nil {
 		return err
@@ -248,7 +249,8 @@ func (p Postgres) enableMonitoring(ctx context.Context, admin *DatabaseUser) err
 
 func (p Postgres) checkExtensions(ctx context.Context, user *DatabaseUser) error {
 	for _, ext := range p.Extensions {
-		query := fmt.Sprintf("SELECT 1 FROM pg_extension WHERE extname = '%s';", ext)
+		query := fmt.Sprintf("SELECT 1 FROM pg_extension WHERE extname = %s;", pq.QuoteLiteral(ext))
+		fmt.Println(query)
 		if !p.isRowExist(ctx, p.Database, query, user.Username, user.Password) {
 			return fmt.Errorf("couldn't find extension %s in database %s", ext, p.Database)
 		}
