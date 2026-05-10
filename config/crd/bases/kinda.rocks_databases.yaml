@@ -483,7 +483,6 @@ spec:
                   type: string
                 type: object
             required:
-            - backup
             - deletionProtected
             - instance
             - secretName
