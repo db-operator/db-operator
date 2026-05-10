@@ -30,7 +30,7 @@ type DatabaseSpec struct {
 	SecretName        string            `json:"secretName"`
 	Instance          string            `json:"instance"`
 	DeletionProtected bool              `json:"deletionProtected"`
-	Backup            DatabaseBackup    `json:"backup"`
+	Backup            DatabaseBackup    `json:"backup,omitempty"`
 	SecretsTemplates  map[string]string `json:"secretsTemplates,omitempty"`
 	Postgres          Postgres          `json:"postgres,omitempty"`
 	Cleanup           bool              `json:"cleanup,omitempty"`
