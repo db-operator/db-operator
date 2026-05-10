@@ -18,12 +18,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
+	"testing"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	kindarocksv1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
+	"github.com/stretchr/testify/assert"
 )
 
 // nolint:unused
@@ -101,6 +104,20 @@ func (v *DatabaseCustomValidator) ValidateCreate(_ context.Context, obj *kindaro
 		}
 	}
 
+	for _, schema := range obj.Spec.Postgres.Schemas {
+		if !isValidIdentifier(schema) {
+			warnings = append(warnings, fmt.Sprintf("Schema name is not allowed: %s", schema))
+			return warnings, errors.New("schema name is not allowed")
+		}
+	}
+
+	for _, extension := range obj.Spec.Postgres.Extensions {
+		if !isValidIdentifier(extension) {
+			warnings = append(warnings, fmt.Sprintf("Extension name is not allowed: %s", extension))
+			return warnings, errors.New("extension name is not allowed")
+		}
+	}
+
 	return warnings, nil
 }
 
@@ -142,6 +159,20 @@ func (v *DatabaseCustomValidator) ValidateUpdate(_ context.Context, oldObj, newO
 		return warnings, fmt.Errorf(immutableErr, "spec.postgres.template")
 	}
 
+	for _, schema := range newObj.Spec.Postgres.Schemas {
+		if !isValidIdentifier(schema) {
+			warnings = append(warnings, fmt.Sprintf("Schema name is not allowed: %s", schema))
+			return warnings, errors.New("schema name is not allowed")
+		}
+	}
+
+	for _, extension := range newObj.Spec.Postgres.Extensions {
+		if !isValidIdentifier(extension) {
+			warnings = append(warnings, fmt.Sprintf("Extension name is not allowed: %s", extension))
+			return warnings, errors.New("extension name is not allowed")
+		}
+	}
+
 	return warnings, nil
 }
 
@@ -152,4 +183,32 @@ func (v *DatabaseCustomValidator) ValidateDelete(ctx context.Context, obj *kinda
 	// TODO(user): fill in your validation logic upon object deletion.
 
 	return nil, nil
+}
+
+func isValidIdentifier(identifier string) bool {
+	regex := regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_-]*$`)
+	return regex.MatchString(identifier)
+}
+
+func TestUnitPostgresIdentifierValidator(t *testing.T) {
+	assert.True(t, isValidIdentifier("public"))
+	assert.True(t, isValidIdentifier("my_schema"))
+	assert.True(t, isValidIdentifier("pgcrypto"))
+	assert.True(t, isValidIdentifier("uuid_ossp"))
+	assert.True(t, isValidIdentifier("_pg_internal"))
+	assert.True(t, isValidIdentifier("schema1"))
+	assert.True(t, isValidIdentifier("a"))
+	assert.True(t, isValidIdentifier("A"))
+	assert.True(t, isValidIdentifier("data_model_v2"))
+	assert.True(t, isValidIdentifier("user_table"))
+	assert.True(t, isValidIdentifier("pg-stat-statements"))
+	assert.True(t, isValidIdentifier("my-schema"))
+	assert.False(t, isValidIdentifier("1schema"))
+	assert.False(t, isValidIdentifier("my schema"))
+	assert.False(t, isValidIdentifier("drop table"))
+	assert.False(t, isValidIdentifier("pg.stat.statements"))
+	assert.False(t, isValidIdentifier("$schema"))
+	assert.False(t, isValidIdentifier("schema!"))
+	assert.False(t, isValidIdentifier("\"quoted\""))
+	assert.False(t, isValidIdentifier(""))
 }
