@@ -1,6 +1,6 @@
 module github.com/db-operator/db-operator/v2
 
-go 1.25.9
+go 1.25.10
 
 //replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.16
 
