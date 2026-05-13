@@ -1,0 +1,54 @@
+# -- Execute quick tests like linters and unittests
+name: GO Quick tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  lint:
+    name: GO Linter
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: go-task/setup-task@v1
+      - run: echo "GO_VERSION=$(task desired-go-version)" >> "${GITHUB_ENV}"
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Check Code Style
+        run: task lint
+
+  unit-test:
+    name: GO Unit tests
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v6
+      - uses: go-task/setup-task@v1
+      - run: echo "GO_VERSION=$(task desired-go-version)" >> "${GITHUB_ENV}"
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Run the unit tests
+        run: task unit-test
+
+  kubernetes-tests:
+    runs-on: ubuntu-latest
+    name: GO kubernetes integration tests
+    needs: lint
+    steps:
+      - uses: actions/checkout@v6
+      - uses: go-task/setup-task@v1
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - run: echo "GO_VERSION=$(task desired-go-version)" >> "${GITHUB_ENV}"
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Run the kubernetes integration tests
+        run: task kubernetes-test

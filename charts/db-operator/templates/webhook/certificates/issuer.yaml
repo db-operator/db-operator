@@ -1,0 +1,10 @@
+{{- if .Values.webhook.certificate.issuer.create }}
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ .Values.webhook.certificate.issuer.name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  selfSigned: {}
+{{- end }}

@@ -1,0 +1,4 @@
+controller:
+  extraArgs:
+    - -test
+checkForChanges: true

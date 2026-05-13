@@ -1,0 +1,16 @@
+{{- if .Values.webhook.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "db-operator.webhook.name" . }}
+  labels:
+    {{- include "db-operator.webhook.labels" . | nindent 4 }}
+spec:
+  ports:
+    - port: 443
+      protocol: TCP
+      targetPort: 9443
+  selector:
+    {{- include "db-operator.webhook.selectorLabels" . | nindent 4 }}
+{{- end }}

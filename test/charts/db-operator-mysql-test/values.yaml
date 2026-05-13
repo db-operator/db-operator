@@ -1,0 +1,13 @@
+features:
+  existingUser:
+    enabled: false
+    username: testuser
+    password: qwertyu9
+
+mysql:
+  admin:
+    password: qwertyu9
+    user: root
+  service:
+    name: mariadb-instance
+    namespace: databases

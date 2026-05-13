@@ -1,0 +1,37 @@
+-----------------------------------------------------------------------
+Release information
+The Chart name: {{ .Chart.Name }}.
+The Repo URL: https://db-operator.github.io/charts
+The Release name {{ .Release.Name }}.
+-----------------------------------------------------------------------
+Breaking changes and migration paths:
+
+Version `3.0.0` contains breaking changes for ones using the google cloudsql instances. It doesn't mean that the operator will not work with them anymore, but users will have to use **generic** DbInsances and prepare the infrasturture using other tools.
+
+Other changes that might require migration:
+
+- Pod names were changed, now instead of `db-operator-` and `db-operator-webhook`, we have `db-opetator-controller` and `db-operator-webhook`
+- RBAC separation: the controller and webhook now use different ClusterRoles. The configuration has been moved to .controller.rbac and .webhook.rbac accordingly.
+- Pre-defined DB Operator flags are now set under `controller.args`
+
+{{- if not .Values.crds.install }}
+-----------------------------------------------------------------------
+You've chosen not to install CRDs with this release.
+
+We officially do not distribute CRDs outside of this helm chart, so
+you will have to deal with that on your own.
+
+If it was a mistake, update the values so they contain the following:
+
+".Values.crds.install: true"
+
+{{- end }}
+{{- if not .Values.webhook.enabled }}
+-----------------------------------------------------------------------
+You've chosen not to install and configure the webhook.
+Your "kinda.rocks" manifests won't be validated and converted when
+the API version is upgraded.
+
+It's not required by db-operator to work, but if you want to have the
+webhook in place, you can set ".Values.webhook.enabled" to "true"
+{{- end }}
