@@ -33,7 +33,6 @@ jobs:
           labels: ${{ env.ANNOTATIONS }}
       - name: Push the image to GHCR
         id: push-to-ghcr
-        if: github.event_name == 'push'
         uses: redhat-actions/push-to-registry@v2
         with:
           image: ${{ steps.build-image.outputs.image }}
@@ -56,11 +55,11 @@ jobs:
           ignore-unfixed: false
           vuln-type: "os,library"
           severity: "CRITICAL,HIGH"
-          output: ./dev-report.json
+          output: ./report.json
       - name: Sign the image with GitHub OIDC Token
         env:
           DIGEST: ${{ steps.push-to-ghcr.outputs.digest }}
           IMAGE: ${{ steps.push-to-ghcr.outputs.registry-path }}
         run: |
           cosign sign --yes ${IMAGE}@${DIGEST}
-          cosign attest --type vuln --predicate dev-report.json ${IMAGE}@${DIGEST}
+          cosign attest --type vuln --predicate report.json ${IMAGE}@${DIGEST}
