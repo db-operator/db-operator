@@ -22,7 +22,7 @@ RUN GOOS=linux GOARCH=$TARGETARCH CGO_ENABLED=0 \
 
 
 FROM gcr.io/distroless/static
-LABEL org.opencontainers.image.authors="Nikolai Rodionov<allanger@badhouseplants.net>"
+LABEL org.opencontainers.image.authors="Nikolai Rodionov<allanger@posteo.com>"
 COPY --from=builder /usr/local/bin/db-operator /usr/local/bin/db-operator
 USER 1001
 ENTRYPOINT ["/usr/local/bin/db-operator"]
