@@ -1,4 +1,4 @@
-name: Test the image build
+name: Test the image build on Pull Request
 
 on:
   pull_request:
@@ -13,8 +13,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: docker/setup-qemu-action@v4
-      - name: Set the image metadata
-        run: ./build/set_image_metadata
+      - uses: go-task/setup-task@v2
+      - run: task set-image-metadata
       - name: Set the operator version from the tag
         run: |-
           echo OPERATOR_VERSION=${{ github.sha }} >> "$GITHUB_ENV"
