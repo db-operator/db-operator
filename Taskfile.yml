@@ -15,7 +15,7 @@ vars:
   ENVTEST: "{{.LOCALBIN}}/setup-envtest"
   # Tool versions
   CONTROLLER_TOOLS_VERSION: v0.20.1
-  GOLANGCI_LINT_VERSION: v2.8.0
+  GOLANGCI_LINT_VERSION: v2.12.2
   KUSTOMIZE_VERSION: v5.8.1
 
 tasks:
