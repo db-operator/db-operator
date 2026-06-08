@@ -18,7 +18,7 @@ require (
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.90.1
 	github.com/prometheus/client_golang v1.23.2
 	github.com/stretchr/testify v1.11.1
-	golang.org/x/exp v0.0.0-20260529124908-c761662dc8c9
+	golang.org/x/exp v0.0.0-20260603202125-055de637280b
 	golang.org/x/oauth2 v0.36.0
 	google.golang.org/api v0.276.0
 	gopkg.in/yaml.v3 v3.0.1
