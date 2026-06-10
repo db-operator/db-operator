@@ -15,6 +15,10 @@ linters:
       - third_party$
       - builtin$
       - examples$
+  settings:
+    govet:
+      disable:
+        - inline
 formatters:
   exclusions:
     generated: lax
