@@ -7,7 +7,7 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "zensical (>=0.0.45,<0.0.46)"
+    "zensical (>=0.0.46,<0.0.47)"
 ]
 
 
