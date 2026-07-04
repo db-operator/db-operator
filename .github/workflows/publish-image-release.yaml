@@ -46,7 +46,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: aquasecurity/trivy-action@0.35.0
+      - uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: "${{ steps.push-to-ghcr.outputs.registry-path }}"
           scan-type: image
