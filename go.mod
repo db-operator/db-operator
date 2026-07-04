@@ -13,7 +13,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.12.3
 	github.com/mitchellh/hashstructure v1.1.0
-	github.com/onsi/ginkgo/v2 v2.28.3
+	github.com/onsi/ginkgo/v2 v2.32.0
 	github.com/onsi/gomega v1.40.0
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.90.1
 	github.com/prometheus/client_golang v1.23.2
