@@ -19,23 +19,15 @@ package controller
 import (
 	"context"
 	"errors"
-	"strconv"
 	"time"
 
-	kindav1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
+	kindav1 "github.com/db-operator/db-operator/v2/api/v1"
 	commonhelper "github.com/db-operator/db-operator/v2/internal/helpers/common"
-	kubehelper "github.com/db-operator/db-operator/v2/internal/helpers/kube"
-	proxyhelper "github.com/db-operator/db-operator/v2/internal/helpers/proxy"
 	"github.com/db-operator/db-operator/v2/pkg/config"
 	"github.com/db-operator/db-operator/v2/pkg/consts"
-	"github.com/db-operator/db-operator/v2/pkg/utils/database"
-	"github.com/db-operator/db-operator/v2/pkg/utils/dbinstance"
-	"github.com/db-operator/db-operator/v2/pkg/utils/proxy"
-	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -45,23 +37,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-var (
-	dbInstancePhaseValidate    = "Validating"
-	dbInstancePhaseCreate      = "Creating"
-	dbInstancePhaseBroadcast   = "Broadcasting"
-	dbInstancePhaseProxyCreate = "ProxyCreating"
-	dbInstancePhaseRunning     = "Running"
-)
-
 // DbInstanceReconciler reconciles a DbInstance object
 type DbInstanceReconciler struct {
 	client.Client
-	Log        logr.Logger
-	Scheme     *runtime.Scheme
-	Interval   time.Duration
-	Recorder   events.EventRecorder
-	Conf       *config.Config
-	kubeHelper *kubehelper.KubeHelper
+	Interval time.Duration
+	Recorder events.EventRecorder
+	Conf     *config.Config
 }
 
 //+kubebuilder:rbac:groups=kinda.rocks,resources=dbinstances,verbs=get;list;watch;create;update;patch;delete
@@ -76,28 +57,22 @@ func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	reconcileResult := reconcile.Result{RequeueAfter: reconcilePeriod}
 
 	// Fetch the DbInstance custom resource
-	dbin := &kindav1beta1.DbInstance{}
+	dbin := &kindav1.DbInstance{}
 	err := r.Get(ctx, req.NamespacedName, dbin)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
-			return reconcileResult, nil
+			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		return reconcileResult, err
+		return ctrl.Result{}, err
 	}
 
-	// Update object status always when function returns, either normally or through a panic.
-	defer func() {
-		if err := r.Status().Update(ctx, dbin); err != nil {
-			log.Error(err, "failed to update status")
-		}
-	}()
-
-	r.kubeHelper = kubehelper.NewKubeHelper(r.Client, r.Recorder, dbin)
-
+	// Get connection data
+	// Determine database engine
+	// Check if dbinstance was changed
 	// Fetch data for checksum and reconcile
 	instanceData, err := r.fetchInstanceData(ctx, dbin)
 	if err != nil {
@@ -118,7 +93,6 @@ func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if commonhelper.IsDBInstanceChanged(ctx, dbin, instanceData) {
 		log.Info("spec or referenced data changed")
 		dbin.Status.Status = false
-		dbin.Status.Phase = dbInstancePhaseValidate // set phase to initial state
 	}
 
 	phase := dbin.Status.Phase
@@ -169,13 +143,9 @@ func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DbInstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&kindav1beta1.DbInstance{}).
+		For(&kindav1.DbInstance{}).
 		Watches(
 			&corev1.Secret{},
-			handler.EnqueueRequestsFromMapFunc(r.findDbInstanceForResource),
-		).
-		Watches(
-			&corev1.ConfigMap{},
 			handler.EnqueueRequestsFromMapFunc(r.findDbInstanceForResource),
 		).
 		Complete(r)
@@ -195,7 +165,7 @@ func (r *DbInstanceReconciler) findDbInstanceForResource(ctx context.Context, ob
 	return nil
 }
 
-func (r *DbInstanceReconciler) fetchInstanceData(ctx context.Context, dbin *kindav1beta1.DbInstance) (commonhelper.DbInstanceData, error) {
+func (r *DbInstanceReconciler) fetchInstanceData(ctx context.Context, dbin *kindav1.DbInstance) (commonhelper.DbInstanceData, error) {
 	data := commonhelper.DbInstanceData{}
 
 	// Fetch Admin Secret
@@ -251,7 +221,7 @@ func (r *DbInstanceReconciler) fetchInstanceData(ctx context.Context, dbin *kind
 	return data, nil
 }
 
-func (r *DbInstanceReconciler) fetchFromRef(ctx context.Context, from *kindav1beta1.FromRef) (client.Object, error) {
+func (r *DbInstanceReconciler) fetchFromRef(ctx context.Context, from *kindav1.FromRef) (client.Object, error) {
 	var obj client.Object
 	switch from.Kind {
 	case "Secret":
@@ -266,101 +236,8 @@ func (r *DbInstanceReconciler) fetchFromRef(ctx context.Context, from *kindav1be
 	return obj, err
 }
 
-func (r *DbInstanceReconciler) create(ctx context.Context, dbin *kindav1beta1.DbInstance, data commonhelper.DbInstanceData) error {
-	log := log.FromContext(ctx)
-
-	db := database.New(dbin.Spec.Engine)
-	cred, err := db.ParseAdminCredentials(ctx, data.AdminSecret.Data)
-	if err != nil {
-		return err
-	}
-
-	backend, err := dbin.GetBackendType()
-	if err != nil {
-		return err
-	}
-
-	var instance dbinstance.DbInstance
-	switch backend {
-	case "google":
-		name := dbin.Spec.Google.InstanceName
-		config := data.ConfigMap.Data["config"]
-		user := cred.Username
-		password := cred.Password
-		apiEndpoint := dbin.Spec.Google.APIEndpoint
-
-		instance = dbinstance.GsqlNew(ctx, name, config, user, password, apiEndpoint)
-	case "generic":
-		var host string
-		var port uint16
-		var publicIP string
-
-		if from := dbin.Spec.Generic.HostFrom; from != nil {
-			host, err = r.kubeHelper.GetValueFrom(ctx, from.Kind, from.Namespace, from.Name, from.Key)
-			if err != nil {
-				return err
-			}
-		} else {
-			host = dbin.Spec.Generic.Host
-		}
-
-		if from := dbin.Spec.Generic.PortFrom; from != nil {
-			portStr, err := r.kubeHelper.GetValueFrom(ctx, from.Kind, from.Namespace, from.Name, from.Key)
-			if err != nil {
-				return err
-			}
-			port64, err := strconv.ParseUint(portStr, 10, 16)
-			if err != nil {
-				return err
-			}
-			port = uint16(port64)
-		} else {
-			port = dbin.Spec.Generic.Port
-		}
-
-		if from := dbin.Spec.Generic.PublicIPFrom; from != nil {
-			publicIP, err = r.kubeHelper.GetValueFrom(ctx, from.Kind, from.Namespace, from.Name, from.Key)
-			if err != nil {
-				return err
-			}
-		} else {
-			publicIP = dbin.Spec.Generic.PublicIP
-		}
-		instance = &dbinstance.Generic{
-			Host:         host,
-			Port:         port,
-			PublicIP:     publicIP,
-			Engine:       dbin.Spec.Engine,
-			User:         cred.Username,
-			Password:     cred.Password,
-			SSLEnabled:   dbin.Spec.SSLConnection.Enabled,
-			SkipCAVerify: dbin.Spec.SSLConnection.SkipVerify,
-		}
-	default:
-		return errors.New("not supported backend type")
-	}
-
-	info, err := dbinstance.Create(ctx, instance)
-	if err != nil {
-		if err == dbinstance.ErrAlreadyExists {
-			log.V(2).Info("instance already exists in backend, updating instance")
-			info, err = dbinstance.Update(ctx, instance)
-			if err != nil {
-				log.Error(err, "failed updating instance")
-				return err
-			}
-		} else {
-			log.Error(err, "failed creating instance")
-			return err
-		}
-	}
-
-	dbin.Status.Info = info
-	return nil
-}
-
-func (r *DbInstanceReconciler) broadcast(ctx context.Context, dbin *kindav1beta1.DbInstance) error {
-	dbList := &kindav1beta1.DatabaseList{}
+func (r *DbInstanceReconciler) broadcast(ctx context.Context, dbin *kindav1.DbInstance) error {
+	dbList := &kindav1.DatabaseList{}
 	err := r.List(ctx, dbList)
 	if err != nil {
 		return err
@@ -383,65 +260,7 @@ func (r *DbInstanceReconciler) broadcast(ctx context.Context, dbin *kindav1beta1
 	return nil
 }
 
-func (r *DbInstanceReconciler) createProxy(ctx context.Context, dbin *kindav1beta1.DbInstance, _ []metav1.OwnerReference) error {
-	log := log.FromContext(ctx)
-	proxyInterface, err := proxyhelper.DetermineProxyTypeForInstance(ctx, r.Conf, dbin)
-	if err != nil {
-		if err == proxyhelper.ErrNoProxySupport {
-			return nil
-		}
-		return err
-	}
-
-	// Create proxy deployment
-	deploy, err := proxy.BuildDeployment(ctx, proxyInterface)
-	if err != nil {
-		log.Error(err, "failed to build proxy deployment")
-		return err
-	}
-	err = r.Create(ctx, deploy)
-	if err != nil {
-		if k8serrors.IsAlreadyExists(err) {
-			// if resource already exists, update
-			err = r.Update(ctx, deploy)
-			if err != nil {
-				log.Error(err, "failed to update proxy deployment")
-				return err
-			}
-		} else {
-			// failed to create deployment
-			log.Error(err, "failed to create proxy deployment")
-			return err
-		}
-	}
-
-	// Create proxy service
-	svc, err := proxy.BuildService(ctx, proxyInterface)
-	if err != nil {
-		log.Error(err, "failed to build proxy service")
-		return err
-	}
-	err = r.Create(ctx, svc)
-	if err != nil {
-		if k8serrors.IsAlreadyExists(err) {
-			// if resource already exists, update
-			patch := client.MergeFrom(svc)
-			err = r.Patch(ctx, svc, patch)
-			if err != nil {
-				log.Error(err, "failed to patch proxy service")
-				return err
-			}
-		} else {
-			// failed to create service
-			log.Error(err, "failed to create proxy service")
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (r *DbInstanceReconciler) labelReferencedResources(ctx context.Context, dbin *kindav1beta1.DbInstance, data commonhelper.DbInstanceData) error {
+func (r *DbInstanceReconciler) labelReferencedResources(ctx context.Context, dbin *kindav1.DbInstance, data commonhelper.DbInstanceData) error {
 	if data.AdminSecret != nil {
 		if err := commonhelper.EnsureLabel(ctx, r.Client, data.AdminSecret, consts.DBINSTANCE_NAME_LABEL_KEY, dbin.Name); err != nil {
 			return err

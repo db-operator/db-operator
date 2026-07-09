@@ -55,6 +55,7 @@ func init() {
 
 	utilruntime.Must(kindarocksv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(kindarocksv1beta1.AddToScheme(scheme))
+	utilruntime.Must(kindarocksv1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 
 	thirdpartyapi.AppendToScheme(scheme)
@@ -187,6 +188,13 @@ func main() {
 		}
 	}
 
+	// nolint:goconst
+	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+		if err := webhookv1.SetupDbInstanceWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "DbInstance")
+			os.Exit(1)
+		}
+	}
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
