@@ -34,7 +34,7 @@ func TestUnitBackupCronGeneric(t *testing.T) {
 	dbcr.Name = "TestDB"
 	instance := &kindav1beta1.DbInstance{}
 	instance.Status.Info = map[string]string{"DB_CONN": "TestConnection", "DB_PORT": "1234"}
-	instance.Spec.Generic = &kindav1beta1.GenericInstance{BackupHost: "slave.test"}
+	instance.Spec.Generic = &kindav1beta1.GenericInstance{BackupHost: "replica.test"}
 	dbcr.Spec.Instance = "staging"
 	dbcr.Spec.Backup.Cron = "* * * * *"
 
@@ -69,7 +69,7 @@ func TestUnitBackupCronGenericEnvFrom(t *testing.T) {
 	dbcr.Name = "TestDB"
 	instance := &kindav1beta1.DbInstance{}
 	instance.Status.Info = map[string]string{"DB_CONN": "TestConnection", "DB_PORT": "1234"}
-	instance.Spec.Generic = &kindav1beta1.GenericInstance{BackupHost: "slave.test"}
+	instance.Spec.Generic = &kindav1beta1.GenericInstance{BackupHost: "replica.test"}
 	dbcr.Spec.Instance = "staging"
 	dbcr.Spec.Backup.Cron = "* * * * *"
 	dbcr.Spec.Backup.EnvFromSecret = "test-creds"
