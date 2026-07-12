@@ -128,7 +128,7 @@ func postgresBackupContainer(conf *config.Config, dbcr *kindav1beta1.Database, i
 		Name:            "postgres-dump",
 		Image:           conf.Backup.Postgres.Image,
 		ImagePullPolicy: v1.PullAlways,
-		VolumeMounts:    volumeMounts(dbcr),
+		VolumeMounts:    volumeMounts(),
 		Env:             env,
 		EnvFrom:         envFrom(dbcr),
 		Resources:       *conf.Backup.Resources.DeepCopy(),
@@ -145,14 +145,14 @@ func mysqlBackupContainer(conf *config.Config, dbcr *kindav1beta1.Database, inst
 		Name:            "mysql-dump",
 		Image:           conf.Backup.Mysql.Image,
 		ImagePullPolicy: v1.PullAlways,
-		VolumeMounts:    volumeMounts(dbcr),
+		VolumeMounts:    volumeMounts(),
 		Env:             env,
 		EnvFrom:         envFrom(dbcr),
 		Resources:       *conf.Backup.Resources.DeepCopy(),
 	}, nil
 }
 
-func volumeMounts(dbcr *kindav1beta1.Database) []v1.VolumeMount {
+func volumeMounts() []v1.VolumeMount {
 	mounts := []v1.VolumeMount{}
 
 	dbCreds := &v1.VolumeMount{
@@ -268,13 +268,12 @@ func mysqlEnvVars(dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance
 		{
 			Name: "DB_PASSWORD_FILE", Value: "/srv/k8s/db-cred/PASSWORD",
 		},
-		{
-			Name: "GCS_BUCKET", Value: instance.Spec.Backup.Bucket,
-		},
 	}
 
 	if instance.Spec.Backup.Bucket != "" {
 		envList = append(envList, v1.EnvVar{Name: "STORAGE_BUCKET", Value: instance.Spec.Backup.Bucket})
+	} else {
+		return nil, errors.New("backup bucket is not defined")
 	}
 	return envList, nil
 }
@@ -292,12 +291,19 @@ func getBackupHost(dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstanc
 		host = "db-" + dbcr.Name + "-svc" // cloud proxy service name
 		return host, nil
 	case "generic":
-		return instance.Status.Info["DB_CONN"], nil
+		if instance.Spec.Generic.BackupHost != "" {
+			return instance.Spec.Generic.BackupHost, nil
+		}
+		return instance.Spec.Generic.Host, nil
 	default:
 		return host, errors.New("unknown backend type")
 	}
 }
 
+// This function is used to set env variables in the backup pod.
+// Currently it's only possible to set a secret as a source.
+// By default it's supposed to be used by rclone to be able to
+// upload backup to the storage
 func envFrom(dbcr *kindav1beta1.Database) []v1.EnvFromSource {
 	envFrom := []v1.EnvFromSource{}
 	optional := false
