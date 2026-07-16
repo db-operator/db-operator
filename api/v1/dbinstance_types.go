@@ -22,16 +22,39 @@ import (
 // DbInstanceSpec defines the desired state of DbInstance
 type DbInstanceSpec struct {
 	// When not set, db-operator will try to determin the engine itself.
-	// +kubebuilder:validation:Enum=postgres,mysql
+	// +kubebuilder:validation:Enum=postgres;mysql
 	Engine *string `json:"engine,omitempty"`
+	Auth DbInstanceAuth `json:"auth,omitempty"`
 	// +optional
 	NamespaceFilters *[]string `json:"namespaceFilters,omitempty"`
+}
+
+// DbInstanceAuth defines the authentication information for a database instance.
+type DbInstanceAuth struct {
+	Username *ValueSource `json:"username,omitempty"`
+	Password *ValueSource `json:"password,omitempty"`
+}
+
+type ValueSource struct {
+	Value *string `json:"value,omitempty"`
+	ValueFrom *ValueFrom `json:"valueFrom,omitempty"`
+}
+
+type ValueFrom struct {
+	SecretRef *SecretOrCMRef  `json:"secret,omitempty"`
+	ConfigMapRef *SecretOrCMRef `json:"configMap,omitempty"`
+}
+
+type SecretOrCMRef struct {
+	Namespace *string `json:"namespace,omitempty"`
+	Name *string `json:"name,omitempty"`
+	Key *string `json:"key,omitempty"`
 }
 
 // DbInstanceStatus defines the observed state of DbInstance.
 type DbInstanceStatus struct {
 	// Which engine is used as a backend for this instance
-	// +kubebuilder:validation:Enum=postgres,mysql
+	// +kubebuilder:validation:Enum=postgres;mysql
 	Engine *string `json:"engine,omitempty"`
 	// When ready is true, an instance can be used by other controllers
 	Ready *bool `json:"ready,omitempty"`
@@ -52,6 +75,7 @@ type DbInstanceStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:storageversion
 
 // DbInstance is the Schema for the dbinstances API
 type DbInstance struct {

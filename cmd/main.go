@@ -31,8 +31,10 @@ import (
 
 	kindarocksv1alpha1 "github.com/db-operator/db-operator/v2/api/v1alpha1"
 	kindarocksv1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
+	kindarocksv1 "github.com/db-operator/db-operator/v2/api/v1"
 	controllers "github.com/db-operator/db-operator/v2/internal/controller"
 	webhookv1beta1 "github.com/db-operator/db-operator/v2/internal/webhook/v1beta1"
+	webhookv1 "github.com/db-operator/db-operator/v2/internal/webhook/v1"
 	"github.com/db-operator/db-operator/v2/pkg/config"
 	"github.com/db-operator/db-operator/v2/pkg/utils/thirdpartyapi"
 
@@ -148,8 +150,6 @@ func main() {
 
 		if err = (&controllers.DbInstanceReconciler{
 			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("DbInstance"),
-			Scheme:   mgr.GetScheme(),
 			Interval: time.Duration(i),
 			Recorder: mgr.GetEventRecorder("dbinstance-controller"),
 			Conf:     conf,
