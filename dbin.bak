@@ -1,6 +1,5 @@
 /*
  * Copyright 2021 kloeckner.i GmbH
- * Copyright 2026 DB-Operator Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	kindav1 "github.com/db-operator/db-operator/v2/api/v1"
@@ -27,6 +27,7 @@ import (
 	"github.com/db-operator/db-operator/v2/pkg/consts"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -52,9 +53,8 @@ type DbInstanceReconciler struct {
 
 func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
-	log.Info("Reconciling DbInstance")
 	reconcilePeriod := r.Interval * time.Second
-	reconcileRequeue := reconcile.Result{RequeueAfter: reconcilePeriod}
+	reconcileResult := reconcile.Result{RequeueAfter: reconcilePeriod}
 
 	// Fetch the DbInstance custom resource
 	dbin := &kindav1.DbInstance{}
@@ -70,7 +70,7 @@ func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 
-	// First get the credentials
+
 	/*
 * If .spec.engine is not set -> try to detect the engine
 * Try getting the server version as well
@@ -79,70 +79,70 @@ func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	// Determine database engine
 	// Check if dbinstance was changed
 	// Fetch data for checksum and reconcile
-	//instanceData, err := r.fetchInstanceData(ctx, dbin)
-	//if err != nil {
-	//	if k8serrors.IsNotFound(err) {
-	//		log.Error(err, "referenced secret/configmap not found")
-	//		return reconcileRequeue, nil // Wait for resource to be created, or for user to fix spec
-	//	}
-	//	return reconcileRequeue, err
-	//}
+	instanceData, err := r.fetchInstanceData(ctx, dbin)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			log.Error(err, "referenced secret/configmap not found")
+			return reconcileResult, nil // Wait for resource to be created, or for user to fix spec
+		}
+		return reconcileResult, err
+	}
 
-	//// Label referenced resources
-	//if err := r.labelReferencedResources(ctx, dbin, instanceData); err != nil {
-	//	log.Error(err, "failed to label referenced resources")
-	//	return reconcileRequeue, err
-	//}
+	// Label referenced resources
+	if err := r.labelReferencedResources(ctx, dbin, instanceData); err != nil {
+		log.Error(err, "failed to label referenced resources")
+		return reconcileResult, err
+	}
 
-	//// Check if spec or referenced data changed
-	//if commonhelper.IsDBInstanceChanged(ctx, dbin, instanceData) {
-	//	log.Info("spec or referenced data changed")
-	//	dbin.Status.Status = false
-	//}
+	// Check if spec or referenced data changed
+	if commonhelper.IsDBInstanceChanged(ctx, dbin, instanceData) {
+		log.Info("spec or referenced data changed")
+		dbin.Status.Status = false
+	}
 
-	//phase := dbin.Status.Phase
+	phase := dbin.Status.Phase
 
-	//start := time.Now()
-	//defer func() { promDBInstancesPhaseTime.WithLabelValues(phase).Observe(time.Since(start).Seconds()) }()
+	start := time.Now()
+	defer func() { promDBInstancesPhaseTime.WithLabelValues(phase).Observe(time.Since(start).Seconds()) }()
 
-	//promDBInstancesPhase.WithLabelValues(dbin.Name).Set(dbInstancePhaseToFloat64(phase))
-	//if !dbin.Status.Status {
-	//	if err := dbin.ValidateBackend(); err != nil {
-	//		return reconcileRequeue, err
-	//	}
+	promDBInstancesPhase.WithLabelValues(dbin.Name).Set(dbInstancePhaseToFloat64(phase))
+	if !dbin.Status.Status {
+		if err := dbin.ValidateBackend(); err != nil {
+			return reconcileResult, err
+		}
 
-	//	if err := dbin.ValidateEngine(); err != nil {
-	//		return reconcileRequeue, err
-	//	}
+		if err := dbin.ValidateEngine(); err != nil {
+			return reconcileResult, err
+		}
 
-	//	dbin.Status.Checksums = commonhelper.GenerateDBInstanceChecksums(dbin, instanceData)
-	//	dbin.Status.Phase = dbInstancePhaseCreate
-	//	dbin.Status.Info = map[string]string{}
+		dbin.Status.Checksums = commonhelper.GenerateDBInstanceChecksums(dbin, instanceData)
+		dbin.Status.Phase = dbInstancePhaseCreate
+		dbin.Status.Info = map[string]string{}
 
-	//	err = r.create(ctx, dbin, instanceData)
-	//	if err != nil {
-	//		log.Error(err, "instance creation failed")
-	//		return reconcileRequeue, nil // failed but don't requeue the request. retry by changing spec or config
-	//	}
-	//	dbin.Status.Status = true
-	//	dbin.Status.Phase = dbInstancePhaseBroadcast
+		err = r.create(ctx, dbin, instanceData)
+		if err != nil {
+			log.Error(err, "instance creation failed")
+			return reconcileResult, nil // failed but don't requeue the request. retry by changing spec or config
+		}
+		dbin.Status.Status = true
+		dbin.Status.Phase = dbInstancePhaseBroadcast
 
-	//	err = r.broadcast(ctx, dbin)
-	//	if err != nil {
-	//		log.Error(err, "broadcasting failed")
-	//		return reconcileRequeue, err
-	//	}
-	//	dbin.Status.Phase = dbInstancePhaseProxyCreate
+		err = r.broadcast(ctx, dbin)
+		if err != nil {
+			log.Error(err, "broadcasting failed")
+			return reconcileResult, err
+		}
+		dbin.Status.Phase = dbInstancePhaseProxyCreate
 
-	//	err = r.createProxy(ctx, dbin, []metav1.OwnerReference{})
-	//	if err != nil {
-	//		log.Error(err, "proxy creation failed")
-	//		return reconcileRequeue, err
-	//	}
-	//	dbin.Status.Phase = dbInstancePhaseRunning
-	//}
+		err = r.createProxy(ctx, dbin, []metav1.OwnerReference{})
+		if err != nil {
+			log.Error(err, "proxy creation failed")
+			return reconcileResult, err
+		}
+		dbin.Status.Phase = dbInstancePhaseRunning
+	}
 
-	return reconcileRequeue, nil
+	return reconcileResult, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -167,6 +167,101 @@ func (r *DbInstanceReconciler) findDbInstanceForResource(ctx context.Context, ob
 			},
 		}
 	}
+	return nil
+}
+
+func (r *DbInstanceReconciler) fetchInstanceData(ctx context.Context, dbin *kindav1.DbInstance) (commonhelper.DbInstanceData, error) {
+	data := commonhelper.DbInstanceData{}
+
+	// Fetch Admin Secret
+	adminSecret := &corev1.Secret{}
+	err := r.Get(ctx, dbin.Spec.AdminUserSecret.ToKubernetesType(), adminSecret)
+	if err != nil {
+		return data, err
+	}
+	data.AdminSecret = adminSecret
+
+	if backend, _ := dbin.GetBackendType(); backend == "google" {
+		configMap := &corev1.ConfigMap{}
+		err := r.Get(ctx, dbin.Spec.Google.ConfigmapName.ToKubernetesType(), configMap)
+		if err != nil {
+			return data, err
+		}
+		data.ConfigMap = configMap
+
+		if dbin.Spec.Google.ClientSecret.Name != "" {
+			clientSecret := &corev1.Secret{}
+			err := r.Get(ctx, dbin.Spec.Google.ClientSecret.ToKubernetesType(), clientSecret)
+			if err != nil {
+				return data, err
+			}
+			data.ClientSecret = clientSecret
+		}
+	}
+
+	if backend, _ := dbin.GetBackendType(); backend == "generic" {
+		if from := dbin.Spec.Generic.HostFrom; from != nil {
+			obj, err := r.fetchFromRef(ctx, from)
+			if err != nil {
+				return data, err
+			}
+			data.HostFrom = obj
+		}
+		if from := dbin.Spec.Generic.PortFrom; from != nil {
+			obj, err := r.fetchFromRef(ctx, from)
+			if err != nil {
+				return data, err
+			}
+			data.PortFrom = obj
+		}
+		if from := dbin.Spec.Generic.PublicIPFrom; from != nil {
+			obj, err := r.fetchFromRef(ctx, from)
+			if err != nil {
+				return data, err
+			}
+			data.PublicIPFrom = obj
+		}
+	}
+
+	return data, nil
+}
+
+func (r *DbInstanceReconciler) fetchFromRef(ctx context.Context, from *kindav1.FromRef) (client.Object, error) {
+	var obj client.Object
+	switch from.Kind {
+	case "Secret":
+		obj = &corev1.Secret{}
+	case "ConfigMap":
+		obj = &corev1.ConfigMap{}
+	default:
+		return nil, errors.New("invalid kind in fromRef")
+	}
+
+	err := r.Get(ctx, from.ToKubernetesType(), obj)
+	return obj, err
+}
+
+func (r *DbInstanceReconciler) broadcast(ctx context.Context, dbin *kindav1.DbInstance) error {
+	dbList := &kindav1.DatabaseList{}
+	err := r.List(ctx, dbList)
+	if err != nil {
+		return err
+	}
+
+	for _, db := range dbList.Items {
+		if db.Spec.Instance == dbin.Name {
+			annotations := db.GetAnnotations()
+			if _, found := annotations["checksum/spec"]; found {
+				annotations["checksum/spec"] = ""
+				db.SetAnnotations(annotations)
+				err = r.Update(ctx, &db)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+
 	return nil
 }
 

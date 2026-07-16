@@ -31,8 +31,10 @@ import (
 
 	kindarocksv1alpha1 "github.com/db-operator/db-operator/v2/api/v1alpha1"
 	kindarocksv1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
+	kindarocksv1 "github.com/db-operator/db-operator/v2/api/v1"
 	controllers "github.com/db-operator/db-operator/v2/internal/controller"
 	webhookv1beta1 "github.com/db-operator/db-operator/v2/internal/webhook/v1beta1"
+	webhookv1 "github.com/db-operator/db-operator/v2/internal/webhook/v1"
 	"github.com/db-operator/db-operator/v2/pkg/config"
 	"github.com/db-operator/db-operator/v2/pkg/utils/thirdpartyapi"
 
@@ -55,6 +57,7 @@ func init() {
 
 	utilruntime.Must(kindarocksv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(kindarocksv1beta1.AddToScheme(scheme))
+	utilruntime.Must(kindarocksv1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 
 	thirdpartyapi.AppendToScheme(scheme)
@@ -147,8 +150,6 @@ func main() {
 
 		if err = (&controllers.DbInstanceReconciler{
 			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("DbInstance"),
-			Scheme:   mgr.GetScheme(),
 			Interval: time.Duration(i),
 			Recorder: mgr.GetEventRecorder("dbinstance-controller"),
 			Conf:     conf,
@@ -187,6 +188,13 @@ func main() {
 		}
 	}
 
+	// nolint:goconst
+	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+		if err := webhookv1.SetupDbInstanceWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "DbInstance")
+			os.Exit(1)
+		}
+	}
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
