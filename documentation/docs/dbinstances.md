@@ -1,4 +1,4 @@
----
+
 icon: lucide/server
 ---
 # Database Instances
@@ -14,6 +14,7 @@ Here we only talk about the generic instances
 You need to have a **PostgreSQL** or a **MySQL** server running, and it has to be accessible by the operator. You also need a user with sufficient permissions, if it's fine in your environment, I would suggest to use an admin user.
 
 Now let's get started:
+---
 ```yaml
 apiVersion: kinda.rocks/v1beta1
 kind: DbInstance
@@ -40,12 +41,14 @@ spec:
   monitoring:
     enabled: false
 ```
+---
 
 Let's quickly go through the yaml
 
 With `.adminSecretRef` you are pointing the operator to a secret, where the admin credentials are stored.
 They must be stored in a following format
 
+---
 ```yaml
 kind: Secret
 data:
@@ -55,20 +58,24 @@ data:
   user: <base64 encoded admin username>
   password: <base64 encoded admin password>
 ```
+---
 
 With `.engine` you let the operator know, if it should treat a server as a PostgreSQL or a MySQL one. Possible values are `postgres` and `mysql`
 
 Then you need to configure a URL and a port that the operator should try to connect to, there are two options to do that, you can set them directly in the manifest:
 
+---
 ```yaml
 spec:
   generic:
     host: ${HOST}
     port: ${PORT}
 ```
+---
 
 Or you can read them from a `ConfigMap` or a `Secret`:
 
+---
 ```yaml
 spec:
   generic
@@ -83,6 +90,7 @@ spec:
       name: cloudnative-pg-config
       namespace: databases
 ```
+---
 
 ## Automatic Reconciliation on Resource Changes
 
@@ -100,13 +108,15 @@ To use the `.extraGrants` feature of `Databases`, you need to enabled it on the 
 
 To use the `.extraPrivileges` feature of `DbUsers`, you also need to enabled the privileges on the instance level. Extra privileges is a list of roles that can be granteed to `DbUsers`. For example:
 
+---
 ```yaml
 spec:
   generic:
-    allowedPriveleges:
+    allowedPrivileges:
       - readOnlyAdmin
       - rds-iam
 ```
+---
 
 Then you will be able to assigned these roles to DbUsers. The roles are not managed by the operator, they must be already on a server when a user is created.
 
@@ -118,29 +128,35 @@ The **RW** URL will be available anyway, but how to set a **RO** one.
 
 Without the instance vars you could just create a template with a hardcoded string in it:
 
+---
 ```yaml
 templates:
   - name: PG_READONLYHOST
     secret: false
     template: "my-read-only-postgres-url.test"
 ```
+---
 
 Or you can use the instance variables.
 
+---
 ```yaml
 kind: DbInstance
 spec:
   instanceVars:
     PG_READONLYHOST: my-read-only-postgres-url.test
 ```
+---
 
 And then later use it in a template like that:
+---
 ```yaml
 templates:
   - name: PG_READONLYHOST
     secret: false
     template: '{{ .instanceVar "PG_READONLYHOST" }}'
 ```
+---
 
 If a value of a variable is changed on the instance, it will be also synced for each Database and User.
 
@@ -155,6 +171,7 @@ To use ssl connection, set `sslConnection.enabled` to `true` in `DbInstance` spe
 * postgres: disable
 * mysql: disabled
 
+---
 ```YAML
 apiVersion: kinda.rocks/v1beta1
 kind: DbInstance
@@ -166,12 +183,14 @@ spec:
     skip-verify: false
 ...
 ```
+---
 
 #### Always SSL (skip verification)
 
 * postgres: require
 * mysql: required
 
+---
 ```YAML
 apiVersion: kinda.rocks/v1beta1
 kind: DbInstance
@@ -183,12 +202,14 @@ spec:
     skip-verify: true
 ...
 ```
+---
 
 #### Always SSL (verify that the certificate presented by the server was signed by a trusted CA)
 
 * postgres: verify-ca
 * mysql: verify_ca
 
+---
 ```YAML
 apiVersion: kinda.rocks/v1beta1
 kind: DbInstance
@@ -200,3 +221,4 @@ spec:
     skip-verify: false
 ...
 ```
+---
