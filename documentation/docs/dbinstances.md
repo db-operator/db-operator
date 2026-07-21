@@ -15,6 +15,7 @@ You need to have a **PostgreSQL** or a **MySQL** server running, and it has to b
 
 Now let's get started:
 ---
+---
 ```yaml
 apiVersion: kinda.rocks/v1beta1
 kind: DbInstance
@@ -42,7 +43,6 @@ spec:
     enabled: false
 ```
 ---
-
 Let's quickly go through the yaml
 
 With `.adminSecretRef` you are pointing the operator to a secret, where the admin credentials are stored.
@@ -59,7 +59,6 @@ data:
   password: <base64 encoded admin password>
 ```
 ---
-
 With `.engine` you let the operator know, if it should treat a server as a PostgreSQL or a MySQL one. Possible values are `postgres` and `mysql`
 
 Then you need to configure a URL and a port that the operator should try to connect to, there are two options to do that, you can set them directly in the manifest:
@@ -72,7 +71,6 @@ spec:
     port: ${PORT}
 ```
 ---
-
 Or you can read them from a `ConfigMap` or a `Secret`:
 
 ---
@@ -91,7 +89,6 @@ spec:
       namespace: databases
 ```
 ---
-
 ## Automatic Reconciliation on Resource Changes
 
 The `DbInstance` controller automatically reconciles when referenced `Secrets` or `ConfigMaps` change. The controller adds the label `kinda.rocks/dbinstance-name: <dbinstance-name>` to all Secrets or ConfigMaps that are referenced by a particular `DbInstance`.
@@ -117,7 +114,6 @@ spec:
       - rds-iam
 ```
 ---
-
 Then you will be able to assigned these roles to DbUsers. The roles are not managed by the operator, they must be already on a server when a user is created.
 
 ### Instance Vars
@@ -136,7 +132,6 @@ templates:
     template: "my-read-only-postgres-url.test"
 ```
 ---
-
 Or you can use the instance variables.
 
 ---
@@ -147,8 +142,8 @@ spec:
     PG_READONLYHOST: my-read-only-postgres-url.test
 ```
 ---
-
 And then later use it in a template like that:
+---
 ---
 ```yaml
 templates:
@@ -157,7 +152,6 @@ templates:
     template: '{{ .instanceVar "PG_READONLYHOST" }}'
 ```
 ---
-
 If a value of a variable is changed on the instance, it will be also synced for each Database and User.
 
 ### UsingSSLconnection
@@ -184,7 +178,6 @@ spec:
 ...
 ```
 ---
-
 #### Always SSL (skip verification)
 
 * postgres: require
@@ -203,7 +196,6 @@ spec:
 ...
 ```
 ---
-
 #### Always SSL (verify that the certificate presented by the server was signed by a trusted CA)
 
 * postgres: verify-ca
