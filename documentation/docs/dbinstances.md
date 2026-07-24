@@ -103,7 +103,7 @@ To use the `.extraPrivileges` feature of `DbUsers`, you also need to enabled the
 ```yaml
 spec:
   generic:
-    allowedPriveleges:
+    allowedPrivileges:
       - readOnlyAdmin
       - rds-iam
 ```
