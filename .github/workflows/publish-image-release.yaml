@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: docker/setup-qemu-action@v4
       - uses: go-task/setup-task@v2
-      - run: task conatiner:set-image-metadata
+      - run: task container:set-image-metadata
       - name: Set the operator version from the tag
         run: |-
           echo OPERATOR_VERSION=${{ github.event.release.tag_name }} >> "$GITHUB_ENV"

@@ -12,7 +12,7 @@ vars:
   KUSTOMIZE_VERSION: v5.8.1
 
 includes:
-  shared: 
+  shared:
     taskfile: ./shared.yaml
     internal: true
     flatten: true
@@ -100,4 +100,3 @@ tasks:
           TARGET: "{{.KUSTOMIZE}}"
           PACKAGE: sigs.k8s.io/kustomize/kustomize/v5
           VERSION: "{{.KUSTOMIZE_VERSION}}"
-

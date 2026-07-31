@@ -14,7 +14,7 @@ vars:
   KUSTOMIZE_VERSION: v5.8.1
 
 includes:
-  shared: 
+  shared:
     taskfile: ./shared.yaml
     internal: true
     flatten: true
@@ -45,7 +45,7 @@ tasks:
             exit 1
           fi
           printf '%s\n' "$v" | sed -E 's/^v?[0-9]+\.([0-9]+).*/1.\1/'
-    cmds: 
+    cmds:
       - go test -tags tests -run "TestKubernetes" ./... -v -cover
 
   setup-envtest:
@@ -61,7 +61,7 @@ tasks:
           echo "Error: Failed to set up envtest binaries for version {{.ENVTEST_K8S_VERSION}}."; \
           exit 1; \
          }
-  
+
   cleanup-envtest:
     desc: Remove the envtest binaries.
     silent: true

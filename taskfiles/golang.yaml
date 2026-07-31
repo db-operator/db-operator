@@ -11,13 +11,13 @@ vars:
   GOLANGCI_LINT_VERSION: v2.12.2
 
 includes:
-  shared: 
+  shared:
     taskfile: ./shared.yaml
     internal: true
     flatten: true
 
 tasks:
-  desired-go-version:
+  desired-version:
     desc: Print the go version from the Containerfile
     cmds:
       - grep -o -P '(?<=golang:).*(?=-alpine)' Containerfile
