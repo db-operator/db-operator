@@ -24,7 +24,7 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: Check Code Style
-        run: task lint
+        run: task golang:lint
 
   unit-test:
     runs-on: ubuntu-latest
@@ -37,7 +37,7 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: Run the unit tests
-        run: task unit-test
+        run: task test:unit
 
   kubernetes-tests:
     runs-on: ubuntu-latest
@@ -57,7 +57,7 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: Run the kubernetes integration tests
-        run: task kubernetes-test
+        run: task test:kubernetes
 
   mysql-test:
     runs-on: ubuntu-latest
@@ -89,7 +89,7 @@ jobs:
         with:
           helmfile-auto-init: true
           helmfile-args: sync --wait
-      - run: task mysql-test
+      - run: task test:mysql
 
   postgres-test:
     runs-on: ubuntu-latest
@@ -124,4 +124,4 @@ jobs:
         with:
           helmfile-auto-init: true
           helmfile-args: sync --wait
-      - run: task postgres-test
+      - run: task test:postgres

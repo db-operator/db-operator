@@ -21,7 +21,7 @@ jobs:
       - uses: go-task/setup-task@v2
       - name: Check code generation
         run: |-
-          task manifest && task generate
+          task kubebuilder:manifest && task kubebuilder:generate
           if [[ -n $(git status --porcelain) ]]; then
             echo "Please update generated code using 'task manifest and task generate' and push the changes"
             exit 1
