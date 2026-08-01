@@ -17,27 +17,23 @@
 package config
 
 import (
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestUnitLoadConfigFailCases(t *testing.T) {
-	os.Setenv("CONFIG_PATH", "./test/config_NotFound.yaml")
-	conf, err := LoadConfig()
+	conf, err := LoadConfig("./test/config_NotFound.yaml")
 	assert.Error(t, err)
 	assert.Nil(t, conf)
 
-	os.Setenv("CONFIG_PATH", "./test/config_Invalid.yaml")
-	conf, err = LoadConfig()
+	conf, err = LoadConfig("./test/config_Invalid.yaml")
 	assert.Error(t, err)
 	assert.Nil(t, conf)
 }
 
 func TestUnitBackupResourceConfig(t *testing.T) {
-	os.Setenv("CONFIG_PATH", "./test/config_backup.yaml")
-	conf, err := LoadConfig()
+	conf, err := LoadConfig("./test/config_backup.yaml")
 	assert.NoError(t, err)
 	t.Log(conf)
 	assert.Equal(t, conf.Backup.Resources.Requests.Cpu().String(), "50m")

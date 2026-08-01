@@ -90,7 +90,7 @@ var (
 func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	phase := dbPhaseReconcile
 	log := log.FromContext(ctx)
-	reconcilePeriod := r.Interval * time.Second
+	reconcilePeriod := r.Interval
 	reconcileResult := reconcile.Result{RequeueAfter: reconcilePeriod}
 
 	// Fetch the Database custom resource

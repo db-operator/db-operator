@@ -18,7 +18,6 @@ package backup
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
@@ -39,8 +38,7 @@ func TestUnitBackupCronGeneric(t *testing.T) {
 	dbcr.Spec.Instance = "staging"
 	dbcr.Spec.Backup.Cron = "* * * * *"
 
-	os.Setenv("CONFIG_PATH", "./test/backup_config.yaml")
-	conf, _ := config.LoadConfig()
+	conf, _ := config.LoadConfig("./test/backup_config.yaml")
 
 	instance.Spec.Engine = "postgres"
 	funcCronObject, err := BackupCronJobManifest(conf, dbcr, instance)
@@ -75,8 +73,7 @@ func TestUnitBackupCronGenericEnvFrom(t *testing.T) {
 	dbcr.Spec.Instance = "staging"
 	dbcr.Spec.Backup.Cron = "* * * * *"
 	dbcr.Spec.Backup.EnvFromSecret = "test-creds"
-	os.Setenv("CONFIG_PATH", "./test/backup_config.yaml")
-	conf, _ := config.LoadConfig()
+	conf, _ := config.LoadConfig("./test/backup_config.yaml")
 
 	instance.Spec.Engine = "postgres"
 	funcCronObject, err := BackupCronJobManifest(conf, dbcr, instance)
@@ -111,8 +108,7 @@ func TestUnitBackupCronGenericBucket(t *testing.T) {
 	instance.Spec.Backup.Bucket = "test-bucket"
 	dbcr.Spec.Instance = "staging"
 	dbcr.Spec.Backup.Cron = "* * * * *"
-	os.Setenv("CONFIG_PATH", "./test/backup_config.yaml")
-	conf, _ := config.LoadConfig()
+	conf, _ := config.LoadConfig("./test/backup_config.yaml")
 
 	instance.Spec.Engine = "postgres"
 	funcCronObject, err := BackupCronJobManifest(conf, dbcr, instance)

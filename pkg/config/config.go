@@ -19,7 +19,6 @@ package config
 import (
 	"os"
 
-	"github.com/db-operator/db-operator/v2/pkg/utils/kci"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/yaml"
 )
@@ -81,8 +80,7 @@ type monitoringConfig struct {
 }
 
 // LoadConfig reads config file for db-operator from defined path and parse
-func LoadConfig() (*Config, error) {
-	path := kci.StringNotEmpty(os.Getenv("CONFIG_PATH"), "/srv/config/config.yaml")
+func LoadConfig(path string) (*Config, error) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return nil, err
 	}

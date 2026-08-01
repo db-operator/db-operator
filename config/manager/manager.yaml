@@ -82,59 +82,58 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       containers:
-      - command:
-          - db-operator
-        args:
-          - --health-probe-bind-address=:8081
-        image: localhost/controller:latest
-        imagePullPolicy: Never
-        name: manager
-        ports: []
-        securityContext:
-          readOnlyRootFilesystem: true
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-            - "ALL"
-        livenessProbe:
-          httpGet:
-            path: /healthz
-            port: 8081
-          initialDelaySeconds: 15
-          periodSeconds: 20
-        readinessProbe:
-          httpGet:
-            path: /readyz
-            port: 8081
-          initialDelaySeconds: 5
-          periodSeconds: 10
-        # TODO(user): Configure the resources accordingly based on the project requirements.
-        # More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
-        resources:
-          limits:
-            cpu: 500m
-            memory: 128Mi
-          requests:
-            cpu: 10m
-            memory: 64Mi
-        volumeMounts:
-          - mountPath: /run/config/
-            name: config-volume
-            readOnly: true
-        env:
-          - name: OPERATOR_NAME
-            value: "db-operator"
-          - name: WATCH_NAMESPACE
-            value: ""
-          - name: RECONCILE_INTERVAL
-            value: "30"
-          - name: POD_NAME
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.name
-          - name: CONFIG_PATH
-            value: "/run/config/config.yaml"
+        - command:
+            - db-operator
+            - controller
+          args:
+            - --health-probe-bind-address=:8081
+          image: localhost/controller:latest
+          imagePullPolicy: Never
+          name: manager
+          ports: []
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - "ALL"
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          # TODO(user): Configure the resources accordingly based on the project requirements.
+          # More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+          resources:
+            limits:
+              cpu: 500m
+              memory: 128Mi
+            requests:
+              cpu: 10m
+              memory: 64Mi
+          volumeMounts:
+            - mountPath: /run/config/
+              name: config-volume
+              readOnly: true
+          env:
+            - name: DBO_WATCH_NAMESPACES
+              value: ""
+            - name: DBO_RECONCILE_INTERVAL
+              value: "30s"
+            - name: DBO_CONFIG
+              value: "/run/config/config.yaml"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
       volumes:
         - name: config-volume
           configMap:
