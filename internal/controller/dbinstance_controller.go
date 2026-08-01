@@ -72,7 +72,7 @@ type DbInstanceReconciler struct {
 
 func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
-	reconcilePeriod := r.Interval * time.Second
+	reconcilePeriod := r.Interval
 	reconcileResult := reconcile.Result{RequeueAfter: reconcilePeriod}
 
 	// Fetch the DbInstance custom resource

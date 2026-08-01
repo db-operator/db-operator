@@ -6,6 +6,7 @@ go 1.26.5
 
 require (
 	github.com/GoogleCloudPlatform/cloudsql-proxy v1.38.1
+	github.com/alecthomas/kong v1.16.0
 	github.com/db-operator/can-haz-password v0.1.1
 	github.com/go-logr/logr v1.4.4
 	github.com/go-sql-driver/mysql v1.10.0
@@ -17,6 +18,7 @@ require (
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.93.0
 	github.com/prometheus/client_golang v1.24.1
 	github.com/stretchr/testify v1.11.1
+	go.uber.org/zap v1.28.0
 	golang.org/x/exp v0.0.0-20260727155853-b88d891fe743
 	golang.org/x/oauth2 v0.36.0
 	google.golang.org/api v0.290.0
@@ -83,7 +85,6 @@ require (
 	go.opentelemetry.io/otel/metric v1.44.0 // indirect
 	go.opentelemetry.io/otel/trace v1.44.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	go.uber.org/zap v1.28.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/crypto v0.54.0 // indirect

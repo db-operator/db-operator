@@ -60,7 +60,7 @@ type DbUserReconciler struct {
 // Reconcile a DbUser object
 func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
-	reconcilePeriod := r.Interval * time.Second
+	reconcilePeriod := r.Interval
 	reconcileResult := reconcile.Result{RequeueAfter: reconcilePeriod}
 
 	dbusercr := &kindav1beta1.DbUser{}
