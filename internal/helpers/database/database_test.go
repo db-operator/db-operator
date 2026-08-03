@@ -40,7 +40,7 @@ var (
 
 func TestUnitDeterminPostgresType(t *testing.T) {
 	instance := testutils.NewPostgresTestDbInstanceCr()
-	postgresDbCr := testutils.NewPostgresTestDbCr(instance)
+	postgresDbCr := testutils.NewPostgresTestDbCr()
 	db, _, _ := dbhelper.FetchDatabaseData(ctx, postgresDbCr, testDbcred, &instance)
 	_, ok := db.(database.Postgres)
 	assert.Equal(t, ok, true, "expected true")
@@ -68,8 +68,7 @@ func TestUnitDeterminMysqlType(t *testing.T) {
 }
 
 func TestUnitParsePostgresSecretData(t *testing.T) {
-	instance := testutils.NewPostgresTestDbInstanceCr()
-	postgresDbCr := testutils.NewPostgresTestDbCr(instance)
+	postgresDbCr := testutils.NewPostgresTestDbCr()
 
 	invalidData := make(map[string][]byte)
 	invalidData["DB"] = []byte("testdb")
@@ -110,37 +109,9 @@ func TestUnitParseMysqlSecretData(t *testing.T) {
 	assert.Equal(t, string(validData["PASSWORD"]), cred.Password, "expect same values")
 }
 
-func TestUnitMonitoringNotEnabled(t *testing.T) {
-	instance := testutils.NewPostgresTestDbInstanceCr()
-	instance.Spec.Monitoring.Enabled = false
-	postgresDbCr := testutils.NewPostgresTestDbCr(instance)
-	db, _, _ := dbhelper.FetchDatabaseData(ctx, postgresDbCr, testDbcred, &instance)
-	postgresInterface, _ := db.(database.Postgres)
-
-	found := false
-	for _, ext := range postgresInterface.Extensions {
-		if ext == "pg_stat_statements" {
-			found = true
-			break
-		}
-	}
-	assert.Equal(t, found, false, "expected pg_stat_statement is not included in extension list")
-}
-
-func TestUnitMonitoringEnabled(t *testing.T) {
-	instance := testutils.NewPostgresTestDbInstanceCr()
-	instance.Spec.Monitoring.Enabled = true
-	postgresDbCr := testutils.NewPostgresTestDbCr(instance)
-
-	db, _, _ := dbhelper.FetchDatabaseData(ctx, postgresDbCr, testDbcred, &instance)
-	postgresInterface, _ := db.(database.Postgres)
-
-	assert.Equal(t, postgresInterface.Monitoring, true, "expected monitoring is true in postgres interface")
-}
-
 func TestUnitPsqlTemplatedSecretGeneratationWithProxy(t *testing.T) {
 	instance := testutils.NewPostgresTestDbInstanceCr()
-	postgresDbCr := testutils.NewPostgresTestDbCr(instance)
+	postgresDbCr := testutils.NewPostgresTestDbCr()
 	postgresDbCr.Status.ProxyStatus.Status = true
 	postgresDbCr.Spec.SecretsTemplates = map[string]string{
 		"PROXIED_HOST": "{{ .DatabaseHost }}",
@@ -172,7 +143,7 @@ func TestUnitPsqlTemplatedSecretGeneratationWithProxy(t *testing.T) {
 
 func TestUnitPsqlCustomSecretGeneratation(t *testing.T) {
 	instance := testutils.NewPostgresTestDbInstanceCr()
-	postgresDbCr := testutils.NewPostgresTestDbCr(instance)
+	postgresDbCr := testutils.NewPostgresTestDbCr()
 
 	prefix := "custom->"
 	postfix := "<-for_storing_data_you_know"
@@ -182,8 +153,8 @@ func TestUnitPsqlCustomSecretGeneratation(t *testing.T) {
 	}
 
 	c := templates.SecretsTemplatesFields{
-		DatabaseHost: "postgres",
-		DatabasePort: 5432,
+		DatabaseHost: instance.Status.MainEndpoint.Host,
+		DatabasePort: int32(instance.Status.MainEndpoint.Port),
 		UserName:     testDbcred.Username,
 		Password:     testDbcred.Password,
 		DatabaseName: testDbcred.Name,
@@ -205,7 +176,7 @@ func TestUnitPsqlCustomSecretGeneratation(t *testing.T) {
 
 func TestUnitWrongTemplatedSecretGeneratation(t *testing.T) {
 	instance := testutils.NewPostgresTestDbInstanceCr()
-	postgresDbCr := testutils.NewPostgresTestDbCr(instance)
+	postgresDbCr := testutils.NewPostgresTestDbCr()
 
 	postgresDbCr.Spec.SecretsTemplates = map[string]string{
 		"TMPL": "{{ .Protocol }}://{{ .User }}:{{ .Password }}@{{ .DatabaseHost }}:{{ .DatabasePort }}/{{ .DatabaseName }}",
@@ -220,7 +191,7 @@ func TestUnitWrongTemplatedSecretGeneratation(t *testing.T) {
 
 func TestUnitBlockedTempatedKeysGeneratation(t *testing.T) {
 	instance := testutils.NewPostgresTestDbInstanceCr()
-	postgresDbCr := testutils.NewPostgresTestDbCr(instance)
+	postgresDbCr := testutils.NewPostgresTestDbCr()
 
 	postgresDbCr.Spec.SecretsTemplates = map[string]string{}
 	untemplatedFields := []string{templates.FieldMysqlDB, templates.FieldMysqlPassword, templates.FieldMysqlUser, templates.FieldPostgresDB, templates.FieldPostgresUser, templates.FieldPostgressPassword}
@@ -248,7 +219,7 @@ func TestUnitBlockedTempatedKeysGeneratation(t *testing.T) {
 
 func TestUnitObsoleteFieldsRemoving(t *testing.T) {
 	instance := testutils.NewPostgresTestDbInstanceCr()
-	postgresDbCr := testutils.NewPostgresTestDbCr(instance)
+	postgresDbCr := testutils.NewPostgresTestDbCr()
 
 	postgresDbCr.Spec.SecretsTemplates = map[string]string{}
 	postgresDbCr.Spec.SecretsTemplates["TMPL"] = "DUMMY"
@@ -280,31 +251,31 @@ func TestUnitObsoleteFieldsRemoving(t *testing.T) {
 
 func TestUnitGetGenericSSLModePostgres(t *testing.T) {
 	instance := testutils.NewPostgresTestDbInstanceCr()
-	posgresDbCR := testutils.NewPostgresTestDbCr(instance)
-	instance.Spec.SSLConnection.Enabled = false
-	instance.Spec.SSLConnection.SkipVerify = false
+	posgresDbCR := testutils.NewPostgresTestDbCr()
+	instance.Status.MainEndpoint.SSLConnection.Enabled = false
+	instance.Status.MainEndpoint.SSLConnection.SkipVerify = false
 	mode, err := dbhelper.GetGenericSSLMode(posgresDbCR, &instance)
 	if err != nil {
 		t.Error(err)
 	}
 	assert.Equal(t, consts.SSL_DISABLED, mode)
 
-	instance.Spec.SSLConnection.SkipVerify = true
+	instance.Status.MainEndpoint.SSLConnection.SkipVerify = true
 	mode, err = dbhelper.GetGenericSSLMode(posgresDbCR, &instance)
 	if err != nil {
 		t.Error(err)
 	}
 	assert.Equal(t, consts.SSL_DISABLED, mode)
 
-	instance.Spec.SSLConnection.Enabled = true
-	instance.Spec.SSLConnection.SkipVerify = true
+	instance.Status.MainEndpoint.SSLConnection.Enabled = true
+	instance.Status.MainEndpoint.SSLConnection.SkipVerify = true
 	mode, err = dbhelper.GetGenericSSLMode(posgresDbCR, &instance)
 	if err != nil {
 		t.Error(err)
 	}
 	assert.Equal(t, consts.SSL_REQUIRED, mode)
 
-	instance.Spec.SSLConnection.SkipVerify = false
+	instance.Status.MainEndpoint.SSLConnection.SkipVerify = false
 	mode, err = dbhelper.GetGenericSSLMode(posgresDbCR, &instance)
 	if err != nil {
 		t.Error(err)
@@ -316,30 +287,30 @@ func TestUnitGetGenericSSLModeMysql(t *testing.T) {
 	mysqlDbCR := testutils.NewMysqlTestDbCr()
 	instance := testutils.NewMysqlTestDbInstanceCr()
 
-	instance.Spec.SSLConnection.Enabled = false
-	instance.Spec.SSLConnection.SkipVerify = false
+	instance.Status.MainEndpoint.SSLConnection.Enabled = false
+	instance.Status.MainEndpoint.SSLConnection.SkipVerify = false
 	mode, err := dbhelper.GetGenericSSLMode(mysqlDbCR, &instance)
 	if err != nil {
 		t.Error(err)
 	}
 	assert.Equal(t, consts.SSL_DISABLED, mode)
 
-	instance.Spec.SSLConnection.SkipVerify = true
+	instance.Status.MainEndpoint.SSLConnection.SkipVerify = true
 	mode, err = dbhelper.GetGenericSSLMode(mysqlDbCR, &instance)
 	if err != nil {
 		t.Error(err)
 	}
 	assert.Equal(t, consts.SSL_DISABLED, mode)
 
-	instance.Spec.SSLConnection.Enabled = true
-	instance.Spec.SSLConnection.SkipVerify = true
+	instance.Status.MainEndpoint.SSLConnection.Enabled = true
+	instance.Status.MainEndpoint.SSLConnection.SkipVerify = true
 	mode, err = dbhelper.GetGenericSSLMode(mysqlDbCR, &instance)
 	if err != nil {
 		t.Error(err)
 	}
 	assert.Equal(t, consts.SSL_REQUIRED, mode)
 
-	instance.Spec.SSLConnection.SkipVerify = false
+	instance.Status.MainEndpoint.SSLConnection.SkipVerify = false
 	mode, err = dbhelper.GetGenericSSLMode(mysqlDbCR, &instance)
 	if err != nil {
 		t.Error(err)
@@ -349,32 +320,32 @@ func TestUnitGetGenericSSLModeMysql(t *testing.T) {
 
 func TestUnitGetSSLModePostgres(t *testing.T) {
 	instance := testutils.NewPostgresTestDbInstanceCr()
-	posgresDbCR := testutils.NewPostgresTestDbCr(instance)
+	posgresDbCR := testutils.NewPostgresTestDbCr()
 
-	instance.Spec.SSLConnection.Enabled = false
-	instance.Spec.SSLConnection.SkipVerify = false
+	instance.Status.MainEndpoint.SSLConnection.Enabled = false
+	instance.Status.MainEndpoint.SSLConnection.SkipVerify = false
 	mode, err := dbhelper.GetSSLMode(posgresDbCR, &instance)
 	if err != nil {
 		t.Error(err)
 	}
 	assert.Equal(t, "disable", mode)
 
-	instance.Spec.SSLConnection.SkipVerify = true
+	instance.Status.MainEndpoint.SSLConnection.SkipVerify = true
 	mode, err = dbhelper.GetSSLMode(posgresDbCR, &instance)
 	if err != nil {
 		t.Error(err)
 	}
 	assert.Equal(t, "disable", mode)
 
-	instance.Spec.SSLConnection.Enabled = true
-	instance.Spec.SSLConnection.SkipVerify = true
+	instance.Status.MainEndpoint.SSLConnection.Enabled = true
+	instance.Status.MainEndpoint.SSLConnection.SkipVerify = true
 	mode, err = dbhelper.GetSSLMode(posgresDbCR, &instance)
 	if err != nil {
 		t.Error(err)
 	}
 	assert.Equal(t, "require", mode)
 
-	instance.Spec.SSLConnection.SkipVerify = false
+	instance.Status.MainEndpoint.SSLConnection.SkipVerify = false
 	mode, err = dbhelper.GetSSLMode(posgresDbCR, &instance)
 	if err != nil {
 		t.Error(err)
@@ -386,30 +357,30 @@ func TestUnitGetSSLModeMysql(t *testing.T) {
 	mysqlDbCR := testutils.NewMysqlTestDbCr()
 	instance := testutils.NewMysqlTestDbInstanceCr()
 
-	instance.Spec.SSLConnection.Enabled = false
-	instance.Spec.SSLConnection.SkipVerify = false
+	instance.Status.MainEndpoint.SSLConnection.Enabled = false
+	instance.Status.MainEndpoint.SSLConnection.SkipVerify = false
 	mode, err := dbhelper.GetSSLMode(mysqlDbCR, &instance)
 	if err != nil {
 		t.Error(err)
 	}
 	assert.Equal(t, "disabled", mode)
 
-	instance.Spec.SSLConnection.SkipVerify = true
+	instance.Status.MainEndpoint.SSLConnection.SkipVerify = true
 	mode, err = dbhelper.GetSSLMode(mysqlDbCR, &instance)
 	if err != nil {
 		t.Error(err)
 	}
 	assert.Equal(t, "disabled", mode)
 
-	instance.Spec.SSLConnection.Enabled = true
-	instance.Spec.SSLConnection.SkipVerify = true
+	instance.Status.MainEndpoint.SSLConnection.Enabled = true
+	instance.Status.MainEndpoint.SSLConnection.SkipVerify = true
 	mode, err = dbhelper.GetSSLMode(mysqlDbCR, &instance)
 	if err != nil {
 		t.Error(err)
 	}
 	assert.Equal(t, "required", mode)
 
-	instance.Spec.SSLConnection.SkipVerify = false
+	instance.Status.MainEndpoint.SSLConnection.SkipVerify = false
 	mode, err = dbhelper.GetSSLMode(mysqlDbCR, &instance)
 	if err != nil {
 		t.Error(err)

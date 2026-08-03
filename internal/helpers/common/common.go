@@ -23,12 +23,14 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	kindav1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
 	"github.com/db-operator/db-operator/v2/pkg/consts"
 	"github.com/db-operator/db-operator/v2/pkg/utils/kci"
 	crdv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var OperatorVersion string
@@ -148,6 +150,8 @@ func getObjectDataChecksum(obj client.Object) string {
 }
 
 func EnsureLabel(ctx context.Context, c client.Client, obj client.Object, key string, value string) error {
+	log := log.FromContext(ctx)
+	log.Info("Ensuring label on a resource", "kind", obj.GetObjectKind().GroupVersionKind().Kind, "name", obj.GetName(), "namespace", obj.GetNamespace())
 	labels := obj.GetLabels()
 	if labels == nil {
 		labels = make(map[string]string)
@@ -159,6 +163,21 @@ func EnsureLabel(ctx context.Context, c client.Client, obj client.Object, key st
 	}
 
 	labels[key] = value
+	obj.SetLabels(labels)
+	return c.Update(ctx, obj)
+}
+
+func EnsureLabelRemoved(ctx context.Context, c client.Client, obj client.Object, key string, value string) error {
+	if err := c.Get(ctx, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, obj); err != nil {
+		return err
+	}
+	labels := obj.GetLabels()
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+
+	delete(labels, key)
+
 	obj.SetLabels(labels)
 	return c.Update(ctx, obj)
 }
