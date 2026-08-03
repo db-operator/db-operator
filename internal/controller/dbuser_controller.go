@@ -20,10 +20,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"strconv"
 	"time"
 
+	kindav1 "github.com/db-operator/db-operator/v2/api/v1"
 	kindav1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
 	commonhelper "github.com/db-operator/db-operator/v2/internal/helpers/common"
 	dbhelper "github.com/db-operator/db-operator/v2/internal/helpers/database"
@@ -156,17 +156,18 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	if !dbusercr.Status.Status {
-		instance := &kindav1beta1.DbInstance{}
+		instance := &kindav1.DbInstance{}
 		if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
 			return r.manageError(ctx, dbusercr, err, false)
 		}
 		// Check if chosen ExtraPrivileges are allowed on the instance
-		for _, priv := range dbusercr.Spec.ExtraPrivileges {
-			if !slices.Contains(instance.Spec.AllowedPrivileges, priv) {
-				err := fmt.Errorf("role %s is not allowed on the instance %s", priv, instance.Name)
-				return r.manageError(ctx, dbusercr, err, false)
-			}
-		}
+		// TODO: Remove this logic
+		//for _, priv := range dbusercr.Spec.ExtraPrivileges {
+		//	if !slices.Contains(instance.Spec.AllowedPrivileges, priv) {
+		//		err := fmt.Errorf("role %s is not allowed on the instance %s", priv, instance.Name)
+		//		return r.manageError(ctx, dbusercr, err, false)
+		//	}
+		//}
 		db, dbuser, err := dbhelper.FetchDatabaseData(ctx, dbcr, creds, instance)
 		if err != nil {
 			// failed to determine database type
@@ -447,7 +448,7 @@ func (r *DbUserReconciler) handleTemplatedCredentials(ctx context.Context, dbcr 
 	}
 
 	// We don't need dbuser here, because if it's not nil, templates will be built for the dbuser, not the database
-	instance := &kindav1beta1.DbInstance{}
+	instance := &kindav1.DbInstance{}
 	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
 		return err
 	}

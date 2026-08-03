@@ -17,6 +17,563 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
+    - description: Which engine is used as a backend for this instance
+      jsonPath: .status.engine
+      name: Engine
+      type: string
+    - description: Which version of the engine is used as a backend for this instance
+      jsonPath: .status.version
+      name: Version
+      type: string
+    - description: How many databases on this instance are managed by the operator
+      jsonPath: .status.serverStatus.managedDatabasesCount
+      name: Managed Databases Count
+      type: string
+    - description: Which version of the db-operator is used to manage this instance
+      jsonPath: .status.operatorVersion
+      name: Operator Version
+      type: string
+    - description: "\t// When ready, an instance can be used by other controllers"
+      jsonPath: .status.ready
+      name: Ready
+      type: string
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: DbInstance is the Schema for the dbinstances API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: spec defines the desired state of DbInstance
+            properties:
+              auth:
+                description: How the operator should authenticate to the database
+                  instance.
+                properties:
+                  password:
+                    description: ValueSource is a helper struct to let users either
+                      provide a value directly or fetch a value from Secret/ConfigMap.
+                    properties:
+                      value:
+                        type: string
+                      valueFrom:
+                        description: ValueFrom is a helper struct to let users fetch
+                          data from Secret/ConfigMap.
+                        properties:
+                          configMap:
+                            description: SecretOrCMRef is a helper struct to let users
+                              fetch a value from Secret/ConfigMap.
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              namespace:
+                                type: string
+                            type: object
+                          secret:
+                            description: SecretOrCMRef is a helper struct to let users
+                              fetch a value from Secret/ConfigMap.
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              namespace:
+                                type: string
+                            type: object
+                        type: object
+                    type: object
+                  username:
+                    description: ValueSource is a helper struct to let users either
+                      provide a value directly or fetch a value from Secret/ConfigMap.
+                    properties:
+                      value:
+                        type: string
+                      valueFrom:
+                        description: ValueFrom is a helper struct to let users fetch
+                          data from Secret/ConfigMap.
+                        properties:
+                          configMap:
+                            description: SecretOrCMRef is a helper struct to let users
+                              fetch a value from Secret/ConfigMap.
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              namespace:
+                                type: string
+                            type: object
+                          secret:
+                            description: SecretOrCMRef is a helper struct to let users
+                              fetch a value from Secret/ConfigMap.
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              namespace:
+                                type: string
+                            type: object
+                        type: object
+                    type: object
+                type: object
+              backupRules:
+                description: |-
+                  If set, the operator will create backup jobs for database that are deployed to the namespaces
+                  that will match the namespace regex
+                items:
+                  description: DbInstanceBackupRule defines a rule for backing up
+                    databases.
+                  properties:
+                    cron:
+                      type: string
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                  required:
+                  - cron
+                  - name
+                  - namespace
+                  type: object
+                type: array
+              endpoint:
+                description: The endpoint of the database instance.
+                properties:
+                  host:
+                    description: ValueSource is a helper struct to let users either
+                      provide a value directly or fetch a value from Secret/ConfigMap.
+                    properties:
+                      value:
+                        type: string
+                      valueFrom:
+                        description: ValueFrom is a helper struct to let users fetch
+                          data from Secret/ConfigMap.
+                        properties:
+                          configMap:
+                            description: SecretOrCMRef is a helper struct to let users
+                              fetch a value from Secret/ConfigMap.
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              namespace:
+                                type: string
+                            type: object
+                          secret:
+                            description: SecretOrCMRef is a helper struct to let users
+                              fetch a value from Secret/ConfigMap.
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              namespace:
+                                type: string
+                            type: object
+                        type: object
+                    type: object
+                  port:
+                    description: ValueSource is a helper struct to let users either
+                      provide a value directly or fetch a value from Secret/ConfigMap.
+                    properties:
+                      value:
+                        type: string
+                      valueFrom:
+                        description: ValueFrom is a helper struct to let users fetch
+                          data from Secret/ConfigMap.
+                        properties:
+                          configMap:
+                            description: SecretOrCMRef is a helper struct to let users
+                              fetch a value from Secret/ConfigMap.
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              namespace:
+                                type: string
+                            type: object
+                          secret:
+                            description: SecretOrCMRef is a helper struct to let users
+                              fetch a value from Secret/ConfigMap.
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              namespace:
+                                type: string
+                            type: object
+                        type: object
+                    type: object
+                  sslConnection:
+                    description: DbInstanceSSLConnection defines whether connection
+                      from db-operator to instance has to be ssl or not
+                    properties:
+                      enabled:
+                        type: boolean
+                      skip-verify:
+                        description: SkipVerify use SSL connection, but don't check
+                          against a CA
+                        type: boolean
+                    required:
+                    - enabled
+                    - skip-verify
+                    type: object
+                type: object
+              engine:
+                description: When not set, db-operator will try to determine the engine
+                  itself.
+                enum:
+                - postgres
+                - mysql
+                type: string
+              grantRules:
+                description: If set, only databases from allowed namespaces will be
+                  created on the instance.
+                items:
+                  description: DbInstanceGrantRule defines a rule for granting access
+                    to a database.
+                  properties:
+                    accessLevel:
+                      type: string
+                    namespace:
+                      type: string
+                    role:
+                      type: string
+                  required:
+                  - accessLevel
+                  - namespace
+                  - role
+                  type: object
+                type: array
+              instanceVars:
+                additionalProperties:
+                  type: string
+                description: |-
+                  InstanceVars can be used by any database/dbuser that are deployed
+                  to this instance to build templated credentials with some generic values.
+                  Can be used for example to provide a read only postgres replica url
+                type: object
+              namespaceFilters:
+                description: If set, only databases from allowed namespaces will be
+                  created on the instance.
+                items:
+                  type: string
+                type: array
+              readOnlyEndpoint:
+                description: ReadOnlyEndpoint is an optional endpoint that should
+                  point to a read only replica of a database server.
+                properties:
+                  host:
+                    description: ValueSource is a helper struct to let users either
+                      provide a value directly or fetch a value from Secret/ConfigMap.
+                    properties:
+                      value:
+                        type: string
+                      valueFrom:
+                        description: ValueFrom is a helper struct to let users fetch
+                          data from Secret/ConfigMap.
+                        properties:
+                          configMap:
+                            description: SecretOrCMRef is a helper struct to let users
+                              fetch a value from Secret/ConfigMap.
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              namespace:
+                                type: string
+                            type: object
+                          secret:
+                            description: SecretOrCMRef is a helper struct to let users
+                              fetch a value from Secret/ConfigMap.
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              namespace:
+                                type: string
+                            type: object
+                        type: object
+                    type: object
+                  port:
+                    description: ValueSource is a helper struct to let users either
+                      provide a value directly or fetch a value from Secret/ConfigMap.
+                    properties:
+                      value:
+                        type: string
+                      valueFrom:
+                        description: ValueFrom is a helper struct to let users fetch
+                          data from Secret/ConfigMap.
+                        properties:
+                          configMap:
+                            description: SecretOrCMRef is a helper struct to let users
+                              fetch a value from Secret/ConfigMap.
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              namespace:
+                                type: string
+                            type: object
+                          secret:
+                            description: SecretOrCMRef is a helper struct to let users
+                              fetch a value from Secret/ConfigMap.
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              namespace:
+                                type: string
+                            type: object
+                        type: object
+                    type: object
+                  sslConnection:
+                    description: DbInstanceSSLConnection defines whether connection
+                      from db-operator to instance has to be ssl or not
+                    properties:
+                      enabled:
+                        type: boolean
+                      skip-verify:
+                        description: SkipVerify use SSL connection, but don't check
+                          against a CA
+                        type: boolean
+                    required:
+                    - enabled
+                    - skip-verify
+                    type: object
+                type: object
+            required:
+            - auth
+            - endpoint
+            - engine
+            type: object
+          status:
+            description: status defines the observed state of DbInstance
+            properties:
+              autoGrantRules:
+                items:
+                  description: DbInstanceGrantRule defines a rule for granting access
+                    to a database.
+                  properties:
+                    accessLevel:
+                      type: string
+                    namespace:
+                      type: string
+                    role:
+                      type: string
+                  required:
+                  - accessLevel
+                  - namespace
+                  - role
+                  type: object
+                type: array
+              conditions:
+                description: |-
+                  conditions represent the current state of the DbInstance resource.
+                  Each condition has a unique type and reflects the status of a specific aspect of the resource.
+
+                  Standard condition types include:
+                  - "Available": the resource is fully functional
+                  - "Progressing": the resource is being created or updated
+                  - "Degraded": the resource failed to reach or maintain its desired state
+
+                  The status of each condition is one of True, False, or Unknown.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              engine:
+                description: Which engine is used as a backend for this instance
+                enum:
+                - postgres
+                - mysql
+                type: string
+              mainEndpoint:
+                description: MainEndpoint contains information about the host and
+                  port of this instance.
+                properties:
+                  host:
+                    type: string
+                  port:
+                    type: integer
+                  sslConnection:
+                    description: DbInstanceSSLConnection defines whether connection
+                      from db-operator to instance has to be ssl or not
+                    properties:
+                      enabled:
+                        type: boolean
+                      skip-verify:
+                        description: SkipVerify use SSL connection, but don't check
+                          against a CA
+                        type: boolean
+                    required:
+                    - enabled
+                    - skip-verify
+                    type: object
+                type: object
+              namespaceFilters:
+                items:
+                  type: string
+                type: array
+              operatorVersion:
+                description: Which version of the db-operator is used to manage this
+                  instance
+                type: string
+              readOnlyEndpoint:
+                description: ReadOnlyEndpoint contains information about the host
+                  and port of a read only replica of this instance.
+                properties:
+                  host:
+                    type: string
+                  port:
+                    type: integer
+                  sslConnection:
+                    description: DbInstanceSSLConnection defines whether connection
+                      from db-operator to instance has to be ssl or not
+                    properties:
+                      enabled:
+                        type: boolean
+                      skip-verify:
+                        description: SkipVerify use SSL connection, but don't check
+                          against a CA
+                        type: boolean
+                    required:
+                    - enabled
+                    - skip-verify
+                    type: object
+                type: object
+              ready:
+                type: boolean
+              serverStatus:
+                description: ServerStatus contains information about the databases
+                  and users on this instance.
+                properties:
+                  databases:
+                    description: A list of databases on this instance.
+                    items:
+                      type: string
+                    type: array
+                  databasesCount:
+                    description: Total number of databases created on this instance.
+                    type: integer
+                  managedDatabasesCount:
+                    description: Total number of databases created on this instance
+                      by the db-operator.
+                    type: integer
+                  users:
+                    description: A list of users on this instance.
+                    items:
+                      type: string
+                    type: array
+                required:
+                - managedDatabasesCount
+                type: object
+              version:
+                description: Which version of the engine is used as a backend for
+                  this instance
+                type: string
+              versionTTL:
+                description: VersionTTL is the time when the version of the backend
+                  will be checked again
+                format: int64
+                type: integer
+              watchedResources:
+                description: WatchedResources is a list of resources that are being
+                  watched by the db-operator for this instance.
+                items:
+                  type: string
+                type: array
+            required:
+            - serverStatus
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+  - additionalPrinterColumns:
     - description: current phase
       jsonPath: .status.phase
       name: Phase
@@ -250,6 +807,6 @@ spec:
             type: object
         type: object
     served: true
-    storage: true
+    storage: false
     subresources:
       status: {}

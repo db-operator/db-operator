@@ -19,8 +19,10 @@ package v1beta1
 import (
 	"errors"
 
+	v1 "github.com/db-operator/db-operator/v2/api/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8stypes "k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
@@ -134,7 +136,6 @@ type DbInstanceSSLConnection struct {
 //+kubebuilder:resource:scope=Cluster,shortName=dbin
 //+kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`,description="current phase"
 //+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.status`,description="health status"
-// +kubebuilder:storageversion
 
 // DbInstance is the Schema for the dbinstances API
 type DbInstance struct {
@@ -234,6 +235,58 @@ func (dbin *DbInstance) GetSecretName() string {
 	return ""
 }
 
-func (db *DbInstance) Hub() {
-	// Function to mark the DbInstance as a hub
+// ConvertTo converts this v1beta1 to v1. (upgrade)
+func (dbin *DbInstance) ConvertTo(dstRaw conversion.Hub) error {
+	dst := dstRaw.(*v1.DbInstance)
+	dst.ObjectMeta = dbin.ObjectMeta
+
+	usernameKey := "user"
+	dst.Spec.Auth.Username = &v1.ValueSource{
+		ValueFrom: &v1.ValueFrom{
+			SecretKeyRef: &v1.SecretOrCMRef{
+				Namespace: &dbin.Spec.AdminUserSecret.Namespace,
+				Name:      &dbin.Spec.AdminUserSecret.Name,
+				Key:       &usernameKey,
+			},
+		},
+	}
+
+	passwordKey := "password"
+	dst.Spec.Auth.Username = &v1.ValueSource{
+		ValueFrom: &v1.ValueFrom{
+			SecretKeyRef: &v1.SecretOrCMRef{
+				Namespace: &dbin.Spec.AdminUserSecret.Namespace,
+				Name:      &dbin.Spec.AdminUserSecret.Name,
+				Key:       &passwordKey,
+			},
+		},
+	}
+	dummy := "dummy"
+	dst.Spec.Endpoint = &v1.DbInstanceEndpoint{
+		Host: &v1.ValueSource{
+			Value: &dummy,
+		},
+		Port: &v1.ValueSource{
+			Value: &dummy,
+		},
+		SSLConnection: nil,
+	}
+	return nil
+}
+
+// ConvertFrom converts from the Hub version (v1) to (v1beta1). (downgrade)
+func (dbin *DbInstance) ConvertFrom(srcRaw conversion.Hub) error {
+	src := srcRaw.(*v1.DbInstance)
+	dbin.ObjectMeta = src.ObjectMeta
+	dbin.Spec.Engine = "postgres"
+	dbin.Spec.AdminUserSecret = NamespacedName{
+		Namespace: "dummy",
+		Name:      "dummy",
+	}
+	dbin.Spec.Generic = &GenericInstance{
+		Host: "dummy",
+		Port: 1111,
+	}
+
+	return nil
 }
