@@ -38,6 +38,16 @@ type Dummy struct {
 	Error error
 }
 
+// ListDatabases implements [Database].
+func (d Dummy) ListDatabases(ctx context.Context, user *DatabaseUser) ([]string, error) {
+	panic("unimplemented")
+}
+
+// ListUsers implements [Database].
+func (d Dummy) ListUsers(ctx context.Context, user *DatabaseUser) ([]string, error) {
+	panic("unimplemented")
+}
+
 // QueryAsUser implements Database.
 func (d Dummy) QueryAsUser(ctx context.Context, query string, user *DatabaseUser) (string, error) {
 	if d.Error != nil {
@@ -110,5 +120,10 @@ func (p Dummy) revokePermissions(ctx context.Context, admin *DatabaseUser, user 
 
 // updateUser implements Database.
 func (Dummy) updateUser(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error {
+	panic("unimplemented")
+}
+
+// GetServerVersion implements [Database].
+func (Dummy) GetServerVersion(ctx context.Context, user *DatabaseUser) (string, error) {
 	panic("unimplemented")
 }

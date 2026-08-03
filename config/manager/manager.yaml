@@ -19,6 +19,8 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
 data:
   config.yaml: |
+    databaseAwareness: true
+    serverVersionTTL: 1h
     instance:
       generic: {}
     backup:

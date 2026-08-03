@@ -677,6 +677,14 @@ func TestPostgresDeleteUser(t *testing.T) {
 	assert.NoErrorf(t, err, "Unexpected error %v", err)
 }
 
+func TestPostgresTestGetServerVersion(t *testing.T) {
+	admin := getPostgresAdmin()
+	p, _ := testPostgres()
+	got, err := p.GetServerVersion(t.Context(), admin)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, got)
+}
+
 func TestPostgresDeleteDatabase(t *testing.T) {
 	admin := getPostgresAdmin()
 	p, _ := testPostgres()

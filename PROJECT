@@ -6,23 +6,8 @@ domain: kinda.rocks
 layout:
 - go.kubebuilder.io/v4
 projectName: db-operator
-repo: github.com/db-operator/db-operator
+repo: github.com/db-operator/db-operator/v2
 resources:
-- api:
-    crdVersion: v1
-  controller: true
-  domain: kinda.rocks
-  kind: DbInstance
-  path: github.com/db-operator/db-operator/v2/api/v1alpha1
-  version: v1alpha1
-- api:
-    crdVersion: v1
-    namespaced: true
-  controller: true
-  domain: kinda.rocks
-  kind: Database
-  path: github.com/db-operator/db-operator/v2/api/v1alpha1
-  version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
@@ -42,7 +27,6 @@ resources:
   path: github.com/db-operator/db-operator/v2/api/v1beta1
   version: v1beta1
   webhooks:
-    conversion: true
     defaulting: true
     validation: true
     webhookVersion: v1
@@ -57,4 +41,11 @@ resources:
   webhooks:
     validation: true
     webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: kinda.rocks
+  kind: DbInstance
+  path: github.com/db-operator/db-operator/v2/api/v1
+  version: v1
 version: "3"

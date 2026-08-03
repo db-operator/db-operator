@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"strconv"
 
+	kindav1 "github.com/db-operator/db-operator/v2/api/v1"
 	kindav1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
 	"github.com/db-operator/db-operator/v2/pkg/consts"
 	"github.com/db-operator/db-operator/v2/pkg/utils/database"
@@ -30,22 +31,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-func FetchDatabaseData(ctx context.Context, dbcr *kindav1beta1.Database, dbCred database.Credentials, instance *kindav1beta1.DbInstance) (database.Database, *database.DatabaseUser, error) {
+func FetchDatabaseData(ctx context.Context, dbcr *kindav1beta1.Database, dbCred database.Credentials, instance *kindav1.DbInstance) (database.Database, *database.DatabaseUser, error) {
 	log := log.FromContext(ctx)
-	host := instance.Status.Info["DB_CONN"]
-	port, err := strconv.ParseUint(instance.Status.Info["DB_PORT"], 10, 16)
-	if err != nil {
-		log.Error(err, "can't get port information from the instanceRef")
-		return nil, nil, err
-	}
 
-	backend, err := instance.GetBackendType()
-	if err != nil {
-		log.Error(err, "could not get backend type")
-		return nil, nil, err
+	if instance.Status.MainEndpoint == nil {
+		return nil, nil, errors.New("instance status server data is nil")
 	}
+	host := instance.Status.MainEndpoint.Host
+	port := instance.Status.MainEndpoint.Port
 
-	monitoringEnabled := instance.IsMonitoringEnabled()
+	var err error
+	monitoringEnabled := false
 
 	dbuser := &database.DatabaseUser{
 		Username: dbCred.Username,
@@ -85,14 +81,14 @@ func FetchDatabaseData(ctx context.Context, dbcr *kindav1beta1.Database, dbCred 
 
 		extList := dbcr.Spec.Postgres.Extensions
 		db := database.Postgres{
-			Backend:                     backend,
+			Backend:                     "generic",
 			Host:                        host,
-			Port:                        uint16(port),
+			Port:                        port,
 			Database:                    dbCred.Name,
 			Monitoring:                  monitoringEnabled,
 			Extensions:                  extList,
-			SSLEnabled:                  instance.Spec.SSLConnection.Enabled,
-			SkipCAVerify:                instance.Spec.SSLConnection.SkipVerify,
+			SSLEnabled:                  instance.Status.MainEndpoint.SSLConnection.Enabled,
+			SkipCAVerify:                instance.Status.MainEndpoint.SSLConnection.SkipVerify,
 			DropPublicSchema:            dbcr.Spec.Postgres.DropPublicSchema,
 			Schemas:                     dbcr.Spec.Postgres.Schemas,
 			Template:                    dbcr.Spec.Postgres.Template,
@@ -104,12 +100,12 @@ func FetchDatabaseData(ctx context.Context, dbcr *kindav1beta1.Database, dbCred 
 
 	case "mysql":
 		db := database.Mysql{
-			Backend:      backend,
+			Backend:      "generic",
 			Host:         host,
-			Port:         uint16(port),
+			Port:         port,
 			Database:     dbCred.Name,
-			SSLEnabled:   instance.Spec.SSLConnection.Enabled,
-			SkipCAVerify: instance.Spec.SSLConnection.SkipVerify,
+			SSLEnabled:   instance.Status.MainEndpoint.SSLConnection.Enabled,
+			SkipCAVerify: instance.Status.MainEndpoint.SSLConnection.SkipVerify,
 		}
 
 		return db, dbuser, nil
@@ -212,6 +208,7 @@ func GenerateDatabaseSecretData(objectMeta metav1.ObjectMeta, engine, dbName, ex
 	}
 }
 
+<<<<<<< HEAD
 // GenerateDatabaseUsername returns the external username stored in generated credentials.
 func GenerateDatabaseUsername(objectMeta metav1.ObjectMeta, engine, existingUser string) (string, error) {
 	username := existingUser
@@ -230,7 +227,7 @@ func GenerateDatabaseUsername(objectMeta metav1.ObjectMeta, engine, existingUser
 	}
 }
 
-func GetSSLMode(dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) (string, error) {
+func GetSSLMode(dbcr *kindav1beta1.Database, instance *kindav1.DbInstance) (string, error) {
 	genericSSL, err := GetGenericSSLMode(dbcr, instance)
 	if err != nil {
 		return "", err
@@ -261,11 +258,11 @@ func GetSSLMode(dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) 
 	return "", fmt.Errorf("unknown database engine: %s", dbcr.Status.Engine)
 }
 
-func GetGenericSSLMode(dbcr *kindav1beta1.Database, instance *kindav1beta1.DbInstance) (string, error) {
-	if !instance.Spec.SSLConnection.Enabled {
+func GetGenericSSLMode(dbcr *kindav1beta1.Database, instance *kindav1.DbInstance) (string, error) {
+	if !instance.Status.MainEndpoint.SSLConnection.Enabled {
 		return consts.SSL_DISABLED, nil
 	} else {
-		if instance.Spec.SSLConnection.SkipVerify {
+		if instance.Status.MainEndpoint.SSLConnection.SkipVerify {
 			return consts.SSL_REQUIRED, nil
 		} else {
 			return consts.SSL_VERIFY_CA, nil
