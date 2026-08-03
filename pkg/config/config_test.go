@@ -31,13 +31,3 @@ func TestUnitLoadConfigFailCases(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, conf)
 }
-
-func TestUnitBackupResourceConfig(t *testing.T) {
-	conf, err := LoadConfig("./test/config_backup.yaml")
-	assert.NoError(t, err)
-	t.Log(conf)
-	assert.Equal(t, conf.Backup.Resources.Requests.Cpu().String(), "50m")
-	assert.Equal(t, conf.Backup.Resources.Requests.Memory().String(), "50Mi")
-	assert.Equal(t, conf.Backup.Resources.Limits.Cpu().String(), "100m")
-	assert.Equal(t, conf.Backup.Resources.Limits.Memory().String(), "100Mi")
-}

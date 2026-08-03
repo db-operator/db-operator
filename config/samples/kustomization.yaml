@@ -5,4 +5,5 @@ resources:
 - v1beta1_dbinstance.yaml
 - v1beta1_database.yaml
 - v1beta1_dbuser.yaml
+- v1_dbinstance.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

@@ -30,6 +30,26 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /mutate-kinda-rocks-v1-dbinstance
+  failurePolicy: Fail
+  name: mdbinstance-v1.kb.io
+  rules:
+  - apiGroups:
+    - kinda.rocks
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - dbinstances
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /mutate-kinda-rocks-v1beta1-dbinstance
   failurePolicy: Fail
   name: mdbinstance-v1beta1.kb.io
@@ -69,6 +89,26 @@ webhooks:
     - UPDATE
     resources:
     - databases
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-kinda-rocks-v1-dbinstance
+  failurePolicy: Fail
+  name: vdbinstance-v1.kb.io
+  rules:
+  - apiGroups:
+    - kinda.rocks
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - dbinstances
   sideEffects: None
 - admissionReviewVersions:
   - v1
