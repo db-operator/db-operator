@@ -1,7 +1,6 @@
 environments:
   default:
     values:
-      - e2e: false
       - certManager:
           installed: {{ env "CERT_MANAGER_INSTALL" | default true }}
       - databases:
@@ -19,36 +18,17 @@ environments:
             password: {{ env "POSTGRES_PASSWORD" | default "qwertyu9" }}
             nodePort: 30432
             imageTag: {{ env "POSTGRES_VERSION" | default 18 }}
-            az: {{ env "POSTGRES_SIMULATE_AZ" | default false }}
-            aws: {{ env "POSTGRES_SIMULATE_AWS" | default false }}
             ssl:
               enabled: false
               skipVerify: false
-      - monitoring:
-          installed: false
-          grafana:
-            installed: true
-            user: admin
-            password: qwertyu9
-            nodePort: 30000
-      - minio:
-          installed: false
-          username: admin
-          password: qwertyu9
-          nodePort: 30001
 ---
 repositories:
   - name: jetstack
     url: quay.io/jetstack/charts
     oci: true
-  - name: prometheus-community
-    url: ghcr.io/prometheus-community/charts
-    oci: true
   - name: cloudpirates
     url: registry-1.docker.io/cloudpirates
     oci: true
-  - name: minio-standalone
-    url: https://charts.min.io/
 
 releases:
   - name: cert-manager
@@ -107,36 +87,6 @@ releases:
       - persistentVolumeClaimRetentionPolicy:
           enabled: true
           whenDeleted: Delete
-      {{- if .Values.databases.postgres.az }}
-      - auth:
-          username: az_admin
-          password: test1234
-      - extraEnvVars:
-          - name: DB_USERNAME
-            value: {{ .Values.databases.postgres.username }}
-          - name: DB_PASSWORD
-            value: {{ .Values.databases.postgres.password }}
-      {{- $fileContent := readFile "./test/scripts/az_flexible_postgres_init.sh" }}
-      - initdb:
-          scripts:
-            az_init.sh: |-
-              {{ $fileContent | nindent 14 }}
-      {{- end }}
-      {{- if .Values.databases.postgres.aws }}
-      - auth:
-          username: aws_superuser
-          password: test1234
-      - extraEnvVars:
-          - name: DB_USERNAME
-            value: {{ .Values.databases.postgres.username }}
-          - name: DB_PASSWORD
-            value: {{ .Values.databases.postgres.password }}
-      {{ $fileContent := readFile "./test/scripts/aws_rds_postgres_init.sh" }}
-      - initdb:
-          scripts:
-            aws_init.sh: |
-              {{ $fileContent | nindent 14 }}
-      {{- end }}
       {{- if .Values.databases.postgres.ssl.enabled }}
       - extraObjects:
         - |-
@@ -172,102 +122,3 @@ releases:
         - -c
         - ssl_key_file=/pg/certs/tls.key
       {{- end }}
-
-  - name: prometheus-stack
-    namespace: monitoring
-    version: 87.10.1
-    installed: {{ .Values.monitoring.installed }}
-    createNamespace: true
-    disableValidation: true
-    disableOpenAPIValidation: true
-    chart: prometheus-community/kube-prometheus-stack
-    needs:
-      - cert-manager/cert-manager
-    values:
-      - grafana:
-          enabled: {{ .Values.monitoring.grafana.installed }}
-          adminUser: {{ .Values.monitoring.grafana.user}}
-          adminPassword: {{ .Values.monitoring.grafana.password }}
-          service:
-            type: NodePort
-            nodePort: {{ .Values.monitoring.grafana.nodePort }}
-      - kubeStateMetrics:
-          enabled: false
-      - alertmanager:
-          enabled: false
-      - nodeExporter:
-          enabled: false
-      - prometheus:
-          prometheusSpec:
-            enableAdminAPI: true
-            podMonitorSelector: {}
-            podMonitorSelectorNilUsesHelmValues: false
-            ruleSelector: {}
-            ruleSelectorNilUsesHelmValues: false
-            serviceMonitorSelector: {}
-            serviceMonitorSelectorNilUsesHelmValues: false
-
-  - name: minio
-    namespace: minio
-    chart: minio-standalone/minio
-    version: 5.4.0
-    createNamespace: true
-    installed: {{ .Values.minio.installed }}
-    values:
-      - rootUser: {{ .Values.minio.username }}
-        rootPassword: {{ .Values.minio.password }}
-        replicas: 1
-        mode: standalone
-        resources:
-          requests:
-            memory: 512Mi
-        environment:
-          MINIO_SERVER_URL: "http://minio.minio.svc.cluster.local:9000"
-        tls:
-          enabled: false
-        persistence:
-          enabled: true
-          accessMode: ReadWriteOnce
-          size: 1Gi
-        service:
-          type: ClusterIP
-          port: '9000'
-        consoleService:
-          type: NodePort
-          port: '9001'
-          nodePort: {{ .Values.minio.nodePort }}
-        buckets:
-          - name: backups
-            policy: download
-            purge: false
-        policies:
-          - name: backups
-            statements:
-              - resources:
-                  - 'arn:aws:s3:::backups'
-                  - 'arn:aws:s3:::backups/*'
-                actions:
-                  - 's3:*'
-        users:
-          - accessKey: backups
-            secretKey: qwertyu9
-            policy: backups
-
-  - name: test-data
-    namespace: default
-    chart: ./test/charts/test-data/
-    installed: {{ .Values.e2e }}
-    values:
-      - engines:
-        {{- if .Values.databases.postgres.installed }}
-          - name: postgres
-            sslConfig:
-              enabled: {{ .Values.databases.postgres.ssl.enabled }}
-              skipVerify: {{ .Values.databases.postgres.ssl.skipVerify }}
-        {{- end }}
-        {{- if .Values.databases.mariadb.installed }}
-          - name: mysql
-            sslConfig:
-              enabled: {{ .Values.databases.mariadb.ssl.enabled }}
-              skipVerify: {{ .Values.databases.mariadb.ssl.skipVerify }}
-        {{- end }}
