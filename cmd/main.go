@@ -53,15 +53,27 @@ var CLI struct {
 	Controller struct{} `cmd:"" help:"Start the db-operator controller"`
 	Webhook    struct{} `cmd:"" help:"Start the db-operator webhook"`
 	// Args
-	MetricsBindAddress     string        `env:"DBO_METRICS_ADDR" default:":60000"`
-	HealthProbeBindAddress string        `env:"DBO_PROBE_ADDR" default:":8081"`
-	EnableLeaderElection   bool          `env:"DBO_ENABLE_LEADER_ELECTION" default:"false"`
-	LogLevel               string        `env:"DBO_LOG_LEVEL" default:"info"`
-	ZapDevel               bool          `env:"DBO_ZAP_DEVEL" default:"false"`
-	EnableProfiler         bool          `env:"DBO_ENABLE_PROFILER" default:"false"`
-	Config                 string        `env:"DBO_CONFIG" default:"/srv/config/config.yaml"`
-	ReconcileInterval      time.Duration `env:"DBO_RECONCILE_INTERVAL" default:"30s"`
-	WatchNamespaces        []string      `env:"DBO_WATCH_NAMESPACES"`
+	// The address the metric endpoint binds to.
+	MetricsBindAddress string `env:"DBO_METRICS_ADDR" default:":60000"`
+	// The address the probe endpoint binds to.
+	HealthProbeBindAddress string `env:"DBO_PROBE_ADDR" default:":8081"`
+	// Enable leader election for controller manager.
+	// Enabling this will ensure there is only one active controller manager.
+	EnableLeaderElection bool `env:"DBO_ENABLE_LEADER_ELECTION" default:"false"`
+	// Set the logging level for db-operator.
+	LogLevel string `env:"DBO_LOG_LEVEL" default:"info"`
+	// If true, use development mode for Zap logger (more human-readable output).
+	ZapDevel bool `env:"DBO_ZAP_DEVEL" default:"false"`
+	// If true, db-operator will start with a profiler on port 54321.
+	EnableProfiler bool `env:"DBO_ENABLE_PROFILER" default:"false"`
+	// Path to the config file for db-operator.
+	Config string `env:"DBO_CONFIG" default:"/srv/config/config.yaml"`
+	// The interval at which the controller will reconcile the resources.
+	ReconcileInterval time.Duration `env:"DBO_RECONCILE_INTERVAL" default:"30s"`
+	// The namespaces that db-operator will watch for resources. If empty, all namespaces will be watched.
+	WatchNamespaces []string `env:"DBO_WATCH_NAMESPACES"`
+	// Enabling this will make the operator only reconcile when k8s objects were changed (currently used only by dbuser and database controllers).
+	CheckForChanges bool `env:"DBO_CHECK_FOR_CHANGES" default:"false"`
 }
 
 var ErrUnknownCommand = errors.New("unknown command")
@@ -163,6 +175,7 @@ func main() {
 			Interval:        time.Duration(CLI.ReconcileInterval),
 			Conf:            conf,
 			WatchNamespaces: CLI.WatchNamespaces,
+			CheckChanges:    CLI.CheckForChanges,
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "Unable to create controller", "controller", "Database")
 			os.Exit(1)
@@ -170,10 +183,11 @@ func main() {
 
 		setupLog.Info("Registering DbUser controller")
 		if err = (&controller.DbUserReconciler{
-			Client:   mgr.GetClient(),
-			Scheme:   mgr.GetScheme(),
-			Recorder: mgr.GetEventRecorder("dbuser-controller"),
-			Interval: time.Duration(CLI.ReconcileInterval),
+			Client:       mgr.GetClient(),
+			Scheme:       mgr.GetScheme(),
+			Recorder:     mgr.GetEventRecorder("dbuser-controller"),
+			Interval:     time.Duration(CLI.ReconcileInterval),
+			CheckChanges: CLI.CheckForChanges,
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "Unable to create controller", "controller", "DbUser")
 			os.Exit(1)
@@ -183,19 +197,19 @@ func main() {
 		setupLog.Info("Registering Database webhook")
 		// nolint:goconst
 		if err := webhookv1beta1.SetupDatabaseWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "database")
+			setupLog.Error(err, "Unable to create webhook", "webhook", "database")
 			os.Exit(1)
 		}
 		setupLog.Info("Registering DbInstance webhook")
 		// nolint:goconst
 		if err := webhookv1beta1.SetupDbInstanceWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "DbInstance")
+			setupLog.Error(err, "Unable to create webhook", "webhook", "DbInstance")
 			os.Exit(1)
 		}
 		setupLog.Info("Registering DbUser webhook")
 		// nolint:goconst
 		if err := webhookv1beta1.SetupDbUserWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "DbUser")
+			setupLog.Error(err, "Unable to create webhook", "webhook", "DbUser")
 			os.Exit(1)
 		}
 
