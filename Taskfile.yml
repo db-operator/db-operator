@@ -11,3 +11,4 @@ includes:
   container: ./taskfiles/container.yaml
   kubebuilder: ./taskfiles/kubebuilder.yaml
   test: ./taskfiles/test.yaml
+  kind: ./taskfiles/kind.yaml
