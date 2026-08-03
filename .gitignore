@@ -93,6 +93,7 @@ anaconda-mode/
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+cover.cov
 
 ### Vim ###
 # swap
