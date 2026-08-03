@@ -26,3 +26,4 @@ jobs:
             echo "Please update generated code using 'task manifest and task generate' and push the changes"
             exit 1
           fi
+      - uses: suzuki-shunsuke/github-action-renovate-config-validator@v2.1.0
