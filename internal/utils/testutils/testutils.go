@@ -17,6 +17,9 @@
 package testutils
 
 import (
+	"strconv"
+
+	kindav1 "github.com/db-operator/db-operator/v2/api/v1"
 	kindav1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
 	"github.com/db-operator/db-operator/v2/pkg/consts"
 	"github.com/db-operator/db-operator/v2/pkg/test"
@@ -28,43 +31,68 @@ const (
 	TestNamespace  = "TestNS"
 )
 
-func NewPostgresTestDbInstanceCr() kindav1beta1.DbInstance {
-	info := make(map[string]string)
-	info["DB_PORT"] = "5432"
-	info["DB_CONN"] = "postgres"
-	return kindav1beta1.DbInstance{
-		Spec: kindav1beta1.DbInstanceSpec{
-			Engine: "postgres",
-			DbInstanceSource: kindav1beta1.DbInstanceSource{
-				Generic: &kindav1beta1.GenericInstance{
-					Host: test.GetPostgresHost(),
-					Port: test.GetPostgresPort(),
+var (
+	postgresEngine = "postgres"
+	mysqlEngine    = "mysql"
+)
+
+func NewPostgresTestDbInstanceCr() kindav1.DbInstance {
+	host := test.GetPostgresHost()
+	port := test.GetPostgresPort()
+	portStr := strconv.FormatUint(uint64(port), 10)
+
+	return kindav1.DbInstance{
+		Spec: kindav1.DbInstanceSpec{
+			Engine: &postgresEngine,
+			Endpoint: &kindav1.DbInstanceEndpoint{
+				Host: &kindav1.ValueSource{
+					Value: &host,
 				},
+				Port: &kindav1.ValueSource{
+					Value: &portStr,
+				},
+				SSLConnection: &kindav1.DbInstanceSSLConnection{},
 			},
 		},
-		Status: kindav1beta1.DbInstanceStatus{Info: info},
+		Status: kindav1.DbInstanceStatus{
+			MainEndpoint: &kindav1.DbInstanceServerData{
+				Host:          host,
+				Port:          port,
+				SSLConnection: kindav1.DbInstanceSSLConnection{},
+			},
+		},
 	}
 }
 
-func NewMysqlTestDbInstanceCr() kindav1beta1.DbInstance {
-	info := make(map[string]string)
-	info["DB_PORT"] = "3306"
-	info["DB_CONN"] = "mysql"
-	return kindav1beta1.DbInstance{
-		Spec: kindav1beta1.DbInstanceSpec{
-			Engine: "mysql",
-			DbInstanceSource: kindav1beta1.DbInstanceSource{
-				Generic: &kindav1beta1.GenericInstance{
-					Host: test.GetMysqlHost(),
-					Port: test.GetMysqlPort(),
+func NewMysqlTestDbInstanceCr() kindav1.DbInstance {
+	host := test.GetMysqlHost()
+	port := test.GetMysqlPort()
+	portStr := strconv.FormatUint(uint64(port), 10)
+
+	return kindav1.DbInstance{
+		Spec: kindav1.DbInstanceSpec{
+			Engine: &mysqlEngine,
+			Endpoint: &kindav1.DbInstanceEndpoint{
+				Host: &kindav1.ValueSource{
+					Value: &host,
 				},
+				Port: &kindav1.ValueSource{
+					Value: &portStr,
+				},
+				SSLConnection: &kindav1.DbInstanceSSLConnection{},
 			},
 		},
-		Status: kindav1beta1.DbInstanceStatus{Info: info},
+		Status: kindav1.DbInstanceStatus{
+			MainEndpoint: &kindav1.DbInstanceServerData{
+				Host:          host,
+				Port:          port,
+				SSLConnection: kindav1.DbInstanceSSLConnection{},
+			},
+		},
 	}
 }
 
-func NewPostgresTestDbCr(instanceRef kindav1beta1.DbInstance) *kindav1beta1.Database {
+func NewPostgresTestDbCr() *kindav1beta1.Database {
 	o := metav1.ObjectMeta{Namespace: TestNamespace}
 	s := kindav1beta1.DatabaseSpec{SecretName: TestSecretName}
 

@@ -1,41 +1,41 @@
-/*
- * Copyright 2021 kloeckner.i GmbH
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2021 kloeckner.i GmbH
+// Copyright 2026 DB-Operator Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package controller
 
 import (
 	"context"
 	"errors"
+	"fmt"
+	"reflect"
+	"slices"
 	"strconv"
 	"time"
 
+	kindav1 "github.com/db-operator/db-operator/v2/api/v1"
 	kindav1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
+	"github.com/db-operator/db-operator/v2/internal/controller/helpers"
 	commonhelper "github.com/db-operator/db-operator/v2/internal/helpers/common"
-	kubehelper "github.com/db-operator/db-operator/v2/internal/helpers/kube"
-	proxyhelper "github.com/db-operator/db-operator/v2/internal/helpers/proxy"
 	"github.com/db-operator/db-operator/v2/pkg/config"
 	"github.com/db-operator/db-operator/v2/pkg/consts"
 	"github.com/db-operator/db-operator/v2/pkg/utils/database"
 	"github.com/db-operator/db-operator/v2/pkg/utils/dbinstance"
-	"github.com/db-operator/db-operator/v2/pkg/utils/proxy"
-	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -46,22 +46,18 @@ import (
 )
 
 var (
-	dbInstancePhaseValidate    = "Validating"
-	dbInstancePhaseCreate      = "Creating"
-	dbInstancePhaseBroadcast   = "Broadcasting"
-	dbInstancePhaseProxyCreate = "ProxyCreating"
-	dbInstancePhaseRunning     = "Running"
+	conditionTypeCredentialsFound = "CredentialsFound"
+	conditionTypeEndpointFound    = "EndpointFound"
+	conditionTypeHealthy          = "Healthy"
+	conditionGrantRulesVerified   = "GrantRulesVerified"
 )
 
 // DbInstanceReconciler reconciles a DbInstance object
 type DbInstanceReconciler struct {
 	client.Client
-	Log        logr.Logger
-	Scheme     *runtime.Scheme
-	Interval   time.Duration
-	Recorder   events.EventRecorder
-	Conf       *config.Config
-	kubeHelper *kubehelper.KubeHelper
+	Interval time.Duration
+	Recorder events.EventRecorder
+	Conf     *config.Config
 }
 
 //+kubebuilder:rbac:groups=kinda.rocks,resources=dbinstances,verbs=get;list;watch;create;update;patch;delete
@@ -72,104 +68,213 @@ type DbInstanceReconciler struct {
 
 func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
+	log.Info("Reconciling DbInstance")
 	reconcilePeriod := r.Interval
-	reconcileResult := reconcile.Result{RequeueAfter: reconcilePeriod}
+	reconcileRequeue := reconcile.Result{RequeueAfter: reconcilePeriod}
 
 	// Fetch the DbInstance custom resource
-	dbin := &kindav1beta1.DbInstance{}
+	dbin := &kindav1.DbInstance{}
 	err := r.Get(ctx, req.NamespacedName, dbin)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
-			return reconcileResult, nil
+			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		return reconcileResult, err
+		return ctrl.Result{}, err
 	}
 
-	// Update object status always when function returns, either normally or through a panic.
+	original := dbin.DeepCopy()
+
+	// Always patch the resource after the reconcile function.
 	defer func() {
-		if err := r.Status().Update(ctx, dbin); err != nil {
-			log.Error(err, "failed to update status")
+		if !reflect.DeepEqual(original.Status, dbin.Status) {
+			if err := r.Status().Patch(
+				ctx,
+				dbin,
+				client.MergeFrom(original),
+			); err != nil {
+				log.Error(err, "failed to update status")
+			}
 		}
 	}()
 
-	r.kubeHelper = kubehelper.NewKubeHelper(r.Client, r.Recorder, dbin)
+	dbin.Status.OperatorVersion = commonhelper.OperatorVersion
 
-	// Fetch data for checksum and reconcile
-	instanceData, err := r.fetchInstanceData(ctx, dbin)
+	// Fetching admin credentials
+	dbuser, err := r.fetchCredentials(ctx, dbin)
 	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			log.Error(err, "referenced secret/configmap not found")
-			return reconcileResult, nil // Wait for resource to be created, or for user to fix spec
-		}
-		return reconcileResult, err
+		log.Error(err, "Failed to fetch credentials from source")
+		meta.SetStatusCondition(&dbin.Status.Conditions, metav1.Condition{
+			Type:    conditionTypeCredentialsFound,
+			Status:  metav1.ConditionFalse,
+			Reason:  "CredentialsUnavailable",
+			Message: fmt.Sprintf("Error occurred while fetching: %s", err.Error()),
+		})
+		return ctrl.Result{}, err
+	}
+	meta.SetStatusCondition(&dbin.Status.Conditions, metav1.Condition{
+		Type:    conditionTypeCredentialsFound,
+		Status:  metav1.ConditionTrue,
+		Reason:  "CredentialsAvailable",
+		Message: "Successfully fetched credentials",
+	})
+
+	// Fetch endpoint data
+	genericDB, err := r.fetchEndpoint(ctx, dbin)
+	if err != nil {
+		log.Error(err, "Failed to fetch endpoint data")
+		meta.SetStatusCondition(&dbin.Status.Conditions, metav1.Condition{
+			Type:    conditionTypeEndpointFound,
+			Status:  metav1.ConditionFalse,
+			Reason:  "EndpointDataUnavailable",
+			Message: fmt.Sprintf("Error occurred while fetching: %s", err.Error()),
+		})
+		return ctrl.Result{}, err
+	}
+	meta.SetStatusCondition(&dbin.Status.Conditions, metav1.Condition{
+		Type:    conditionTypeEndpointFound,
+		Status:  metav1.ConditionTrue,
+		Reason:  "EndpointDataAvailable",
+		Message: "Successfully fetched endpoint data",
+	})
+
+	dbin.Status.Engine = *dbin.Spec.Engine
+	dbin.Status.ServerStatus = &kindav1.DbInstanceServerStatus{}
+	dbin.Status.MainEndpoint = &kindav1.DbInstanceServerData{}
+	dbin.Status.ReadOnlyEndpoint = &kindav1.DbInstanceServerData{}
+
+	db, err := dbinstance.MakeInterface(genericDB)
+	if err != nil {
+		log.Error(err, "Failed to create database interface")
+		return ctrl.Result{}, err
 	}
 
-	// Label referenced resources
-	if err := r.labelReferencedResources(ctx, dbin, instanceData); err != nil {
-		log.Error(err, "failed to label referenced resources")
-		return reconcileResult, err
-	}
-
-	// Check if spec or referenced data changed
-	if commonhelper.IsDBInstanceChanged(ctx, dbin, instanceData) {
-		log.Info("spec or referenced data changed")
-		dbin.Status.Status = false
-		dbin.Status.Phase = dbInstancePhaseValidate // set phase to initial state
-	}
-
-	phase := dbin.Status.Phase
-
-	start := time.Now()
-	defer func() { promDBInstancesPhaseTime.WithLabelValues(phase).Observe(time.Since(start).Seconds()) }()
-
-	promDBInstancesPhase.WithLabelValues(dbin.Name).Set(dbInstancePhaseToFloat64(phase))
-	if !dbin.Status.Status {
-		if err := dbin.ValidateBackend(); err != nil {
-			return reconcileResult, err
-		}
-
-		if err := dbin.ValidateEngine(); err != nil {
-			return reconcileResult, err
-		}
-
-		dbin.Status.Checksums = commonhelper.GenerateDBInstanceChecksums(dbin, instanceData)
-		dbin.Status.Phase = dbInstancePhaseCreate
-		dbin.Status.Info = map[string]string{}
-
-		err = r.create(ctx, dbin, instanceData)
+	if dbin.Status.Version == "" || time.Now().After(time.Unix(dbin.Status.VersionTTL, 10)) {
+		dbin.Status.Version, err = db.GetServerVersion(ctx, dbuser)
 		if err != nil {
-			log.Error(err, "instance creation failed")
-			return reconcileResult, nil // failed but don't requeue the request. retry by changing spec or config
+			log.Error(err, "Failed to get server version")
+			dbin.Status.Ready = false
+			meta.SetStatusCondition(&dbin.Status.Conditions, metav1.Condition{
+				Type:    conditionTypeHealthy,
+				Status:  metav1.ConditionFalse,
+				Reason:  "InstanceNotAvailable",
+				Message: fmt.Sprintf("Error occurred while checking instance status: %s", err.Error()),
+			})
+			return ctrl.Result{}, err
 		}
-		dbin.Status.Status = true
-		dbin.Status.Phase = dbInstancePhaseBroadcast
-
-		err = r.broadcast(ctx, dbin)
-		if err != nil {
-			log.Error(err, "broadcasting failed")
-			return reconcileResult, err
-		}
-		dbin.Status.Phase = dbInstancePhaseProxyCreate
-
-		err = r.createProxy(ctx, dbin, []metav1.OwnerReference{})
-		if err != nil {
-			log.Error(err, "proxy creation failed")
-			return reconcileResult, err
-		}
-		dbin.Status.Phase = dbInstancePhaseRunning
+		dbin.Status.VersionTTL = time.Now().Add(r.Conf.ServerVersionTTL).Unix()
 	}
 
-	return reconcileResult, nil
+	if err := db.CheckStatus(ctx, dbuser); err != nil {
+		dbin.Status.Ready = false
+		meta.SetStatusCondition(&dbin.Status.Conditions, metav1.Condition{
+			Type:    conditionTypeHealthy,
+			Status:  metav1.ConditionFalse,
+			Reason:  "InstanceNotAvailable",
+			Message: fmt.Sprintf("Error occurred while checking instance status: %s", err.Error()),
+		})
+		return reconcileRequeue, nil
+	}
+
+	meta.SetStatusCondition(&dbin.Status.Conditions, metav1.Condition{
+		Type:    conditionTypeHealthy,
+		Status:  metav1.ConditionTrue,
+		Reason:  "InstanceAvailable",
+		Message: "Instance is available",
+	})
+
+	users, err := db.ListUsers(ctx, dbuser)
+	if err != nil {
+		log.Error(err, "failed to list users")
+		return ctrl.Result{}, err
+	}
+
+	if r.Conf.DatabaseAwareness {
+		databases, err := db.ListDatabases(ctx, dbuser)
+		if err != nil {
+			log.Error(err, "Failed to list databases")
+			return ctrl.Result{}, err
+		}
+
+		count := len(databases)
+		dbin.Status.ServerStatus.DatabasesCount = count
+		dbin.Status.ServerStatus.Databases = databases
+		// We need users for grants, but if the database awareness is disabled
+		// we don't store them into crds
+		dbin.Status.ServerStatus.Users = users
+	}
+
+	if dbin.Spec.GrantRules != nil {
+		for _, rule := range dbin.Spec.GrantRules {
+			if !slices.Contains(users, rule.Role) {
+				err := fmt.Errorf("user %s specified in grant rules does not exist", rule.Role)
+				meta.SetStatusCondition(&dbin.Status.Conditions, metav1.Condition{
+					Type:    conditionGrantRulesVerified,
+					Status:  metav1.ConditionFalse,
+					Reason:  "RoleNotFound",
+					Message: fmt.Sprintf("Grant roles can't be enabled for missing roles: %s", err.Error()),
+				})
+				dbin.Status.Ready = false
+				log.Error(err, "Grant rule user does not exist")
+				return ctrl.Result{}, err
+			}
+		}
+		meta.SetStatusCondition(&dbin.Status.Conditions, metav1.Condition{
+			Type:    conditionGrantRulesVerified,
+			Status:  metav1.ConditionTrue,
+			Reason:  "GrantRulesConfigured",
+			Message: "Grant rules verified successfully",
+		})
+	}
+
+	managedDBCount := 0
+	dbList := &kindav1beta1.DatabaseList{}
+	if err := r.List(ctx, dbList); err != nil {
+		log.Error(err, "Couldn't list databases in the cluster")
+		return ctrl.Result{}, err
+	}
+	for _, db := range dbList.Items {
+		if db.Spec.Instance == dbin.Name && db.Status.Status {
+			managedDBCount += 1
+		}
+	}
+	dbin.Status.ServerStatus.ManagedDatabasesCount = managedDBCount
+
+	dbin.Status.MainEndpoint.Host = genericDB.Host
+	dbin.Status.MainEndpoint.Port = genericDB.Port
+
+	if err := r.labelReferencedResources(ctx, dbin); err != nil {
+		log.Error(err, "Failed to label referenced resources")
+		return ctrl.Result{}, err
+	}
+
+	dbin.Status.NamespaceFilters = []string{}
+	if dbin.Spec.NamespaceFilters != nil {
+		dbin.Status.NamespaceFilters = dbin.Spec.NamespaceFilters
+	}
+
+	dbin.Status.AutoGrantRules = []*kindav1.DbInstanceGrantRule{}
+	if dbin.Spec.GrantRules != nil {
+		dbin.Status.AutoGrantRules = dbin.Spec.GrantRules
+	}
+
+	status := true
+	dbin.Status.Ready = status
+	if err := r.Client.Status().Update(ctx, dbin); err != nil {
+		log.Error(err, "Failed to set DbInstance status to ready")
+		return ctrl.Result{}, err
+	}
+
+	return reconcileRequeue, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DbInstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&kindav1beta1.DbInstance{}).
+		For(&kindav1.DbInstance{}).
 		Watches(
 			&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(r.findDbInstanceForResource),
@@ -195,288 +300,137 @@ func (r *DbInstanceReconciler) findDbInstanceForResource(ctx context.Context, ob
 	return nil
 }
 
-func (r *DbInstanceReconciler) fetchInstanceData(ctx context.Context, dbin *kindav1beta1.DbInstance) (commonhelper.DbInstanceData, error) {
-	data := commonhelper.DbInstanceData{}
-
-	// Fetch Admin Secret
-	adminSecret := &corev1.Secret{}
-	err := r.Get(ctx, dbin.Spec.AdminUserSecret.ToKubernetesType(), adminSecret)
-	if err != nil {
-		return data, err
+// labelReferencedResources adds a label to all resources referenced by the DbInstance, allowing for easy identification and management of related resources.
+func (r *DbInstanceReconciler) labelReferencedResources(ctx context.Context, dbin *kindav1.DbInstance) error {
+	log := log.FromContext(ctx)
+	currentlyWatchedResources := []string{}
+	authData := dbin.Spec.Auth
+	if authData == nil {
+		return errors.New("auth data is nil")
 	}
-	data.AdminSecret = adminSecret
+	endpointData := dbin.Spec.Endpoint
+	if endpointData == nil {
+		return errors.New("endpoint data is nil")
+	}
+	log.Info("Labeling referenced resources for DbInstance")
 
-	if backend, _ := dbin.GetBackendType(); backend == "google" {
-		configMap := &corev1.ConfigMap{}
-		err := r.Get(ctx, dbin.Spec.Google.ConfigmapName.ToKubernetesType(), configMap)
+	referencedResources := []*kindav1.ValueFrom{}
+	if authData.Username != nil && authData.Username.ValueFrom != nil {
+		referencedResources = append(referencedResources, authData.Username.ValueFrom)
+	}
+	if authData.Password != nil && authData.Password.ValueFrom != nil {
+		referencedResources = append(referencedResources, authData.Password.ValueFrom)
+	}
+	if endpointData.Host != nil && endpointData.Host.ValueFrom != nil {
+		referencedResources = append(referencedResources, endpointData.Host.ValueFrom)
+	}
+	if endpointData.Port != nil && endpointData.Port.ValueFrom != nil {
+		referencedResources = append(referencedResources, endpointData.Port.ValueFrom)
+	}
+
+	for _, resource := range referencedResources {
+		obj, err := helpers.GetResourceFromValueSource(ctx, r.Client, resource)
 		if err != nil {
-			return data, err
+			return err
 		}
-		data.ConfigMap = configMap
+		if err := commonhelper.EnsureLabel(ctx, r.Client, obj, consts.DBINSTANCE_NAME_LABEL_KEY, dbin.Name); err != nil {
+			return err
+		}
+		objEntry := helpers.ObjectMetadataFormat(obj)
 
-		if dbin.Spec.Google.ClientSecret.Name != "" {
-			clientSecret := &corev1.Secret{}
-			err := r.Get(ctx, dbin.Spec.Google.ClientSecret.ToKubernetesType(), clientSecret)
-			if err != nil {
-				return data, err
-			}
-			data.ClientSecret = clientSecret
+		if !slices.Contains(currentlyWatchedResources, objEntry) {
+			currentlyWatchedResources = append(currentlyWatchedResources, objEntry)
 		}
 	}
 
-	if backend, _ := dbin.GetBackendType(); backend == "generic" {
-		if from := dbin.Spec.Generic.HostFrom; from != nil {
-			obj, err := r.fetchFromRef(ctx, from)
-			if err != nil {
-				return data, err
-			}
-			data.HostFrom = obj
-		}
-		if from := dbin.Spec.Generic.PortFrom; from != nil {
-			obj, err := r.fetchFromRef(ctx, from)
-			if err != nil {
-				return data, err
-			}
-			data.PortFrom = obj
-		}
-		if from := dbin.Spec.Generic.PublicIPFrom; from != nil {
-			obj, err := r.fetchFromRef(ctx, from)
-			if err != nil {
-				return data, err
-			}
-			data.PublicIPFrom = obj
+	current := make(map[string]struct{}, len(currentlyWatchedResources))
+	for _, e := range currentlyWatchedResources {
+		current[e] = struct{}{}
+	}
+
+	var stale []string
+	for _, e := range dbin.Status.WatchedResources {
+		if _, ok := current[e]; !ok {
+			stale = append(stale, e)
 		}
 	}
 
-	return data, nil
+	for _, resourceEntry := range stale {
+		obj, err := helpers.ObjectFromFormattedString(resourceEntry)
+		if err != nil {
+			return err
+		}
+		if err := commonhelper.EnsureLabelRemoved(ctx, r.Client, obj, consts.DBINSTANCE_NAME_LABEL_KEY, dbin.Name); err != nil {
+			return err
+		}
+	}
+
+	dbin.Status.WatchedResources = currentlyWatchedResources
+	return nil
 }
 
-func (r *DbInstanceReconciler) fetchFromRef(ctx context.Context, from *kindav1beta1.FromRef) (client.Object, error) {
-	var obj client.Object
-	switch from.Kind {
-	case "Secret":
-		obj = &corev1.Secret{}
-	case "ConfigMap":
-		obj = &corev1.ConfigMap{}
-	default:
-		return nil, errors.New("invalid kind in fromRef")
-	}
-
-	err := r.Get(ctx, from.ToKubernetesType(), obj)
-	return obj, err
-}
-
-func (r *DbInstanceReconciler) create(ctx context.Context, dbin *kindav1beta1.DbInstance, data commonhelper.DbInstanceData) error {
+// fetchCredentials retrieves the database credentials from the specified sources in the DbInstance spec.
+func (r *DbInstanceReconciler) fetchCredentials(ctx context.Context, dbin *kindav1.DbInstance) (*database.DatabaseUser, error) {
 	log := log.FromContext(ctx)
+	log.V(2).Info("Fetching credentials from source")
 
-	db := database.New(dbin.Spec.Engine)
-	cred, err := db.ParseAdminCredentials(ctx, data.AdminSecret.Data)
+	username, err := helpers.GetValueFromSource(ctx, r.Client, dbin.Spec.Auth.Username)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("failed to fetch username from source: %w", err)
 	}
 
-	backend, err := dbin.GetBackendType()
+	password, err := helpers.GetValueFromSource(ctx, r.Client, dbin.Spec.Auth.Password)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("failed to fetch password from source: %w", err)
 	}
 
-	var instance dbinstance.DbInstance
-	switch backend {
-	case "google":
-		name := dbin.Spec.Google.InstanceName
-		config := data.ConfigMap.Data["config"]
-		user := cred.Username
-		password := cred.Password
-		apiEndpoint := dbin.Spec.Google.APIEndpoint
-
-		instance = dbinstance.GsqlNew(ctx, name, config, user, password, apiEndpoint)
-	case "generic":
-		var host string
-		var port uint16
-		var publicIP string
-
-		if from := dbin.Spec.Generic.HostFrom; from != nil {
-			host, err = r.kubeHelper.GetValueFrom(ctx, from.Kind, from.Namespace, from.Name, from.Key)
-			if err != nil {
-				return err
-			}
-		} else {
-			host = dbin.Spec.Generic.Host
-		}
-
-		if from := dbin.Spec.Generic.PortFrom; from != nil {
-			portStr, err := r.kubeHelper.GetValueFrom(ctx, from.Kind, from.Namespace, from.Name, from.Key)
-			if err != nil {
-				return err
-			}
-			port64, err := strconv.ParseUint(portStr, 10, 16)
-			if err != nil {
-				return err
-			}
-			port = uint16(port64)
-		} else {
-			port = dbin.Spec.Generic.Port
-		}
-
-		if from := dbin.Spec.Generic.PublicIPFrom; from != nil {
-			publicIP, err = r.kubeHelper.GetValueFrom(ctx, from.Kind, from.Namespace, from.Name, from.Key)
-			if err != nil {
-				return err
-			}
-		} else {
-			publicIP = dbin.Spec.Generic.PublicIP
-		}
-		instance = &dbinstance.Generic{
-			Host:         host,
-			Port:         port,
-			PublicIP:     publicIP,
-			Engine:       dbin.Spec.Engine,
-			User:         cred.Username,
-			Password:     cred.Password,
-			SSLEnabled:   dbin.Spec.SSLConnection.Enabled,
-			SkipCAVerify: dbin.Spec.SSLConnection.SkipVerify,
-		}
-	default:
-		return errors.New("not supported backend type")
+	dbuser := &database.DatabaseUser{
+		Username: username,
+		Password: password,
 	}
 
-	info, err := dbinstance.Create(ctx, instance)
-	if err != nil {
-		if err == dbinstance.ErrAlreadyExists {
-			log.V(2).Info("instance already exists in backend, updating instance")
-			info, err = dbinstance.Update(ctx, instance)
-			if err != nil {
-				log.Error(err, "failed updating instance")
-				return err
-			}
-		} else {
-			log.Error(err, "failed creating instance")
-			return err
-		}
-	}
-
-	dbin.Status.Info = info
-	return nil
+	return dbuser, nil
 }
 
-func (r *DbInstanceReconciler) broadcast(ctx context.Context, dbin *kindav1beta1.DbInstance) error {
-	dbList := &kindav1beta1.DatabaseList{}
-	err := r.List(ctx, dbList)
-	if err != nil {
-		return err
-	}
-
-	for _, db := range dbList.Items {
-		if db.Spec.Instance == dbin.Name {
-			annotations := db.GetAnnotations()
-			if _, found := annotations["checksum/spec"]; found {
-				annotations["checksum/spec"] = ""
-				db.SetAnnotations(annotations)
-				err = r.Update(ctx, &db)
-				if err != nil {
-					return err
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
-func (r *DbInstanceReconciler) createProxy(ctx context.Context, dbin *kindav1beta1.DbInstance, _ []metav1.OwnerReference) error {
+func (r *DbInstanceReconciler) fetchEndpoint(ctx context.Context, dbin *kindav1.DbInstance) (*dbinstance.Generic, error) {
 	log := log.FromContext(ctx)
-	proxyInterface, err := proxyhelper.DetermineProxyTypeForInstance(ctx, r.Conf, dbin)
+	log.V(2).Info("Fetching host and port from source")
+
+	host, err := helpers.GetValueFromSource(ctx, r.Client, dbin.Spec.Endpoint.Host)
 	if err != nil {
-		if err == proxyhelper.ErrNoProxySupport {
-			return nil
-		}
-		return err
+		return nil, fmt.Errorf("failed to fetch host from source: %w", err)
 	}
 
-	// Create proxy deployment
-	deploy, err := proxy.BuildDeployment(ctx, proxyInterface)
+	portRaw, err := helpers.GetValueFromSource(ctx, r.Client, dbin.Spec.Endpoint.Port)
 	if err != nil {
-		log.Error(err, "failed to build proxy deployment")
-		return err
+		return nil, fmt.Errorf("failed to fetch port from source: %w", err)
 	}
-	err = r.Create(ctx, deploy)
+	portInt, err := strconv.Atoi(portRaw)
 	if err != nil {
-		if k8serrors.IsAlreadyExists(err) {
-			// if resource already exists, update
-			err = r.Update(ctx, deploy)
-			if err != nil {
-				log.Error(err, "failed to update proxy deployment")
-				return err
-			}
-		} else {
-			// failed to create deployment
-			log.Error(err, "failed to create proxy deployment")
-			return err
+		return nil, fmt.Errorf("failed to convert port to integer: %w", err)
+	}
+	port := uint16(portInt)
+
+	// Prepare SSL Connection
+	sslConnecton := dbin.Spec.Endpoint.SSLConnection
+	if sslConnecton == nil {
+		sslConnecton = &kindav1.DbInstanceSSLConnection{
+			Enabled:    false,
+			SkipVerify: false,
 		}
 	}
 
-	// Create proxy service
-	svc, err := proxy.BuildService(ctx, proxyInterface)
-	if err != nil {
-		log.Error(err, "failed to build proxy service")
-		return err
-	}
-	err = r.Create(ctx, svc)
-	if err != nil {
-		if k8serrors.IsAlreadyExists(err) {
-			// if resource already exists, update
-			patch := client.MergeFrom(svc)
-			err = r.Patch(ctx, svc, patch)
-			if err != nil {
-				log.Error(err, "failed to patch proxy service")
-				return err
-			}
-		} else {
-			// failed to create service
-			log.Error(err, "failed to create proxy service")
-			return err
-		}
+	genericDB := &dbinstance.Generic{
+		Host:         host,
+		Port:         port,
+		SSLEnabled:   sslConnecton.Enabled,
+		SkipCAVerify: sslConnecton.SkipVerify,
+		Engine:       *dbin.Spec.Engine,
 	}
 
-	return nil
-}
-
-func (r *DbInstanceReconciler) labelReferencedResources(ctx context.Context, dbin *kindav1beta1.DbInstance, data commonhelper.DbInstanceData) error {
-	if data.AdminSecret != nil {
-		if err := commonhelper.EnsureLabel(ctx, r.Client, data.AdminSecret, consts.DBINSTANCE_NAME_LABEL_KEY, dbin.Name); err != nil {
-			return err
-		}
+	if dbin.Spec.Engine != nil {
+		genericDB.Engine = *dbin.Spec.Engine
 	}
 
-	if data.ConfigMap != nil {
-		if err := commonhelper.EnsureLabel(ctx, r.Client, data.ConfigMap, consts.DBINSTANCE_NAME_LABEL_KEY, dbin.Name); err != nil {
-			return err
-		}
-	}
-
-	if data.ClientSecret != nil {
-		if err := commonhelper.EnsureLabel(ctx, r.Client, data.ClientSecret, consts.DBINSTANCE_NAME_LABEL_KEY, dbin.Name); err != nil {
-			return err
-		}
-	}
-
-	if data.HostFrom != nil {
-		if err := commonhelper.EnsureLabel(ctx, r.Client, data.HostFrom, consts.DBINSTANCE_NAME_LABEL_KEY, dbin.Name); err != nil {
-			return err
-		}
-	}
-
-	if data.PortFrom != nil {
-		if err := commonhelper.EnsureLabel(ctx, r.Client, data.PortFrom, consts.DBINSTANCE_NAME_LABEL_KEY, dbin.Name); err != nil {
-			return err
-		}
-	}
-
-	if data.PublicIPFrom != nil {
-		if err := commonhelper.EnsureLabel(ctx, r.Client, data.PublicIPFrom, consts.DBINSTANCE_NAME_LABEL_KEY, dbin.Name); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return genericDB, nil
 }
