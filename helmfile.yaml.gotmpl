@@ -65,6 +65,16 @@ releases:
       - service:
           type: NodePort
           nodePort: {{ .Values.databases.mariadb.nodePort | quote }}
+    strategicMergePatches:
+      - apiVersion: apps/v1
+        kind: StatefulSet
+        metadata:
+          name: mariadb-instance
+          namespace: databases
+        spec:
+          persistentVolumeClaimRetentionPolicy:
+            whenDeleted: Delete
+            whenScaled: Retain
 
   - name: postgres-instance
     namespace: databases
