@@ -12,3 +12,6 @@ includes:
   kubebuilder: ./taskfiles/kubebuilder.yaml
   test: ./taskfiles/test.yaml
   kind: ./taskfiles/kind.yaml
+  docs:
+    taskfile: ./taskfiles/docs.yaml
+    dir: ./documentation/
