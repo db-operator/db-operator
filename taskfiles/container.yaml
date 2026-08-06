@@ -54,3 +54,19 @@ tasks:
         # -- Set the image tag by commit sha
         # --------------------------------------------
         echo "TAGS=${GITHUB_SHA}" >> "${GITHUB_ENV}"
+  
+  cleanup-dev-registry:
+    desc: Remove old images from the dev image
+    silent: false
+    cmd: |-
+      #!/usr/bin/env bash
+      set -euo pipefail
+      for ((page=3; ; page++)); do
+          ids=$(gh api "/orgs/db-operator/packages/container/db-operator-dev/versions?page=$page&per_page=20" \
+              | jq -r '.[].id')
+          [[ -z "$ids" ]] && break
+          while read -r id; do
+              echo "Deleting $id"
+              gh api "/orgs/db-operator/packages/container/db-operator-dev/versions/$id" -X DELETE | jq
+          done <<< "$ids"
+      done
