@@ -21,7 +21,7 @@ jobs:
           echo OPERATOR_VERSION=${{ github.event.release.tag_name }} >> "$GITHUB_ENV"
       - name: Build an image
         id: build-image
-        uses: redhat-actions/buildah-build@v2
+        uses: redhat-actions/buildah-build@v3
         with:
           image: db-operator
           tags: latest ${{ github.event.release.tag_name }}

@@ -20,7 +20,7 @@ jobs:
           echo OPERATOR_VERSION=${{ github.sha }} >> "$GITHUB_ENV"
       - name: Build an image
         id: build-image
-        uses: redhat-actions/buildah-build@v2
+        uses: redhat-actions/buildah-build@v3
         with:
           image: db-operator-dev
           tags: ${{ env.TAGS }}
