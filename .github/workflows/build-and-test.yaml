@@ -67,7 +67,6 @@ jobs:
       MYSQL_PORT: 30306
       MYSQL_HOST: localhost
       MYSQL_PASSWORD: qwertyu9
-      CERT_MANAGER_INSTALL: false
     strategy:
       matrix:
         version:
@@ -100,7 +99,6 @@ jobs:
       POSRGRES_HOST: localhost
       POSTGRES_USER: db-operator
       POSTGRES_PASSWORD: qwertyu9
-      CERT_MANAGER_INSTALL: false
     strategy:
       matrix:
         version:
