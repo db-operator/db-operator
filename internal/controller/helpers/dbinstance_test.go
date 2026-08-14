@@ -164,7 +164,7 @@ func TestUnitCheckNamespaceFilter(t *testing.T) {
 		assert.Error(t, err)
 		assert.False(t, match)
 	})
-	
+
 	t.Run("CheckNamespaceFilter empty filter", func(t *testing.T) {
 		filters := []string{}
 		match, err := helpers.CheckNamespaceFilter(filters, "test-namespace")

@@ -749,7 +749,7 @@ func (r *DatabaseReconciler) handleInfoConfigMap(ctx context.Context, dbcr *kind
 	log := log.FromContext(ctx)
 
 	info := map[string]string{
-		"DB_HOST": instance.Status.MainEndpoint.Host,
+		"DB_CONN": instance.Status.MainEndpoint.Host,
 		"DB_PORT": strconv.FormatInt(int64(instance.Status.MainEndpoint.Port), 10),
 	}
 
