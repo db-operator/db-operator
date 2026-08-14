@@ -49,6 +49,9 @@ func CheckBackupRules(rule *kindav1.DbInstanceBackupRule, namespace string) (boo
 
 // CheckNamespaceFilter checks if the given namespace matches any of the regex defined in the DbInstance's NamespaceFilters.
 func CheckNamespaceFilter(filters []string, namespace string) (bool, error) {
+	if len(filters) == 0 {
+		return true, nil
+	}
 	for _, filter := range filters {
 		re, err := regexp.Compile(filter)
 		if err != nil {
