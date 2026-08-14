@@ -268,7 +268,7 @@ func (dbin *DbInstance) ConvertTo(dstRaw conversion.Hub) error {
 	}
 
 	dst.Spec.Engine = &dbin.Spec.Engine
-	dst.Spec.InstanceVars = &dbin.Spec.InstanceVars
+	dst.Spec.InstanceVars = dbin.Spec.InstanceVars
 
 	dst.Spec.Endpoint = &v1.DbInstanceEndpoint{}
 	if dbin.Spec.Generic != nil {
