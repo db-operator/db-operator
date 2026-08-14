@@ -36,7 +36,7 @@ type DbInstanceSpec struct {
 	// to this instance to build templated credentials with some generic values.
 	// Can be used for example to provide a read only postgres replica url
 	// +optional
-	InstanceVars map[string]string `json:"instanceVars,omitempty"`
+	InstanceVars *map[string]string `json:"instanceVars,omitempty"`
 	// If set, only databases from allowed namespaces will be created on the instance.
 	// +optional
 	NamespaceFilters *[]string `json:"namespaceFilters,omitempty"`

@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"errors"
+	"strconv"
 
 	v1 "github.com/db-operator/db-operator/v2/api/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -240,6 +241,10 @@ func (dbin *DbInstance) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*v1.DbInstance)
 	dst.ObjectMeta = dbin.ObjectMeta
 
+	if dbin.Spec.Google != nil {
+		return errors.New("google instance are not supported anymore")
+	}
+
 	usernameKey := "user"
 	dst.Spec.Auth.Username = &v1.ValueSource{
 		ValueFrom: &v1.ValueFrom{
@@ -261,16 +266,67 @@ func (dbin *DbInstance) ConvertTo(dstRaw conversion.Hub) error {
 			},
 		},
 	}
-	dummy := "dummy"
-	dst.Spec.Endpoint = &v1.DbInstanceEndpoint{
-		Host: &v1.ValueSource{
-			Value: &dummy,
-		},
-		Port: &v1.ValueSource{
-			Value: &dummy,
-		},
-		SSLConnection: nil,
+
+	dst.Spec.Engine = &dbin.Spec.Engine
+	dst.Spec.InstanceVars = &dbin.Spec.InstanceVars
+
+	dst.Spec.Endpoint = &v1.DbInstanceEndpoint{}
+	if dbin.Spec.Generic != nil {
+		if dbin.Spec.Generic.HostFrom != nil {
+			if dbin.Spec.Generic.HostFrom.Kind == "Secret" {
+				dst.Spec.Endpoint.Host = &v1.ValueSource{
+					ValueFrom: &v1.ValueFrom{
+						SecretKeyRef: &v1.SecretOrCMRef{
+							Namespace: &dbin.Spec.Generic.HostFrom.Namespace,
+							Name:      &dbin.Spec.Generic.HostFrom.Name,
+							Key:       &dbin.Spec.Generic.HostFrom.Key,
+						},
+					},
+				}
+			} else if dbin.Spec.Generic.HostFrom.Kind == "ConfigMap" {
+				dst.Spec.Endpoint.Host = &v1.ValueSource{
+					ValueFrom: &v1.ValueFrom{
+						ConfigMapKeyRef: &v1.SecretOrCMRef{
+							Namespace: &dbin.Spec.Generic.HostFrom.Namespace,
+							Name:      &dbin.Spec.Generic.HostFrom.Name,
+							Key:       &dbin.Spec.Generic.HostFrom.Key,
+						},
+					},
+				}
+			}
+		}
+		if dbin.Spec.Generic.PortFrom != nil {
+			if dbin.Spec.Generic.PortFrom.Kind == "Secret" {
+				dst.Spec.Endpoint.Port = &v1.ValueSource{
+					ValueFrom: &v1.ValueFrom{
+						SecretKeyRef: &v1.SecretOrCMRef{
+							Namespace: &dbin.Spec.Generic.PortFrom.Namespace,
+							Name:      &dbin.Spec.Generic.PortFrom.Name,
+							Key:       &dbin.Spec.Generic.PortFrom.Key,
+						},
+					},
+				}
+			} else if dbin.Spec.Generic.PortFrom.Kind == "ConfigMap" {
+				dst.Spec.Endpoint.Port = &v1.ValueSource{
+					ValueFrom: &v1.ValueFrom{
+						ConfigMapKeyRef: &v1.SecretOrCMRef{
+							Namespace: &dbin.Spec.Generic.PortFrom.Namespace,
+							Name:      &dbin.Spec.Generic.PortFrom.Name,
+							Key:       &dbin.Spec.Generic.PortFrom.Key,
+						},
+					},
+				}
+			}
+		}
+		if len(dbin.Spec.Generic.Host) > 0 {
+			dst.Spec.Endpoint.Host = &v1.ValueSource{Value: &dbin.Spec.Generic.Host}
+		}
+		if dbin.Spec.Generic.Port > 0 {
+			port := strconv.FormatUint(uint64(dbin.Spec.Generic.Port), 10)
+			dst.Spec.Endpoint.Port = &v1.ValueSource{Value: &port}
+		}
 	}
+
 	return nil
 }
 

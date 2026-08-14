@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"errors"
+	"strconv"
 
 	v1 "github.com/db-operator/db-operator/v2/api/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -195,6 +196,10 @@ func (dbin *DbInstance) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*v1.DbInstance)
 	dst.ObjectMeta = dbin.ObjectMeta
 
+	if dbin.Spec.Google != nil {
+		return errors.New("google instance are not supported anymore")
+	}
+
 	usernameKey := "user"
 	dst.Spec.Auth.Username = &v1.ValueSource{
 		ValueFrom: &v1.ValueFrom{
@@ -216,16 +221,20 @@ func (dbin *DbInstance) ConvertTo(dstRaw conversion.Hub) error {
 			},
 		},
 	}
-	dummy := "dummy"
-	dst.Spec.Endpoint = &v1.DbInstanceEndpoint{
-		Host: &v1.ValueSource{
-			Value: &dummy,
-		},
-		Port: &v1.ValueSource{
-			Value: &dummy,
-		},
-		SSLConnection: nil,
+
+	dst.Spec.Engine = &dbin.Spec.Engine
+
+	dst.Spec.Endpoint = &v1.DbInstanceEndpoint{}
+	if dbin.Spec.Generic != nil {
+		if len(dbin.Spec.Generic.Host) > 0 {
+			dst.Spec.Endpoint.Host = &v1.ValueSource{Value: &dbin.Spec.Generic.Host}
+		}
+		if dbin.Spec.Generic.Port > 0 {
+			port := strconv.FormatUint(uint64(dbin.Spec.Generic.Port), 10)
+			dst.Spec.Endpoint.Port = &v1.ValueSource{Value: &port}
+		}
 	}
+
 	return nil
 }
 
