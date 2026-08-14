@@ -18,9 +18,7 @@ package v1alpha1
 
 import (
 	"errors"
-	"strconv"
 
-	v1 "github.com/db-operator/db-operator/v2/api/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
@@ -193,64 +191,10 @@ func (dbin *DbInstance) IsMonitoringEnabled() bool {
 
 // ConvertTo converts this v1beta1 to v1. (upgrade)
 func (dbin *DbInstance) ConvertTo(dstRaw conversion.Hub) error {
-	dst := dstRaw.(*v1.DbInstance)
-	dst.ObjectMeta = dbin.ObjectMeta
-
-	if dbin.Spec.Google != nil {
-		return errors.New("google instance are not supported anymore")
-	}
-
-	usernameKey := "user"
-	dst.Spec.Auth.Username = &v1.ValueSource{
-		ValueFrom: &v1.ValueFrom{
-			SecretKeyRef: &v1.SecretOrCMRef{
-				Namespace: &dbin.Spec.AdminUserSecret.Namespace,
-				Name:      &dbin.Spec.AdminUserSecret.Name,
-				Key:       &usernameKey,
-			},
-		},
-	}
-
-	passwordKey := "password"
-	dst.Spec.Auth.Username = &v1.ValueSource{
-		ValueFrom: &v1.ValueFrom{
-			SecretKeyRef: &v1.SecretOrCMRef{
-				Namespace: &dbin.Spec.AdminUserSecret.Namespace,
-				Name:      &dbin.Spec.AdminUserSecret.Name,
-				Key:       &passwordKey,
-			},
-		},
-	}
-
-	dst.Spec.Engine = &dbin.Spec.Engine
-
-	dst.Spec.Endpoint = &v1.DbInstanceEndpoint{}
-	if dbin.Spec.Generic != nil {
-		if len(dbin.Spec.Generic.Host) > 0 {
-			dst.Spec.Endpoint.Host = &v1.ValueSource{Value: &dbin.Spec.Generic.Host}
-		}
-		if dbin.Spec.Generic.Port > 0 {
-			port := strconv.FormatUint(uint64(dbin.Spec.Generic.Port), 10)
-			dst.Spec.Endpoint.Port = &v1.ValueSource{Value: &port}
-		}
-	}
-
-	return nil
+	return errors.New("conversion to v1 is not supported")
 }
 
 // ConvertFrom converts from the Hub version (v1) to (v1beta1). (downgrade)
 func (dbin *DbInstance) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*v1.DbInstance)
-	dbin.ObjectMeta = src.ObjectMeta
-	dbin.Spec.Engine = src.Status.Engine
-	dbin.Spec.AdminUserSecret = NamespacedName{
-		Namespace: *src.Spec.Auth.Username.ValueFrom.SecretKeyRef.Namespace,
-		Name:      *src.Spec.Auth.Username.ValueFrom.SecretKeyRef.Name,
-	}
-	dbin.Spec.Generic = &GenericInstance{
-		Host: "dummy",
-		Port: 1111,
-	}
-
-	return nil
+	return errors.New("conversion from v1 is not supported")
 }

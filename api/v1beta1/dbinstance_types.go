@@ -241,10 +241,12 @@ func (dbin *DbInstance) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*v1.DbInstance)
 	dst.ObjectMeta = dbin.ObjectMeta
 
-	if dbin.Spec.Google != nil {
+	if backend, _ := dbin.GetBackendType(); backend == "google" {
 		return errors.New("google instance are not supported anymore")
 	}
 
+	dst.Spec = v1.DbInstanceSpec{}	
+	dst.Spec.Auth = &v1.DbInstanceAuth{}
 	usernameKey := "user"
 	dst.Spec.Auth.Username = &v1.ValueSource{
 		ValueFrom: &v1.ValueFrom{
