@@ -259,7 +259,7 @@ func (dbin *DbInstance) ConvertTo(dstRaw conversion.Hub) error {
 	}
 
 	passwordKey := "password"
-	dst.Spec.Auth.Username = &v1.ValueSource{
+	dst.Spec.Auth.Password = &v1.ValueSource{		
 		ValueFrom: &v1.ValueFrom{
 			SecretKeyRef: &v1.SecretOrCMRef{
 				Namespace: &dbin.Spec.AdminUserSecret.Namespace,
