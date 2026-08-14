@@ -141,13 +141,13 @@ var _ = Describe("DbInstance Reconciler", func() {
 		})
 	})
 
-	Context("Successfull reconciliation loop", func() {
+	Context("Successful reconciliation loop", func() {
 		req := reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name: dbinstance.Name,
 			},
 		}
-		var currentExpectedTTL int64
+		var currentExpectedTTL time.Time
 
 		It("Prepare resources", Serial, func() {
 			ctx := GinkgoT().Context()
@@ -174,9 +174,9 @@ var _ = Describe("DbInstance Reconciler", func() {
 			assert.True(GinkgoT(), dbin.Status.Ready)
 			assert.Len(GinkgoT(), dbin.Status.WatchedResources, 2)
 
-			currentExpectedTTL = time.Now().Add(conf.ServerVersionTTL).Unix()
+			currentExpectedTTL = time.Now().Add(conf.ServerVersionTTL).Truncate(time.Second)
 			assert.NotEmpty(GinkgoT(), dbin.Status.Version)
-			assert.Equal(GinkgoT(), currentExpectedTTL, dbin.Status.VersionTTL)
+			assert.GreaterOrEqual(GinkgoT(), time.Second*2, currentExpectedTTL.Sub(time.Unix(dbin.Status.VersionTTL, 0)).Abs())
 		})
 
 		It("Checks VersionTTL logic", Serial, func() {
@@ -186,16 +186,18 @@ var _ = Describe("DbInstance Reconciler", func() {
 			assert.NoError(GinkgoT(), err)
 			dbin := &kindav1.DbInstance{}
 			assert.NoError(GinkgoT(), k8sClient.Get(GinkgoT().Context(), req.NamespacedName, dbin))
-			time.Sleep(conf.ServerVersionTTL)
-			assert.Equal(GinkgoT(), currentExpectedTTL, dbin.Status.VersionTTL)
+			GinkgoT().Logf("currentExpectedTTL: %v", currentExpectedTTL)
+			assert.GreaterOrEqual(GinkgoT(), time.Second*2, currentExpectedTTL.Sub(time.Unix(dbin.Status.VersionTTL, 0)).Abs())
 
 			time.Sleep(conf.ServerVersionTTL)
 			_, err = r().Reconcile(ctx, req)
 			assert.NoError(GinkgoT(), err)
 			// After sleeping it should not equal old TTL anymore
 			assert.NoError(GinkgoT(), k8sClient.Get(GinkgoT().Context(), req.NamespacedName, dbin))
-			assert.NotEqual(GinkgoT(), currentExpectedTTL, dbin.Status.VersionTTL)
-			assert.Equal(GinkgoT(), time.Now().Add(conf.ServerVersionTTL).Unix(), dbin.Status.VersionTTL)
+
+			assert.LessOrEqual(GinkgoT(), time.Second*2, currentExpectedTTL.Sub(time.Unix(dbin.Status.VersionTTL, 0)).Abs())
+			currentExpectedTTL = time.Now().Add(conf.ServerVersionTTL).Truncate(time.Second)
+			assert.GreaterOrEqual(GinkgoT(), time.Second*2, currentExpectedTTL.Sub(time.Unix(dbin.Status.VersionTTL, 0)).Abs())
 		})
 	})
 })

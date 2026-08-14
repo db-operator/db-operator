@@ -21,14 +21,14 @@ import (
 	"os"
 	"time"
 
-  "gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v3"
 )
 
 // Config defines configurations needed by db-operator
 type Config struct {
-	DatabaseAwareness bool             `yaml:"databaseAwareness,omitempty" default:"true"`
+	DatabaseAwareness bool `yaml:"databaseAwareness,omitempty" default:"true"`
 	// ServerVersionTTL defines the time duration for which the server version will be cached
-	ServerVersionTTL time.Duration    `yaml:"serverVersionTTL,omitempty" default:"1h"`
+	ServerVersionTTL time.Duration `yaml:"serverVersionTTL,omitempty" default:"1h"`
 }
 
 // LoadConfig reads config file for db-operator from defined path and parse

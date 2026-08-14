@@ -32,8 +32,8 @@ const (
 )
 
 var (
-	postgresEngine= "postgres"
-	mysqlEngine = "mysql"
+	postgresEngine = "postgres"
+	mysqlEngine    = "mysql"
 )
 
 func NewPostgresTestDbInstanceCr() kindav1.DbInstance {
@@ -56,8 +56,8 @@ func NewPostgresTestDbInstanceCr() kindav1.DbInstance {
 		},
 		Status: kindav1.DbInstanceStatus{
 			MainEndpoint: &kindav1.DbInstanceServerData{
-				Host: host,
-				Port: port,
+				Host:          host,
+				Port:          port,
 				SSLConnection: kindav1.DbInstanceSSLConnection{},
 			},
 		},
@@ -84,8 +84,8 @@ func NewMysqlTestDbInstanceCr() kindav1.DbInstance {
 		},
 		Status: kindav1.DbInstanceStatus{
 			MainEndpoint: &kindav1.DbInstanceServerData{
-				Host: host,
-				Port: port,
+				Host:          host,
+				Port:          port,
 				SSLConnection: kindav1.DbInstanceSSLConnection{},
 			},
 		},

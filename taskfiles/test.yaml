@@ -55,7 +55,7 @@ tasks:
       POSTGRES_USER: db-operator
       POSTGRES_HOST: localhost
       POSTGRES_PORT: 30432
-    cmd: go test -count=1 -tags tests -run "TestControllers" ./...
+    cmd: go test -count=1 -tags tests -run "TestControllers" -v ./...
 
   kubernetes:
     desc: Run kubernetes integration tests

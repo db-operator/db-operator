@@ -338,7 +338,7 @@ func (r *DbInstanceReconciler) labelReferencedResources(ctx context.Context, dbi
 		}
 		objEntry := helpers.ObjectMetadataFormat(obj)
 
-		if ! slices.Contains(currentlyWatchedResources, objEntry) {
+		if !slices.Contains(currentlyWatchedResources, objEntry) {
 			currentlyWatchedResources = append(currentlyWatchedResources, objEntry)
 		}
 	}
