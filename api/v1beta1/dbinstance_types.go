@@ -275,7 +275,8 @@ func (dbin *DbInstance) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Endpoint = &v1.DbInstanceEndpoint{}
 	if dbin.Spec.Generic != nil {
 		if dbin.Spec.Generic.HostFrom != nil {
-			if dbin.Spec.Generic.HostFrom.Kind == "Secret" {
+			switch dbin.Spec.Generic.HostFrom.Kind {
+			case "Secret":
 				dst.Spec.Endpoint.Host = &v1.ValueSource{
 					ValueFrom: &v1.ValueFrom{
 						SecretKeyRef: &v1.SecretOrCMRef{
@@ -285,7 +286,7 @@ func (dbin *DbInstance) ConvertTo(dstRaw conversion.Hub) error {
 						},
 					},
 				}
-			} else if dbin.Spec.Generic.HostFrom.Kind == "ConfigMap" {
+			case "ConfigMap":
 				dst.Spec.Endpoint.Host = &v1.ValueSource{
 					ValueFrom: &v1.ValueFrom{
 						ConfigMapKeyRef: &v1.SecretOrCMRef{
@@ -298,7 +299,8 @@ func (dbin *DbInstance) ConvertTo(dstRaw conversion.Hub) error {
 			}
 		}
 		if dbin.Spec.Generic.PortFrom != nil {
-			if dbin.Spec.Generic.PortFrom.Kind == "Secret" {
+			switch dbin.Spec.Generic.PortFrom.Kind {
+			case "Secret":
 				dst.Spec.Endpoint.Port = &v1.ValueSource{
 					ValueFrom: &v1.ValueFrom{
 						SecretKeyRef: &v1.SecretOrCMRef{
@@ -308,7 +310,7 @@ func (dbin *DbInstance) ConvertTo(dstRaw conversion.Hub) error {
 						},
 					},
 				}
-			} else if dbin.Spec.Generic.PortFrom.Kind == "ConfigMap" {
+			case "ConfigMap":
 				dst.Spec.Endpoint.Port = &v1.ValueSource{
 					ValueFrom: &v1.ValueFrom{
 						ConfigMapKeyRef: &v1.SecretOrCMRef{
@@ -336,7 +338,49 @@ func (dbin *DbInstance) ConvertTo(dstRaw conversion.Hub) error {
 func (dbin *DbInstance) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*v1.DbInstance)
 	dbin.ObjectMeta = src.ObjectMeta
-	dbin.Spec.Engine = "postgres"
+	dbin.Spec.Engine = *src.Spec.Engine
+
+	if src.Spec.Auth == nil {
+		return errors.New("cannot downgrade dbinstance without auth data")
+	}
+
+	if src.Spec.Auth.Password != nil {
+		if src.Spec.Auth.Password.Value != nil {
+			return errors.New("cannot downgrade dbinstance with password value")
+		}
+	}
+	if src.Spec.Auth.Username != nil {
+		if src.Spec.Auth.Username.Value != nil {
+			return errors.New("cannot downgrade dbinstance with username value")
+		}
+	}
+
+	if src.Spec.Auth.Username.ValueFrom == nil {
+		return errors.New("cannot downgrade dbinstance without username valueFrom")
+	}
+
+	if src.Spec.Auth.Username.ValueFrom.ConfigMapKeyRef != nil {
+		return errors.New("cannot downgrade dbinstance with username value from configmap")
+	}
+
+	if src.Spec.Auth.Username.ValueFrom.SecretKeyRef != nil {
+		if *src.Spec.Auth.Username.ValueFrom.SecretKeyRef.Key != "user" {
+			return errors.New("cannot downgrade dbinstance with username value from secret with key other than 'user'")
+		}
+	}
+
+	if src.Spec.Auth.Password.ValueFrom == nil {
+		return errors.New("cannot downgrade dbinstance without password valueFrom")
+	}
+	if src.Spec.Auth.Password.ValueFrom.ConfigMapKeyRef != nil {
+		return errors.New("cannot downgrade dbinstance with password value from configmap")
+	}
+	if src.Spec.Auth.Password.ValueFrom.SecretKeyRef != nil {
+		if *src.Spec.Auth.Password.ValueFrom.SecretKeyRef.Key != "password" {
+			return errors.New("cannot downgrade dbinstance with password value from secret with key other than 'password'")
+		}
+	}
+
 	dbin.Spec.AdminUserSecret = NamespacedName{
 		Namespace: "dummy",
 		Name:      "dummy",
