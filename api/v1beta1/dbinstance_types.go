@@ -382,12 +382,72 @@ func (dbin *DbInstance) ConvertFrom(srcRaw conversion.Hub) error {
 	}
 
 	dbin.Spec.AdminUserSecret = NamespacedName{
-		Namespace: "dummy",
-		Name:      "dummy",
+		Namespace: *src.Spec.Auth.Username.ValueFrom.SecretKeyRef.Namespace,
+		Name:      *src.Spec.Auth.Username.ValueFrom.SecretKeyRef.Name,
 	}
-	dbin.Spec.Generic = &GenericInstance{
-		Host: "dummy",
-		Port: 1111,
+
+	if src.Spec.Endpoint == nil {
+		return errors.New("cannot downgrade dbinstance without endpoint")
+	}
+
+	if src.Spec.Endpoint.Host == nil {
+		return errors.New("cannot downgrade dbinstance without endpoint host")
+	}
+
+	if src.Spec.Endpoint.Port == nil {
+		return errors.New("cannot downgrade dbinstance without endpoint port")
+	}
+
+	dbin.Spec.Generic = &GenericInstance{}
+	if src.Spec.Endpoint.Host.ValueFrom != nil {
+		if src.Spec.Endpoint.Host.ValueFrom.SecretKeyRef != nil {
+			secret := src.Spec.Endpoint.Host.ValueFrom.SecretKeyRef
+			dbin.Spec.Generic.HostFrom = &FromRef{
+				Kind:      "Secret",
+				Name:      *secret.Name,
+				Namespace: *secret.Name,
+				Key:       *secret.Key,
+			}
+		} else {
+			cm := src.Spec.Endpoint.Host.ValueFrom.ConfigMapKeyRef
+			dbin.Spec.Generic.HostFrom = &FromRef{
+				Kind:      "ConfigMap",
+				Name:      *cm.Name,
+				Namespace: *cm.Name,
+				Key:       *cm.Key,
+			}
+
+		}
+	} else if src.Spec.Endpoint.Host.Value != nil {
+		dbin.Spec.Generic.Host = *src.Spec.Endpoint.Host.Value
+	} else {
+		return errors.New("cannot downgrade dbinstance without endpoint host value or valueFrom")
+	}
+
+	if src.Spec.Endpoint.Port.ValueFrom != nil {
+		if src.Spec.Endpoint.Port.ValueFrom.SecretKeyRef != nil {
+			secret := src.Spec.Endpoint.Port.ValueFrom.SecretKeyRef
+			dbin.Spec.Generic.HostFrom = &FromRef{
+				Kind:      "Secret",
+				Name:      *secret.Name,
+				Namespace: *secret.Name,
+				Key:       *secret.Key,
+			}
+		} else {
+			cm := src.Spec.Endpoint.Port.ValueFrom.ConfigMapKeyRef
+			dbin.Spec.Generic.HostFrom = &FromRef{
+				Kind:      "ConfigMap",
+				Name:      *cm.Name,
+				Namespace: *cm.Name,
+				Key:       *cm.Key,
+			}
+		}
+	} else if src.Spec.Endpoint.Port.Value != nil {
+		val, err := strconv.ParseUint(*src.Spec.Endpoint.Port.Value, 10, 16)
+		if err != nil {
+			return err
+		}
+		dbin.Spec.Generic.Port = uint16(val)
 	}
 
 	return nil
