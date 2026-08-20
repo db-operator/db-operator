@@ -17,7 +17,6 @@ package v1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
 // DbInstanceSpec defines the desired state of DbInstance
@@ -187,12 +186,6 @@ type DbInstance struct {
 	// status defines the observed state of DbInstance
 	// +optional
 	Status DbInstanceStatus `json:"status,omitzero"`
-}
-
-var _ conversion.Hub = &DbInstance{}
-
-func (db *DbInstance) Hub() {
-	// Function to mark the DbInstance as a hub
 }
 
 // +kubebuilder:object:root=true
