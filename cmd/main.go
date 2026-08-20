@@ -30,8 +30,9 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 
-	kindarocksv1alpha1 "github.com/db-operator/db-operator/v2/api/v1alpha1"
+	kindarocksv1 "github.com/db-operator/db-operator/v2/api/v1"
 	kindarocksv1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
+	webhookv1 "github.com/db-operator/db-operator/v2/internal/webhook/v1"
 	webhookv1beta1 "github.com/db-operator/db-operator/v2/internal/webhook/v1beta1"
 
 	"github.com/db-operator/db-operator/v2/internal/controller"
@@ -81,8 +82,8 @@ var ErrUnknownCommand = errors.New("unknown command")
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(kindarocksv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(kindarocksv1beta1.AddToScheme(scheme))
+	utilruntime.Must(kindarocksv1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 
 	thirdpartyapi.AppendToScheme(scheme)
@@ -151,8 +152,6 @@ func main() {
 		setupLog.Info("Registering DbInstance controller")
 		if err = (&controller.DbInstanceReconciler{
 			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("DbInstance"),
-			Scheme:   mgr.GetScheme(),
 			Interval: time.Duration(CLI.ReconcileInterval),
 			Recorder: mgr.GetEventRecorder("dbinstance-controller"),
 			Conf:     conf,
@@ -202,6 +201,16 @@ func main() {
 		}
 		setupLog.Info("Registering DbInstance webhook")
 		// nolint:goconst
+		if err := webhookv1beta1.SetupDbUserWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "DbUser")
+			os.Exit(1)
+		}
+		// nolint:goconst
+		if err := webhookv1.SetupDbInstanceWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "DbInstance")
+			os.Exit(1)
+		}
+		// nolint:goconst
 		if err := webhookv1beta1.SetupDbInstanceWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "Unable to create webhook", "webhook", "DbInstance")
 			os.Exit(1)
@@ -212,7 +221,15 @@ func main() {
 			setupLog.Error(err, "Unable to create webhook", "webhook", "DbUser")
 			os.Exit(1)
 		}
-
+		// nolint:goconst
+		if err := webhookv1beta1.SetupDbUserWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "DbUser")
+			os.Exit(1)
+		}
+		if err := webhookv1.SetupDbInstanceWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "DbInstance")
+			os.Exit(1)
+		}
 	default:
 		setupLog.Error(ErrUnknownCommand, "Unknown command is provided")
 		os.Exit(1)

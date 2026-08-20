@@ -19,7 +19,7 @@ package kci
 import (
 	"testing"
 
-	"github.com/db-operator/db-operator/v2/api/v1alpha1"
+	"github.com/db-operator/db-operator/v2/api/v1beta1"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -27,8 +27,8 @@ import (
 func TestUnitConfigMapBuilder(t *testing.T) {
 	name := "test-configmap"
 	om := metav1.ObjectMeta{Namespace: "TestNS"}
-	s := v1alpha1.DatabaseSpec{SecretName: "TestSec"}
-	owner := v1alpha1.Database{ObjectMeta: om, Spec: s}
+	s := v1beta1.DatabaseSpec{SecretName: "TestSec"}
+	owner := v1beta1.Database{ObjectMeta: om, Spec: s}
 	data := map[string]string{
 		"key": "value",
 	}
@@ -43,7 +43,7 @@ func TestUnitSecretBuilder(t *testing.T) {
 	name := "test-secret"
 	o := metav1.ObjectMeta{Namespace: "TestNS"}
 
-	owner := v1alpha1.Database{ObjectMeta: o}
+	owner := v1beta1.Database{ObjectMeta: o}
 	data := map[string][]byte{
 		"key": []byte("secret"),
 	}

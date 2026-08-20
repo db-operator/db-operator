@@ -22,15 +22,40 @@ includes:
 tasks:
   unit:
     desc: Run unit tests
-    cmd: go test -tags tests -run "TestUnit" ./... -v -cover
+    cmd: go test -tags tests -run "TestUnit" ./...
 
   postgres:
     desc: Run postgres tests
-    cmd: go test -count=1 -tags tests -run "TestPostgres" ./... -v -cover
+    env:
+      POSTGRES_PASSWORD: qwertyu9
+      POSTGRES_USER: db-operator
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 30432
+    cmd: go test -count=1 -tags tests -run "TestPostgres" ./...
 
   mysql:
     desc: Run mysql tests
-    cmd: go test -count=1 -tags tests -run "TestMysql" ./... -v -cover
+    env:
+      MYSQL_PASSWORD: qwertyu9
+      MYSQL_USER: root
+      MYSQL_HOST: localhost
+      MYSQL_PORT: 30306
+    cmd: go test -count=1 -tags tests -run "TestMysql" ./... -v
+
+  controllers:
+    desc: Run controller integration tests
+    deps:
+      - setup-envtest
+    env:
+      MYSQL_PASSWORD: qwertyu9
+      MYSQL_USER: root
+      MYSQL_HOST: localhost
+      MYSQL_PORT: 30306
+      POSTGRES_PASSWORD: qwertyu9
+      POSTGRES_USER: db-operator
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 30432
+    cmd: go test -count=1 -tags tests -run "TestControllers" -v ./...
 
   kubernetes:
     desc: Run kubernetes integration tests
@@ -46,7 +71,7 @@ tasks:
           fi
           printf '%s\n' "$v" | sed -E 's/^v?[0-9]+\.([0-9]+).*/1.\1/'
     cmds:
-      - go test -tags tests -run "TestKubernetes" ./... -v -cover
+      - go test -tags tests -run "TestKubernetes" ./internal/controller
 
   setup-envtest:
     desc: Download the binaries required for ENVTEST in the local bin directory.

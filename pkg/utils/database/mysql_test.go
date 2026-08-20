@@ -369,3 +369,11 @@ func TestMysqlParseAdminCredentials(t *testing.T) {
 	assert.Equal(t, "root", cred.Username, "expect same values")
 	assert.Equal(t, string(validData2["mysql-root-password"]), cred.Password, "expect same values")
 }
+
+func TestMysqlGetServerVersion(t *testing.T) {
+	admin := getMysqlAdmin()
+	m, _ := testMysql()
+	got, err := m.GetServerVersion(t.Context(), admin)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, got)
+}
