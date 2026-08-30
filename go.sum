@@ -6,8 +6,8 @@ cloud.google.com/go/compute/metadata v0.9.0 h1:pDUj4QMoPejqq20dK0Pg2N4yG9zIkYGdB
 cloud.google.com/go/compute/metadata v0.9.0/go.mod h1:E0bWwX5wTnLPedCKqk3pJmVgCBSM6qQI1yTBdEb3C10=
 filippo.io/edwards25519 v1.2.0 h1:crnVqOiS4jqYleHd9vaKZ+HKtHfllngJIiOpNpoJsjo=
 filippo.io/edwards25519 v1.2.0/go.mod h1:xzAOLCNug/yB62zG1bQ8uziwrIqIuxhctzJT18Q77mc=
-github.com/GoogleCloudPlatform/cloudsql-proxy v1.38.2 h1:tjd+PuIxv1zWQi6t8PJsEfcABCrJ6bqwtHfAqS+j47A=
-github.com/GoogleCloudPlatform/cloudsql-proxy v1.38.2/go.mod h1:qGfyFdhvx+mxJeWpLYNimcrr+qIi7QlowGLjSLZvg50=
+github.com/GoogleCloudPlatform/cloudsql-proxy v1.38.3 h1:Tfc3yu17MyxNtolRZ684FFOAH28mhb0bge/ZwtyMXf0=
+github.com/GoogleCloudPlatform/cloudsql-proxy v1.38.3/go.mod h1:OnjBIM/qVMMinYMQg4TOCjwN9wlpktCjz0Vn1Ys2aBI=
 github.com/Masterminds/semver/v3 v3.5.0 h1:kQceYJfbupGfZOKZQg0kou0DgAKhzDg2NZPAwZ/2OOE=
 github.com/Masterminds/semver/v3 v3.5.0/go.mod h1:4V+yj/TJE1HU9XfppCwVMZq3I84lprf4nC11bSS5beM=
 github.com/alecthomas/assert/v2 v2.11.0 h1:2Q9r3ki8+JYXvGsDyBXwH3LcJ+WK5D0gc5E8vS6K3D0=
