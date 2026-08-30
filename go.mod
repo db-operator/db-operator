@@ -5,7 +5,7 @@ go 1.26.6
 //replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.16
 
 require (
-	github.com/GoogleCloudPlatform/cloudsql-proxy v1.38.2
+	github.com/GoogleCloudPlatform/cloudsql-proxy v1.38.3
 	github.com/alecthomas/kong v1.16.1
 	github.com/db-operator/can-haz-password v0.1.1
 	github.com/go-logr/logr v1.4.4
