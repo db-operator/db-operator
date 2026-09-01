@@ -26,9 +26,11 @@ import (
 	"github.com/db-operator/db-operator/v2/internal/utils/testutils"
 	"github.com/db-operator/db-operator/v2/pkg/consts"
 	"github.com/db-operator/db-operator/v2/pkg/utils/database"
+	"github.com/db-operator/db-operator/v2/pkg/utils/kci"
 	"github.com/db-operator/db-operator/v2/pkg/utils/templates"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
@@ -42,6 +44,19 @@ func TestUnitDeterminPostgresType(t *testing.T) {
 	db, _, _ := dbhelper.FetchDatabaseData(ctx, postgresDbCr, testDbcred, &instance)
 	_, ok := db.(database.Postgres)
 	assert.Equal(t, ok, true, "expected true")
+}
+
+func TestUnitGenerateDatabaseUsername(t *testing.T) {
+	objectMeta := metav1.ObjectMeta{Namespace: "Test-Namespace", Name: "Reader"}
+
+	username, err := dbhelper.GenerateDatabaseUsername(objectMeta, "postgres", "")
+	assert.NoError(t, err)
+	assert.Equal(t, "Test-Namespace-Reader", username)
+
+	existingUser := "Existing_User_With_A_Name_Longer_Than_Thirty_Two_Characters"
+	username, err = dbhelper.GenerateDatabaseUsername(objectMeta, "mysql", existingUser)
+	assert.NoError(t, err)
+	assert.Equal(t, kci.StringSanitize(existingUser, 32), username)
 }
 
 func TestUnitDeterminMysqlType(t *testing.T) {

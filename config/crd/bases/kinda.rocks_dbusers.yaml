@@ -167,6 +167,8 @@ spec:
                 type: string
               status:
                 type: boolean
+              user:
+                type: string
             required:
             - created
             - database

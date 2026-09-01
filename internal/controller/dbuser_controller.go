@@ -92,15 +92,13 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: dbusercr.Spec.DatabaseRef}, dbcr); err != nil {
 		return r.manageError(ctx, dbusercr, err, false)
 	}
+	if dbusercr.IsDeleted() {
+		return r.handleDbUserDelete(ctx, dbusercr, dbcr)
+	}
 
-	// The secret is required for all kinds of the events, because it's used a storage for the
-	// dbuser data. So even when a dbuser is removed, we need to get the secret in order to
-	// let the db-operator know which exactly user must be removed.
 	userSecret, err := r.getDbUserSecret(ctx, dbusercr)
 	if err != nil {
-		// If a secret is not found on the "delete" event it should be a critical unrecoverable
-		// error, cause we don't know which user must be removed
-		if k8serrors.IsNotFound(err) && !dbusercr.IsDeleted() {
+		if k8serrors.IsNotFound(err) {
 			dbName := fmt.Sprintf("%s-%s", dbusercr.Namespace, dbusercr.Spec.DatabaseRef)
 			secretData, err := dbhelper.GenerateDatabaseSecretData(dbusercr.ObjectMeta, dbcr.Status.Engine, dbName, dbusercr.Spec.ExistingUser)
 			if err != nil {
@@ -149,6 +147,9 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if err != nil {
 		return r.manageError(ctx, dbusercr, err, false)
 	}
+	if dbusercr.Status.Status && dbusercr.Status.UserName == "" {
+		dbusercr.Status.UserName = creds.Username
+	}
 
 	// If we don't check for changes, status should be false on each reconciliation
 	if !r.CheckChanges || isDbUserChanged(dbusercr, userSecret) {
@@ -173,28 +174,7 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			return r.manageError(ctx, dbusercr, err, false)
 		}
 
-		val, ok := dbusercr.Annotations[consts.GRANT_TO_ADMIN_ON_DELETE]
-		if ok {
-			boolVal, err := strconv.ParseBool(val)
-			if err != nil {
-				log.Info(
-					"can't parse a value of an annotation into a bool, ignoring",
-					"annotation",
-					consts.GRANT_TO_ADMIN_ON_DELETE,
-					"value",
-					val,
-					"error",
-					err,
-				)
-			} else {
-				dbuser.GrantToAdminOnDelete = boolVal
-			}
-		}
-
-		// Add extra privileges
-		dbuser.ExtraPrivileges = dbusercr.Spec.ExtraPrivileges
-
-		dbuser.GrantToAdmin = dbusercr.Spec.GrantToAdmin
+		existingUser := configureDbUser(ctx, dbusercr, dbuser, creds)
 
 		adminSecretResource, err := r.getAdminSecret(ctx, dbcr)
 		if err != nil {
@@ -208,78 +188,26 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			return r.manageError(ctx, dbusercr, err, false)
 		}
 
-		dbuser.AccessType = dbusercr.Spec.AccessType
-		dbuser.Password = creds.Password
-		dbuser.Username = creds.Username
-		// If allow existing is set to true, db-operator will not force user creation
-		// and also when a user with that property is removed, user won't be removed
-		// from the database, instead only the permissions will be revoked
-		existingUser := false
-		// TODO: Remove this annotation
-		allowExistingRaw, ok := dbusercr.Annotations[consts.ALLOW_EXISTING_USER]
-		if ok {
-			log.Info("Annotation is deprecated, please use .spec.existingUser instead", "annotation", consts.ALLOW_EXISTING_USER)
-			existingUser, err = strconv.ParseBool(allowExistingRaw)
-			if err != nil {
-				log.Info(
-					"can't parse a value of an annotation into a bool, ignoring",
-					"annotation",
-					consts.ALLOW_EXISTING_USER,
-					"value",
-					allowExistingRaw,
-					"error",
-					err,
-				)
-			}
+		if !dbcr.Status.Status {
+			err := fmt.Errorf("database %s is not ready yet", dbcr.Name)
+			return r.manageError(ctx, dbusercr, err, true)
 		}
 
-		if len(dbusercr.Spec.ExistingUser) > 0 {
-			existingUser = true
-		}
-
-		if dbusercr.IsDeleted() {
-			if commonhelper.ContainsString(dbusercr.Finalizers, "dbuser."+dbusercr.Name) {
-				if err := r.handleTemplatedCredentials(ctx, dbcr, dbusercr, dbuser); err != nil {
-					return r.manageError(ctx, dbusercr, err, true)
-				}
-				if existingUser {
-					if err := database.RevokePermissions(ctx, db, dbuser, adminCred); err != nil {
-						log.Error(err, "failed revoking permissions")
-						return r.manageError(ctx, dbusercr, err, false)
-					}
-				} else {
-					if err := database.DeleteUser(ctx, db, dbuser, adminCred); err != nil {
-						log.Error(err, "failed deleting a user")
-						return r.manageError(ctx, dbusercr, err, false)
-					}
-				}
-				if err := r.kubeHelper.HandleDelete(ctx, userSecret); err != nil {
-					return r.manageError(ctx, dbusercr, err, false)
-				}
-				kci.RemoveFinalizer(&dbcr.ObjectMeta, "dbuser."+dbusercr.Name)
-				err = r.Update(ctx, dbcr)
-				if err != nil {
-					log.Error(err, "error resource updating")
-					return r.manageError(ctx, dbusercr, err, false)
-				}
-				kci.RemoveFinalizer(&dbusercr.ObjectMeta, "dbuser."+dbusercr.Name)
-				err = r.Update(ctx, dbusercr)
-				if err != nil {
-					log.Error(err, "error resource updating")
-					return r.manageError(ctx, dbusercr, err, false)
-				}
+		// If allow existing is set to true, always execute UpdateOrCreate,
+		// otherwise follow the old logic
+		if existingUser {
+			log.Info("existing user management is allowed")
+			if err := database.SetPermissions(ctx, db, dbuser, adminCred); err != nil {
+				return r.manageError(ctx, dbusercr, err, false)
 			}
+			if err = r.addFinalizers(ctx, dbusercr, dbcr); err != nil {
+				return r.manageError(ctx, dbusercr, err, false)
+			}
+			dbusercr.Status.Created = true
 		} else {
-			if !dbcr.Status.Status {
-				err := fmt.Errorf("database %s is not ready yet", dbcr.Name)
-				return r.manageError(ctx, dbusercr, err, true)
-			}
-
-			// If allow existing is set to true, always execute UpdateOrCreate,
-			// otherwise follow the old logic
-			if existingUser {
-				log.Info("existing user management is allowed")
-				if err := database.SetPermissions(ctx, db, dbuser, adminCred); err != nil {
+			if !dbusercr.Status.Created {
+				log.Info("creating a user", "name", dbusercr.GetName())
+				if err := database.CreateUser(ctx, db, dbuser, adminCred); err != nil {
 					return r.manageError(ctx, dbusercr, err, false)
 				}
 				if err = r.addFinalizers(ctx, dbusercr, dbcr); err != nil {
@@ -287,31 +215,157 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 				}
 				dbusercr.Status.Created = true
 			} else {
-				if !dbusercr.Status.Created {
-					log.Info("creating a user", "name", dbusercr.GetName())
-					if err := database.CreateUser(ctx, db, dbuser, adminCred); err != nil {
-						return r.manageError(ctx, dbusercr, err, false)
-					}
-					if err = r.addFinalizers(ctx, dbusercr, dbcr); err != nil {
-						return r.manageError(ctx, dbusercr, err, false)
-					}
-					dbusercr.Status.Created = true
-				} else {
-					log.Info("updating a user", "name", dbusercr.GetName())
-					if err := database.UpdateUser(ctx, db, dbuser, adminCred); err != nil {
-						return r.manageError(ctx, dbusercr, err, false)
-					}
+				log.Info("updating a user", "name", dbusercr.GetName())
+				if err := database.UpdateUser(ctx, db, dbuser, adminCred); err != nil {
+					return r.manageError(ctx, dbusercr, err, false)
 				}
 			}
-			if err := r.handleTemplatedCredentials(ctx, dbcr, dbusercr, dbuser); err != nil {
-				return r.manageError(ctx, dbusercr, err, true)
-			}
-			dbusercr.Status.OperatorVersion = commonhelper.OperatorVersion
-			dbusercr.Status.Status = true
-			dbusercr.Status.DatabaseName = dbusercr.Spec.DatabaseRef
 		}
+		if err := r.handleTemplatedCredentials(ctx, dbcr, dbusercr, dbuser); err != nil {
+			return r.manageError(ctx, dbusercr, err, true)
+		}
+		dbusercr.Status.OperatorVersion = commonhelper.OperatorVersion
+		dbusercr.Status.Status = true
+		dbusercr.Status.DatabaseName = dbusercr.Spec.DatabaseRef
+		dbusercr.Status.UserName = creds.Username
 	}
 	return reconcileResult, nil
+}
+
+func (r *DbUserReconciler) handleDbUserDelete(ctx context.Context, dbusercr *kindav1beta1.DbUser, dbcr *kindav1beta1.Database) (reconcile.Result, error) {
+	reconcileResult := reconcile.Result{RequeueAfter: r.Interval}
+	finalizer := "dbuser." + dbusercr.Name
+	if !commonhelper.ContainsString(dbusercr.Finalizers, finalizer) {
+		return reconcileResult, nil
+	}
+
+	userSecret, err := r.getDbUserSecret(ctx, dbusercr)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return r.manageError(ctx, dbusercr, err, true)
+	}
+	if k8serrors.IsNotFound(err) {
+		userSecret = nil
+	}
+
+	creds, err := dbUserDeleteCredentials(dbusercr, dbcr, userSecret)
+	if err != nil {
+		return r.manageError(ctx, dbusercr, err, false)
+	}
+
+	instance := &kindav1beta1.DbInstance{}
+	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
+		return r.manageError(ctx, dbusercr, err, false)
+	}
+	db, dbuser, err := dbhelper.FetchDatabaseData(ctx, dbcr, creds, instance)
+	if err != nil {
+		return r.manageError(ctx, dbusercr, err, false)
+	}
+	existingUser := configureDbUser(ctx, dbusercr, dbuser, creds)
+
+	adminSecretResource, err := r.getAdminSecret(ctx, dbcr)
+	if err != nil {
+		return r.manageError(ctx, dbusercr, err, false)
+	}
+	adminCred, err := db.ParseAdminCredentials(ctx, adminSecretResource.Data)
+	if err != nil {
+		return r.manageError(ctx, dbusercr, err, false)
+	}
+
+	if userSecret != nil {
+		if err := r.handleTemplatedCredentials(ctx, dbcr, dbusercr, dbuser); err != nil && !k8serrors.IsNotFound(err) {
+			return r.manageError(ctx, dbusercr, err, true)
+		}
+	}
+	if existingUser {
+		if err := database.RevokePermissions(ctx, db, dbuser, adminCred); err != nil {
+			return r.manageError(ctx, dbusercr, err, false)
+		}
+	} else if err := database.DeleteUser(ctx, db, dbuser, adminCred); err != nil {
+		return r.manageError(ctx, dbusercr, err, false)
+	}
+
+	if userSecret != nil {
+		if err := r.kubeHelper.HandleDelete(ctx, userSecret); err != nil && !k8serrors.IsNotFound(err) {
+			return r.manageError(ctx, dbusercr, err, false)
+		}
+	}
+
+	kci.RemoveFinalizer(&dbcr.ObjectMeta, finalizer)
+	if err := r.Update(ctx, dbcr); err != nil {
+		return r.manageError(ctx, dbusercr, err, false)
+	}
+	kci.RemoveFinalizer(&dbusercr.ObjectMeta, finalizer)
+	if err := r.Update(ctx, dbusercr); err != nil {
+		return r.manageError(ctx, dbusercr, err, false)
+	}
+
+	return reconcileResult, nil
+}
+
+func dbUserDeleteCredentials(dbusercr *kindav1beta1.DbUser, dbcr *kindav1beta1.Database, userSecret *corev1.Secret) (database.Credentials, error) {
+	creds := database.Credentials{
+		Name:     dbcr.Status.DatabaseName,
+		Username: dbusercr.Status.UserName,
+	}
+	if userSecret != nil && (creds.Name == "" || creds.Username == "") {
+		secretCreds, err := parseDbUserSecretData(dbcr.Status.Engine, userSecret.Data)
+		if err != nil {
+			return creds, err
+		}
+		if creds.Name == "" {
+			creds.Name = secretCreds.Name
+		}
+		if creds.Username == "" {
+			creds.Username = secretCreds.Username
+		}
+	}
+	if creds.Username == "" {
+		username, err := dbhelper.GenerateDatabaseUsername(dbusercr.ObjectMeta, dbcr.Status.Engine, dbusercr.Spec.ExistingUser)
+		if err != nil {
+			return creds, err
+		}
+		creds.Username = username
+	}
+	if creds.Name == "" {
+		return creds, errors.New("database name is not recorded in status")
+	}
+
+	return creds, nil
+}
+
+func configureDbUser(ctx context.Context, dbusercr *kindav1beta1.DbUser, dbuser *database.DatabaseUser, creds database.Credentials) bool {
+	log := log.FromContext(ctx)
+	if val, ok := dbusercr.Annotations[consts.GRANT_TO_ADMIN_ON_DELETE]; ok {
+		boolVal, err := strconv.ParseBool(val)
+		if err != nil {
+			log.Info("can't parse a value of an annotation into a bool, ignoring", "annotation", consts.GRANT_TO_ADMIN_ON_DELETE, "value", val, "error", err)
+		} else {
+			dbuser.GrantToAdminOnDelete = boolVal
+		}
+	}
+
+	dbuser.ExtraPrivileges = dbusercr.Spec.ExtraPrivileges
+	dbuser.GrantToAdmin = dbusercr.Spec.GrantToAdmin
+	dbuser.AccessType = dbusercr.Spec.AccessType
+	dbuser.Password = creds.Password
+	dbuser.Username = creds.Username
+
+	existingUser := false
+	// TODO: Remove this annotation
+	if allowExistingRaw, ok := dbusercr.Annotations[consts.ALLOW_EXISTING_USER]; ok {
+		log.Info("Annotation is deprecated, please use .spec.existingUser instead", "annotation", consts.ALLOW_EXISTING_USER)
+		boolVal, err := strconv.ParseBool(allowExistingRaw)
+		if err != nil {
+			log.Info("can't parse a value of an annotation into a bool, ignoring", "annotation", consts.ALLOW_EXISTING_USER, "value", allowExistingRaw, "error", err)
+		} else {
+			existingUser = boolVal
+		}
+	}
+	if len(dbusercr.Spec.ExistingUser) > 0 {
+		existingUser = true
+	}
+
+	return existingUser
 }
 
 // SetupWithManager sets up the controller with the Manager.
