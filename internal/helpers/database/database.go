@@ -175,24 +175,22 @@ func GenerateDatabaseSecretData(objectMeta metav1.ObjectMeta, engine, dbName, ex
 	const (
 		// https://dev.mysql.com/doc/refman/5.7/en/identifier-length.html
 		mysqlDBNameLengthLimit = 63
-		// https://dev.mysql.com/doc/refman/5.7/en/replication-features-user-names.html
-		mysqlUserLengthLimit = 32
 	)
 	if len(dbName) == 0 {
 		dbName = objectMeta.Namespace + "-" + objectMeta.Name
 	}
-	var dbUser string
+	dbUser, err := GenerateDatabaseUsername(objectMeta, engine, existingUser)
+	if err != nil {
+		return nil, err
+	}
 	var dbPassword string
 	if len(existingUser) > 0 {
-		dbUser = existingUser
 		dbPassword = ""
 	} else {
-		var err error
 		dbPassword, err = kci.GeneratePass()
 		if err != nil {
 			return nil, err
 		}
-		dbUser = objectMeta.Namespace + "-" + objectMeta.Name
 	}
 	switch engine {
 	case "postgres":
@@ -205,12 +203,30 @@ func GenerateDatabaseSecretData(objectMeta metav1.ObjectMeta, engine, dbName, ex
 	case "mysql":
 		data := map[string][]byte{
 			consts.MYSQL_DB:       []byte(kci.StringSanitize(dbName, mysqlDBNameLengthLimit)),
-			consts.MYSQL_USER:     []byte(kci.StringSanitize(dbUser, mysqlUserLengthLimit)),
+			consts.MYSQL_USER:     []byte(dbUser),
 			consts.MYSQL_PASSWORD: []byte(dbPassword),
 		}
 		return data, nil
 	default:
 		return nil, errors.New("not supported engine type")
+	}
+}
+
+// GenerateDatabaseUsername returns the external username stored in generated credentials.
+func GenerateDatabaseUsername(objectMeta metav1.ObjectMeta, engine, existingUser string) (string, error) {
+	username := existingUser
+	if len(username) == 0 {
+		username = objectMeta.Namespace + "-" + objectMeta.Name
+	}
+
+	switch engine {
+	case "postgres":
+		return username, nil
+	case "mysql":
+		// https://dev.mysql.com/doc/refman/5.7/en/replication-features-user-names.html
+		return kci.StringSanitize(username, 32), nil
+	default:
+		return "", fmt.Errorf("unknown database engine: %s", engine)
 	}
 }
 

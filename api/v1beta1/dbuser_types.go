@@ -60,6 +60,7 @@ type DbUserSpec struct {
 type DbUserStatus struct {
 	Status       bool   `json:"status"`
 	DatabaseName string `json:"database"`
+	UserName     string `json:"user,omitempty"`
 	// It's required to let the operator update users
 	Created         bool   `json:"created"`
 	OperatorVersion string `json:"operatorVersion,omitempty"`
