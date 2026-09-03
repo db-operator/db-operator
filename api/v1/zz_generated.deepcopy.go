@@ -269,17 +269,6 @@ func (in *DbInstanceSpec) DeepCopyInto(out *DbInstanceSpec) {
 			}
 		}
 	}
-	if in.BackupRules != nil {
-		in, out := &in.BackupRules, &out.BackupRules
-		*out = make([]*DbInstanceBackupRule, len(*in))
-		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(DbInstanceBackupRule)
-				**out = **in
-			}
-		}
-	}
 	if in.AllowedPrivileges != nil {
 		in, out := &in.AllowedPrivileges, &out.AllowedPrivileges
 		*out = make([]string, len(*in))

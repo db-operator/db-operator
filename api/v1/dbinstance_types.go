@@ -45,7 +45,7 @@ type DbInstanceSpec struct {
 	// If set, the operator will create backup jobs for database that are deployed to the namespaces
 	// that will match the namespace regex
 	// +optional
-	BackupRules []*DbInstanceBackupRule `json:"backupRules,omitempty"`
+	// BackupRules []*DbInstanceBackupRule `json:"backupRules,omitempty"`
 	// A list of privileges that are allowed to be set as Dbuser's extra privileges
 	AllowedPrivileges []string `json:"allowedPrivileges,omitempty"`
 }
