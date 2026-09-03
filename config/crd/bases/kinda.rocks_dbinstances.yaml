@@ -63,8 +63,11 @@ spec:
             description: spec defines the desired state of DbInstance
             properties:
               allowedPrivileges:
-                description: A list of privileges that are allowed to be set as Dbuser's
-                  extra privileges
+                description: |-
+                  If set, the operator will create backup jobs for database that are deployed to the namespaces
+                  that will match the namespace regex
+                  BackupRules []*DbInstanceBackupRule `json:"backupRules,omitempty"`
+                  A list of privileges that are allowed to be set as Dbuser's extra privileges
                 items:
                   type: string
                 type: array
@@ -141,26 +144,6 @@ spec:
                         type: object
                     type: object
                 type: object
-              backupRules:
-                description: |-
-                  If set, the operator will create backup jobs for database that are deployed to the namespaces
-                  that will match the namespace regex
-                items:
-                  description: DbInstanceBackupRule defines a rule for backing up
-                    databases.
-                  properties:
-                    cron:
-                      type: string
-                    name:
-                      type: string
-                    namespace:
-                      type: string
-                  required:
-                  - cron
-                  - name
-                  - namespace
-                  type: object
-                type: array
               endpoint:
                 description: The endpoint of the database instance.
                 properties:
