@@ -208,7 +208,6 @@ func GenerateDatabaseSecretData(objectMeta metav1.ObjectMeta, engine, dbName, ex
 	}
 }
 
-<<<<<<< HEAD
 // GenerateDatabaseUsername returns the external username stored in generated credentials.
 func GenerateDatabaseUsername(objectMeta metav1.ObjectMeta, engine, existingUser string) (string, error) {
 	username := existingUser

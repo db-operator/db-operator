@@ -291,8 +291,10 @@ func (in *DbInstanceSpec) DeepCopyInto(out *DbInstanceSpec) {
 	}
 	if in.AllowedPrivileges != nil {
 		in, out := &in.AllowedPrivileges, &out.AllowedPrivileges
-		*out = make([]string, len(*in))
-		copy(*out, *in)
+		*out = make([]DbInstanceAllowedPrivileges, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 }
 
