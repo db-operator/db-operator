@@ -47,7 +47,12 @@ type DbInstanceSpec struct {
 	// +optional
 	// BackupRules []*DbInstanceBackupRule `json:"backupRules,omitempty"`
 	// A list of privileges that are allowed to be set as Dbuser's extra privileges
-	AllowedPrivileges []string `json:"allowedPrivileges,omitempty"`
+	AllowedPrivileges []DbInstanceAllowedPrivileges `json:"allowedPrivileges,omitempty"`
+}
+
+type DbInstanceAllowedPrivileges struct {
+	NamespaceRegex string   `json:"namespace"`
+	Roles          []string `json:"role"`
 }
 
 // DbInstanceGrantRule defines a rule for granting access to a database.

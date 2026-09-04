@@ -316,11 +316,6 @@ func TestUnitReconcilerSuite(t *testing.T) {
 			dbinstance.Spec.GrantRules = []*kindav1.DbInstanceGrantRule{}
 		}
 
-		// Add the missing backup rules to avoid nil pointer dereference
-		if dbinstance.Spec.BackupRules == nil {
-			dbinstance.Spec.BackupRules = []*kindav1.DbInstanceBackupRule{}
-		}
-
 		// Test with valid data
 		t.Run("Valid Data", func(t *testing.T) {
 			err := r().labelReferencedResources(t.Context(), dbinstance.DeepCopy())
@@ -413,12 +408,14 @@ func TestUnitReconcilerSuite(t *testing.T) {
 			err := r().labelReferencedResources(t.Context(), dbinstance)
 			assert.NoError(t, err)
 		})
+
 		t.Run("Stale resource detection wrong kind", func(t *testing.T) {
 			dbinstance := dbinstance.DeepCopy()
 			dbinstance.Status.WatchedResources = []string{fmt.Sprintf("WrongKind/%s/%s", configMapStale.Namespace, configMapStale.Name)}
 			err := r().labelReferencedResources(t.Context(), dbinstance)
 			assert.Error(t, err)
 		})
+
 		t.Run("Stale resource detection wrong kind", func(t *testing.T) {
 			dbinstance := dbinstance.DeepCopy()
 			dbinstance.Spec.Auth = &kindav1.DbInstanceAuth{}

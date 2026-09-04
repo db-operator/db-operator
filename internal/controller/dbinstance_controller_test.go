@@ -179,6 +179,29 @@ var _ = Describe("DbInstance Reconciler", func() {
 			assert.GreaterOrEqual(GinkgoT(), time.Second*2, currentExpectedTTL.Sub(time.Unix(dbin.Status.VersionTTL, 0)).Abs())
 		})
 
+		It("Is not able to fetch user credentials", Serial, func() {
+			ctx := GinkgoT().Context()
+			res, err := r().Reconcile(ctx, req)
+			// Getting a new dbinstance resource
+			dbin := &kindav1.DbInstance{}
+			assert.NoError(GinkgoT(), k8sClient.Get(GinkgoT().Context(), req.NamespacedName, dbin))
+
+			assert.NoError(GinkgoT(), err)
+			assert.Equal(GinkgoT(), "postgres", dbin.Status.Engine)
+
+			assert.Equal(GinkgoT(), dbin.Status.OperatorVersion, commonhelper.OperatorVersion)
+			assert.Equal(GinkgoT(), res, reconcile.Result{RequeueAfter: interval})
+			assert.Equal(GinkgoT(), dbin.Status.MainEndpoint.Host, test.GetPostgresHost())
+			assert.Equal(GinkgoT(), dbin.Status.MainEndpoint.Port, test.GetPostgresPort())
+
+			assert.True(GinkgoT(), dbin.Status.Ready)
+			assert.Len(GinkgoT(), dbin.Status.WatchedResources, 2)
+
+			currentExpectedTTL = time.Now().Add(conf.ServerVersionTTL).Truncate(time.Second)
+			assert.NotEmpty(GinkgoT(), dbin.Status.Version)
+			assert.GreaterOrEqual(GinkgoT(), time.Second*2, currentExpectedTTL.Sub(time.Unix(dbin.Status.VersionTTL, 0)).Abs())
+		})
+
 		It("Checks VersionTTL logic", Serial, func() {
 			ctx := GinkgoT().Context()
 			// Run another reconcile and expect to have the same TTL as before
