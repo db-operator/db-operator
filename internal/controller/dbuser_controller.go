@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"time"
 
+	kindav1 "github.com/db-operator/db-operator/v2/api/v1"
 	kindav1beta1 "github.com/db-operator/db-operator/v2/api/v1beta1"
 	commonhelper "github.com/db-operator/db-operator/v2/internal/helpers/common"
 	dbhelper "github.com/db-operator/db-operator/v2/internal/helpers/database"
@@ -157,7 +158,7 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	if !dbusercr.Status.Status {
-		instance := &kindav1beta1.DbInstance{}
+		instance := &kindav1.DbInstance{}
 		if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
 			return r.manageError(ctx, dbusercr, err, false)
 		}
@@ -501,7 +502,7 @@ func (r *DbUserReconciler) handleTemplatedCredentials(ctx context.Context, dbcr 
 	}
 
 	// We don't need dbuser here, because if it's not nil, templates will be built for the dbuser, not the database
-	instance := &kindav1beta1.DbInstance{}
+	instance := &kindav1.DbInstance{}
 	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
 		return err
 	}

@@ -1,3 +1,5 @@
 resources:
   - manifests.yaml
-  - service.yaml
+patches:
+  - path: ./patches/mutating_webhook.yaml
+  - path: ./patches/validating-webhook.yaml

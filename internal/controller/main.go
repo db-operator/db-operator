@@ -1,5 +1,4 @@
 //go:build !tests
-// +build !tests
 
 /*
  * Copyright 2021 kloeckner.i GmbH
