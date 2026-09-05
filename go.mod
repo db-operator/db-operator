@@ -9,7 +9,7 @@ require (
 	github.com/alecthomas/kong v1.16.1
 	github.com/db-operator/can-haz-password v0.1.1
 	github.com/go-logr/logr v1.4.4
-	github.com/go-sql-driver/mysql v1.10.0
+	github.com/go-sql-driver/mysql v1.10.1
 	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.12.3
 	github.com/mitchellh/hashstructure v1.1.0
