@@ -60,11 +60,14 @@ type AdminCredentials struct {
 
 // Database is interface for CRUD operate of different types of databases
 type Database interface {
+	GetServerVersion(ctx context.Context, user *DatabaseUser) (string, error)
 	CheckStatus(ctx context.Context, user *DatabaseUser) error
 	GetCredentials(ctx context.Context, user *DatabaseUser) Credentials
 	ParseAdminCredentials(ctx context.Context, data map[string][]byte) (*DatabaseUser, error)
 	GetDatabaseAddress(ctx context.Context) DatabaseAddress
 	QueryAsUser(ctx context.Context, query string, user *DatabaseUser) (string, error)
+	ListDatabases(ctx context.Context, user *DatabaseUser) ([]string, error)
+	ListUsers(ctx context.Context, user *DatabaseUser) ([]string, error)
 	createDatabase(ctx context.Context, admin *DatabaseUser) error
 	deleteDatabase(ctx context.Context, admin *DatabaseUser) error
 	createOrUpdateUser(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error

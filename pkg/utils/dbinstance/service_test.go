@@ -25,7 +25,7 @@ import (
 
 // TestMysqlGenericInstanceCreate if creating mysql generic instance works as expected
 func TestMysqlGenericInstanceCreate(t *testing.T) {
-	mysqlInstance := testGenericMysqlInstance()
+	mysqlInstance := TestGenericMysqlInstance()
 	_, err := Create(context.TODO(), mysqlInstance)
 	assert.Error(t, err, "expected error already exits %v", err)
 
@@ -36,7 +36,7 @@ func TestMysqlGenericInstanceCreate(t *testing.T) {
 
 // TestPostgresGenericInstanceCreate if creating postgres generic instance works as expected
 func TestPostgresGenericInstanceCreate(t *testing.T) {
-	postgresInstance := testGenericPostgresInstance()
+	postgresInstance := TestGenericPostgresInstance()
 
 	_, err := Create(context.TODO(), postgresInstance)
 	assert.Error(t, err, "expected error already exits %v", err)
@@ -48,14 +48,14 @@ func TestPostgresGenericInstanceCreate(t *testing.T) {
 
 // TestMysqlGenericInstanceUpdateNoError if upgrading mysql generic instance works as expected
 func TestMysqlGenericInstanceUpdateNoError(t *testing.T) {
-	mysqlInstance := testGenericMysqlInstance()
+	mysqlInstance := TestGenericMysqlInstance()
 	_, err := Update(context.TODO(), mysqlInstance)
 	assert.NoError(t, err, "expected no error %v", err)
 }
 
 // TestMysqlGenericInstanceUpdateNonExist checks upgrading non existing mysql generic instance throws error
 func TestMysqlGenericInstanceUpdateNonExist(t *testing.T) {
-	mysqlInstance := testGenericMysqlInstance()
+	mysqlInstance := TestGenericMysqlInstance()
 	mysqlInstance.Host = "wronghost"
 	_, err := Update(context.TODO(), mysqlInstance)
 	assert.Error(t, err, "expected error %v", err)
@@ -63,7 +63,7 @@ func TestMysqlGenericInstanceUpdateNonExist(t *testing.T) {
 
 // TestPostgresGenericInstanceUpdate if upgrading postgres generic instance works as expected
 func TestPostgresGenericInstanceUpdate(t *testing.T) {
-	postgresInstance := testGenericPostgresInstance()
+	postgresInstance := TestGenericPostgresInstance()
 	_, err := Update(context.TODO(), postgresInstance)
 	assert.NoError(t, err, "expected no error %v", err)
 

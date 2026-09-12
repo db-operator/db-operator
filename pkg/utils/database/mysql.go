@@ -84,6 +84,11 @@ func (m Mysql) getDbConn(ctx context.Context, user, password string) (*sql.DB, e
 			return db, err
 		}
 		db.SetMaxIdleConns(0)
+
+		if err := db.Ping(); err != nil {
+			db.Close()
+			return nil, err
+		}
 	}
 
 	return db, nil
@@ -381,4 +386,73 @@ func (m Mysql) deleteUser(ctx context.Context, admin *DatabaseUser, user *Databa
 	}
 
 	return nil
+}
+
+// GetServerVersion implements [Database].
+func (m Mysql) GetServerVersion(ctx context.Context, user *DatabaseUser) (string, error) {
+	db, err := m.getDbConn(ctx, user.Username, user.Password)
+	if err != nil {
+		return "", err
+	}
+	defer db.Close()
+	var version string
+	err = db.QueryRow("SELECT VERSION()").Scan(&version)
+	if err != nil {
+		return "", errors.New("failed to get server version")
+	}
+	return version, nil
+}
+
+// ListDatabases implements [Database].
+func (m Mysql) ListDatabases(ctx context.Context, user *DatabaseUser) ([]string, error) {
+	db, err := m.getDbConn(ctx, user.Username, user.Password)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+	rows, err := db.Query("SHOW DATABASES")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var databases []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		databases = append(databases, name)
+	}
+
+	return databases, rows.Err()
+}
+
+// ListUsers implements [Database].
+func (m Mysql) ListUsers(ctx context.Context, user *DatabaseUser) ([]string, error) {
+	db, err := m.getDbConn(ctx, user.Username, user.Password)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+	rows, err := db.Query(`
+		SELECT User
+		FROM mysql.user
+		ORDER BY User;
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		users = append(users, name)
+	}
+
+	return users, rows.Err()
 }

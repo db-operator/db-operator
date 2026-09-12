@@ -19,9 +19,12 @@ package dbinstance
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 
 	"github.com/db-operator/db-operator/v2/pkg/utils/database"
+
+	"github.com/db-operator/db-operator/v2/pkg/test"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -37,7 +40,55 @@ type Generic struct {
 	SkipCAVerify bool
 }
 
-func makeInterface(in *Generic) (database.Database, error) {
+type Engine struct {
+	Engine  string
+	Version string
+}
+
+// DetectEngine detects the engine type of the database instance by trying to connect to it using different engines
+func DetectEngine(ctx context.Context, in *Generic, dbuser *database.DatabaseUser) (*Engine, error) {
+	// Try postgres first
+	log := log.FromContext(ctx)
+	log.V(2).Info("detecting engine type for generic db instance")
+
+	detect := func(engine string) (*Engine, error) {
+		in.Engine = engine
+		log.V(2).Info("trying engine", "engine", engine)
+
+		db, err := MakeInterface(in)
+		if err != nil {
+			db = nil
+			return nil, err
+		}
+
+		version, err := db.GetServerVersion(ctx, dbuser)
+		if err != nil {
+			return nil, err
+		}
+
+		return &Engine{Engine: engine, Version: version}, nil
+	}
+
+	// If engine is explicitly set, only try that one.
+	if in.Engine != "" {
+		switch in.Engine {
+		case "postgres", "mysql":
+			return detect(in.Engine)
+		default:
+			return nil, fmt.Errorf("unsupported engine %q", in.Engine)
+		}
+	}
+
+	for _, engine := range []string{"postgres", "mysql"} {
+		if detected, err := detect(engine); err == nil {
+			return detected, nil
+		}
+	}
+
+	return nil, errors.New("could not detect engine")
+}
+
+func MakeInterface(in *Generic) (database.Database, error) {
 	switch in.Engine {
 	case "postgres":
 		db := database.Postgres{
@@ -57,6 +108,9 @@ func makeInterface(in *Generic) (database.Database, error) {
 			SkipCAVerify: in.SkipCAVerify,
 		}
 		return db, nil
+	case "dummy":
+		db := database.Dummy{}
+		return db, nil
 	default:
 		return nil, errors.New("not supported engine type")
 	}
@@ -68,7 +122,7 @@ func (ins *Generic) state() (string, error) {
 
 func (ins *Generic) exist(ctx context.Context) error {
 	log := log.FromContext(ctx)
-	db, err := makeInterface(ins)
+	db, err := MakeInterface(ins)
 	if err != nil {
 		log.Error(err, "can not check if instance exists")
 		return err
@@ -102,4 +156,24 @@ func (ins *Generic) getInfoMap() (map[string]string, error) {
 	}
 
 	return data, nil
+}
+
+func TestGenericMysqlInstance() *Generic {
+	return &Generic{
+		Host:     test.GetMysqlHost(),
+		Port:     test.GetMysqlPort(),
+		Engine:   "mysql",
+		User:     "root",
+		Password: test.GetMysqlAdminPassword(),
+	}
+}
+
+func TestGenericPostgresInstance() *Generic {
+	return &Generic{
+		Host:     test.GetPostgresHost(),
+		Port:     test.GetPostgresPort(),
+		Engine:   "postgres",
+		User:     test.GetPostgresAdminUsername(),
+		Password: test.GetPostgresAdminPassword(),
+	}
 }

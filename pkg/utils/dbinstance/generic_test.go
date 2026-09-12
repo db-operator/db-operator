@@ -14,26 +14,34 @@
  * limitations under the License.
  */
 
-package dbinstance
+package dbinstance_test
 
-import "github.com/db-operator/db-operator/v2/pkg/test"
+import (
+	"testing"
 
-func testGenericMysqlInstance() *Generic {
-	return &Generic{
-		Host:     test.GetMysqlHost(),
-		Port:     test.GetMysqlPort(),
-		Engine:   "mysql",
-		User:     "root",
-		Password: test.GetMysqlAdminPassword(),
+	"github.com/db-operator/db-operator/v2/pkg/utils/database"
+	"github.com/db-operator/db-operator/v2/pkg/utils/dbinstance"
+	"github.com/stretchr/testify/assert"
+)
+
+func TestPostgresDetect(t *testing.T) {
+	instance := dbinstance.TestGenericPostgresInstance()
+	dbuser := &database.DatabaseUser{
+		Username: instance.User,
+		Password: instance.Password,
 	}
+	engine, err := dbinstance.DetectEngine(t.Context(), instance, dbuser)
+	assert.NoError(t, err)
+	assert.Equal(t, "postgres", engine.Engine)
 }
 
-func testGenericPostgresInstance() *Generic {
-	return &Generic{
-		Host:     test.GetPostgresHost(),
-		Port:     test.GetPostgresPort(),
-		Engine:   "postgres",
-		User:     test.GetPostgresAdminUsername(),
-		Password: test.GetPostgresAdminPassword(),
+func TestMysqlDetect(t *testing.T) {
+	instance := dbinstance.TestGenericMysqlInstance()
+	dbuser := &database.DatabaseUser{
+		Username: instance.User,
+		Password: instance.Password,
 	}
+	engine, err := dbinstance.DetectEngine(t.Context(), instance, dbuser)
+	assert.NoError(t, err)
+	assert.Equal(t, "mysql", engine.Engine)
 }

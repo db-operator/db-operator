@@ -1,0 +1,56 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-admin-creds
+stringData:
+  user: db-operator
+  password: qwertyu9
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-admin-creds-new
+stringData:
+  user: db-operator
+  password: qwertyu9
+---
+apiVersion: kinda.rocks/v1
+kind: DbInstance
+metadata:
+  name: postgres
+spec:
+  engine: postgres
+  auth:
+    username:
+      valueFrom:
+        secret:
+          name: postgres-admin-creds-new
+          namespace: db-operator-system
+          key: user
+    password:
+      valueFrom:
+        secret:
+          name: postgres-admin-creds-new
+          namespace: db-operator-system
+          key: password
+  endpoint:
+    host:
+      value: postgres-instance.databases.svc.cluster.local
+    port:
+      value: "5432"
+  namespaceFilters:
+    - "db-operator-.*"
+    - default
+    - kube-system
+  grantRules:
+    - namespace: kube-system
+      role: test1
+      accessLevel: readOnly
+    - namespace: db-operator-.*
+      role: test2
+      accessLevel: readOnly
+  backupRules:
+    - namespace: db-operator-*
+      name: daily
+      cron: "*/10 * * * *"
