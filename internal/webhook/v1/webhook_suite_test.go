@@ -54,7 +54,7 @@ var (
 	testEnv   *envtest.Environment
 )
 
-func TestUnitWebhookAPIs(t *testing.T) {
+func TestKubernetesWebhookAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
 	RunSpecs(t, "Webhook Suite")

@@ -32,12 +32,12 @@ func TestUnitCheckAllowedPrivileges(t *testing.T) {
 	t.Run("Not allowed simple regex", func(t *testing.T) {
 		allowed, err := helpers.CheckAllowedPrivileges("readWrite", "default", allowedPrivileges)
 		assert.NoError(t, err)
-		assert.True(t, allowed)
+		assert.False(t, allowed)
 	})
 	t.Run("Not allowed simple regex one more time", func(t *testing.T) {
 		allowed, err := helpers.CheckAllowedPrivileges("readWrite", "check", allowedPrivileges)
 		assert.NoError(t, err)
-		assert.True(t, allowed)
+		assert.False(t, allowed)
 	})
 	t.Run("Invalid regex", func(t *testing.T) {
 		allowedPrivileges := []kindav1.DbInstanceAllowedPrivileges{
