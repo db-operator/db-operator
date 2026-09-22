@@ -29,7 +29,7 @@ import (
 )
 
 func TestUnitIsDBChangedPostgres(t *testing.T) {
-	db := testutils.NewPostgresTestDbCr(testutils.NewPostgresTestDbInstanceCr())
+	db := testutils.NewPostgresTestDbCr()
 
 	testDbSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Namespace: testutils.TestNamespace, Name: testutils.TestSecretName},
@@ -52,7 +52,7 @@ func TestUnitIsDBChangedPostgres(t *testing.T) {
 }
 
 func TestUnitIsDBChangedMysql(t *testing.T) {
-	db := testutils.NewPostgresTestDbCr(testutils.NewPostgresTestDbInstanceCr())
+	db := testutils.NewPostgresTestDbCr()
 
 	testDbSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Namespace: testutils.TestNamespace, Name: testutils.TestSecretName},
@@ -75,7 +75,7 @@ func TestUnitIsDBChangedMysql(t *testing.T) {
 }
 
 func TestUnitIsDBChangedExtraKeys(t *testing.T) {
-	db := testutils.NewPostgresTestDbCr(testutils.NewPostgresTestDbInstanceCr())
+	db := testutils.NewPostgresTestDbCr()
 
 	testDbSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Namespace: testutils.TestNamespace, Name: testutils.TestSecretName},

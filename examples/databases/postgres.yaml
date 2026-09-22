@@ -1,0 +1,24 @@
+apiVersion: kinda.rocks/v1beta1
+kind: Database
+metadata:
+  name: postgres
+spec:
+  backup:
+    cron: 0 0 * * *
+    enable: false
+  instance: postgres
+  postgres: {}
+  secretName: postgres-credentials
+---
+apiVersion: kinda.rocks/v1beta1
+kind: Database
+metadata:
+  name: postgres
+  namespace: kube-system
+spec:
+  backup:
+    cron: 0 0 * * *
+    enable: false
+  instance: postgres
+  postgres: {}
+  secretName: postgres-credentials

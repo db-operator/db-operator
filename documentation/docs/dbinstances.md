@@ -3,85 +3,76 @@ icon: lucide/server
 ---
 # Database Instances
 
-Currently, DbInstances are more or less a meta resource that connects the operator to a database server.
-
-> There are actually two types of databases: generic and gsql, and the gsql one is supposed to bootstrap an sql instance in GCP, but they are going to be deprecated soon, and hence I don't feel like writing docs for them. The only important thing about them is that you **shouldn't use them**
-
-Here we only talk about the generic instances
+DbInstance is a resource that connects the operator to a Database server and defines some rules for Database/DbUser management.
 
 ## How to configure a DbInstance
 
 You need to have a **PostgreSQL** or a **MySQL** server running, and it has to be accessible by the operator. You also need a user with sufficient permissions, if it's fine in your environment, I would suggest to use an admin user.
 
-Now let's get started:
+A lot of DbInstance values are using the internal `ValueSource` type, so once you know how to use it, you can configure a DbInstance resource.
+
+### ValueSource
+
+Value source allows user to either set a value directly or read a value from any ConfigMap or Secret in the cluster. For example, let's have a look at the admin username:
+
+This will read a key "user" from a secret named "my-secret" from the "my-namespace" namespace:
+
 ```yaml
-apiVersion: kinda.rocks/v1beta1
+   username:
+      valueFrom:
+        secret:
+          key: user
+          name: my-secret
+          namespace: my-namespace
+```
+
+This will do the same, but with a configmap instead of a secret:
+
+```yaml
+   username:
+      valueFrom:
+        configMap:
+          key: user
+          name: my-secret
+          namespace: my-namespace
+```
+
+And this one will simple set a value directly from the DbInstance manifest:
+
+```yaml
+   username:
+      value: my-username
+```
+
+Value can only be a string, so if you define a port as a value, you should use quotation marks: `"5432"`
+
+If you have a db-operator webhook enabled, it will only allow reading password from a secret.
+
+### Creating a DbInstance
+
+Now let's get started:
+
+```yaml
+apiVersion: kinda.rocks/v1
 kind: DbInstance
 metadata:
   name: cloudnative-pg
 spec:
-  adminSecretRef:
-    Name: cnpg17-admin-creds
-    Namespace: databases
-  backup:
-    bucket: <A name of the s3 bucket to be used for backups>
+  auth:
+    username:
+      value: admin
+    password:
+      valueFrom:
+        secret:
+          namespace: databases
+          name: cloudnative-admin-creds
+          key: password
+  endpoint:
+    host:
+      value: cloudnative-pg.databases.svc.cluster.local
+    port:
+      value: "5432"
   engine: postgres
-  generic:
-    hostFrom:
-      key: host
-      kind: ConfigMap
-      name: cloudnative-pg-config
-      namespace: databases
-    portFrom:
-      key: port
-      kind: ConfigMap
-      name: cloudnative-pg-config
-      namespace: databases
-  monitoring:
-    enabled: false
-```
-
-Let's quickly go through the yaml
-
-With `.adminSecretRef` you are pointing the operator to a secret, where the admin credentials are stored.
-They must be stored in a following format
-
-```yaml
-kind: Secret
-data:
-  # -- user might be omitted, then the following values will be used
-  # -- for PostgreSQL - postgres
-  # -- for MySQL      - root
-  user: <base64 encoded admin username>
-  password: <base64 encoded admin password>
-```
-
-With `.engine` you let the operator know, if it should treat a server as a PostgreSQL or a MySQL one. Possible values are `postgres` and `mysql`
-
-Then you need to configure a URL and a port that the operator should try to connect to, there are two options to do that, you can set them directly in the manifest:
-
-```yaml
-spec:
-  generic:
-    host: ${HOST}
-    port: ${PORT}
-```
-
-Or you can read them from a `ConfigMap` or a `Secret`:
-
-```yaml
-spec:
-  generic
-    hostFrom:
-      key: host
-      kind: ConfigMap
-      name: cloudnative-pg-config
-      namespace: databases
-    portFrom:
-      key: port
-      kind: ConfigMap
-      name: cloudnative-pg-config
-      namespace: databases
 ```
 
 ## Automatic Reconciliation on Resource Changes
@@ -92,23 +83,49 @@ The `DbInstance` controller automatically reconciles when referenced `Secrets` o
 
 ## Additional configurations
 
-### Extra Grants
+### NamespaceFilters
 
-To use the `.extraGrants` feature of `Databases`, you need to enabled it on the instance level. To do so, set the `.spec.allowExtraGrants` to `true`
+DbInstance can only allow the operator to create Databases only from specified namespaces:
+
+```yaml
+kind: DbInstance
+spec:
+  namespaceFilters:
+    - test-*
+```
+
+Would only allow Databases that match the `test-*` regex
+
+### GrantRules
+
+It's possible to set rules to automatically add extra grants to Databases. It can be used, if for example developers connect to a database server with a "developer" role, and you would like all dev Databases to be available for them:
+
+```yaml
+kind: DbInstance
+spec:
+  grantRules:
+    - namespace: dev-*
+      role: developer
+      accessLevel: readWrite
+```
+
+Currently grants are automatically created, but automatically removing them is not yet supported.
 
 ### Allowed Privileges
 
-To use the `.extraPrivileges` feature of `DbUsers`, you also need to enabled the privileges on the instance level. Extra privileges is a list of roles that can be granteed to `DbUsers`. For example:
+To use the `.extraPrivileges` feature of `DbUsers`, you also need to enabled the privileges on the instance level. Extra privileges is a list of roles that can be granted to `DbUsers`. For example:
 
 ```yaml
 spec:
   generic:
     allowedPrivileges:
-      - readOnlyAdmin
-      - rds-iam
+      - namespace: dev-*
+        role: readOnlyAdmin
+      - namespace: '*'
+        role: rds-iam
 ```
 
-Then you will be able to assigned these roles to DbUsers. The roles are not managed by the operator, they must be already on a server when a user is created.
+Then you will be able to assigned these roles to DbUsers. The roles are not managed by the operator, they must be already present on a server when a user is created.
 
 ### Instance Vars
 
@@ -161,10 +178,12 @@ kind: DbInstance
 metadata:
   name: example-generic
 spec:
-  sslConnection:
-    enabled: false
-    skip-verify: false
-...
+  endpoint:
+    host: {}
+    port: {}
+    sslConnection:
+      enabled: false
+      skip-verify: false
 ```
 
 #### Always SSL (skip verification)
@@ -178,10 +197,12 @@ kind: DbInstance
 metadata:
   name: example-generic
 spec:
-  sslConnection:
-    enabled: true
-    skip-verify: true
-...
+  endpoint:
+    host: {}
+    port: {}
+    sslConnection:
+      enabled: true
+      skip-verify: true
 ```
 
 #### Always SSL (verify that the certificate presented by the server was signed by a trusted CA)
@@ -195,8 +216,24 @@ kind: DbInstance
 metadata:
   name: example-generic
 spec:
-  sslConnection:
-    enabled: true
-    skip-verify: false
-...
+  endpoint:
+    host: {}
+    port: {}
+    sslConnection:
+      enabled: true
+      skip-verify: false
 ```
+
+### DbInstance Status
+
+DbInstance status contains some information about Database server:
+
+- Database version: For example: 17.6 (Debian 17.6-2.pgdg11+1)
+- serverStatus.Databases: It's a list of all databases found on a server
+- serverStatus.Users: It's a list of all users found on a server
+- serverStatus.DatabaseCount: An amount of all databases on a server
+- serverStatus.ManagedDatabaseCount: An amount of all databases on a server that are managed by the operator
+
+Lists of users and databases can be disabled by setting the `databaseAwareness` to `false` in the operator config.
+
+Database version is not checked on each reconciliation, but only once the TTL exceeded. TTL can be set in the configas `serverVersionTTL`, default value is 1 hour.

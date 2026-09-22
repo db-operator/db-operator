@@ -19,7 +19,7 @@ environments:
             nodePort: 30432
             imageTag: {{ env "POSTGRES_VERSION" | default 18 }}
             ssl:
-              enabled: false
+              enabled: true
               skipVerify: false
 ---
 repositories:
@@ -114,6 +114,22 @@ releases:
                 - localhost
                 - postgres-instance.databases.svc.cluster.local
                 - postgres-instance.databases.svc
+        - |-
+            apiVersion: cert-manager.io/v1
+            kind: Certificate
+            metadata:
+              name: postgres-client
+            spec:
+              issuerRef:
+                group: cert-manager.io
+                kind: ClusterIssuer
+                name: self-signed-cluster-issuer
+              secretName: postgres-client-cert
+              commonName: testcert
+              dnsNames:
+                - localhost
+                - postgres-instance.databases.svc.cluster.local
+                - postgres-instance.databases.svc
       - extraVolumes:
         - name: certs
           secret:
@@ -131,4 +147,19 @@ releases:
         - ssl_cert_file=/pg/certs/tls.crt
         - -c
         - ssl_key_file=/pg/certs/tls.key
+        - -c
+        - ssl_ca_file=/pg/certs/ca.crt
+      - config:
+          pgHbaConfig: |-
+            # TYPE  DATABASE        USER            ADDRESS                 METHOD
+            # "local" is for Unix domain socket connections only
+            local   all             all                                     trust
+            # IPv4 local connections:
+            host    all             all             127.0.0.1/32            trust
+            # IPv6 local connections:
+            host    all             all             ::1/128                 trust
+            hostssl all             all             ::/0                    cert
+            hostssl all             all             0.0.0.0/0               cert
+            # Allow connections from any host with password authentication
+            host    all             all             all                     md5
       {{- end }}

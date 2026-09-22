@@ -134,7 +134,6 @@ type DbInstanceSSLConnection struct {
 //+kubebuilder:resource:scope=Cluster,shortName=dbin
 //+kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`,description="current phase"
 //+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.status`,description="health status"
-// +kubebuilder:storageversion
 
 // DbInstance is the Schema for the dbinstances API
 type DbInstance struct {
@@ -232,8 +231,4 @@ func (dbin *DbInstance) IsDeleted() bool {
 // This method isn't supported by dbin
 func (dbin *DbInstance) GetSecretName() string {
 	return ""
-}
-
-func (db *DbInstance) Hub() {
-	// Function to mark the DbInstance as a hub
 }

@@ -98,7 +98,15 @@ func (p Postgres) getDbConn(dbname, user, password string) (*sql.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("sql.Open: %v", err)
 	}
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(0)
+	db.SetConnMaxLifetime(1 * time.Second)
 
+	if err := db.Ping(); err != nil {
+		db.Close()
+		db = nil
+		return nil, err
+	}
 	return db, err
 }
 
@@ -553,13 +561,15 @@ func (p Postgres) setUserPermission(ctx context.Context, admin *DatabaseUser, us
 		for _, s := range schemas {
 			grantUsage := fmt.Sprintf("GRANT USAGE ON SCHEMA \"%s\" TO \"%s\"", s, user.Username)
 			grantTables := fmt.Sprintf("GRANT SELECT, INSERT, DELETE, UPDATE, TRUNCATE ON ALL TABLES IN SCHEMA \"%s\" TO \"%s\"", s, user.Username)
-			defaultPrivileges := fmt.Sprintf("ALTER DEFAULT PRIVILEGES FOR ROLE \"%s\" IN SCHEMA \"%s\" GRANT SELECT, INSERT, DELETE, UPDATE, TRUNCATE ON TABLES TO \"%s\";",
+			defaultPrivileges := fmt.Sprintf(
+				"ALTER DEFAULT PRIVILEGES FOR ROLE \"%s\" IN SCHEMA \"%s\" GRANT SELECT, INSERT, DELETE, UPDATE, TRUNCATE ON TABLES TO \"%s\";",
 				p.MainUser.Username,
 				s,
 				user.Username,
 			)
 			grantSequences := fmt.Sprintf("GRANT UPDATE, USAGE, SELECT ON ALL SEQUENCES IN SCHEMA \"%s\" TO \"%s\"", s, user.Username)
-			defaultPrivilegesSeq := fmt.Sprintf("ALTER DEFAULT PRIVILEGES FOR ROLE \"%s\" IN SCHEMA \"%s\" GRANT UPDATE, USAGE, SELECT ON SEQUENCES TO \"%s\";",
+			defaultPrivilegesSeq := fmt.Sprintf(
+				"ALTER DEFAULT PRIVILEGES FOR ROLE \"%s\" IN SCHEMA \"%s\" GRANT UPDATE, USAGE, SELECT ON SEQUENCES TO \"%s\";",
 				p.MainUser.Username,
 				s,
 				user.Username,
@@ -610,13 +620,15 @@ func (p Postgres) setUserPermission(ctx context.Context, admin *DatabaseUser, us
 		for _, s := range schemas {
 			grantUsage := fmt.Sprintf("GRANT USAGE ON SCHEMA \"%s\" TO \"%s\"", s, user.Username)
 			grantTables := fmt.Sprintf("GRANT SELECT ON ALL TABLES IN SCHEMA \"%s\" TO \"%s\"", s, user.Username)
-			defaultPrivileges := fmt.Sprintf("ALTER DEFAULT PRIVILEGES FOR ROLE \"%s\" IN SCHEMA \"%s\" GRANT SELECT ON TABLES TO \"%s\";",
+			defaultPrivileges := fmt.Sprintf(
+				"ALTER DEFAULT PRIVILEGES FOR ROLE \"%s\" IN SCHEMA \"%s\" GRANT SELECT ON TABLES TO \"%s\";",
 				p.MainUser.Username,
 				s,
 				user.Username,
 			)
 			grantSequences := fmt.Sprintf("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA \"%s\" TO \"%s\"", s, user.Username)
-			defaultPrivilegesSeq := fmt.Sprintf("ALTER DEFAULT PRIVILEGES FOR ROLE \"%s\" IN SCHEMA \"%s\" GRANT USAGE, SELECT ON SEQUENCES TO \"%s\";",
+			defaultPrivilegesSeq := fmt.Sprintf(
+				"ALTER DEFAULT PRIVILEGES FOR ROLE \"%s\" IN SCHEMA \"%s\" GRANT USAGE, SELECT ON SEQUENCES TO \"%s\";",
 				p.MainUser.Username,
 				s,
 				user.Username,
@@ -699,7 +711,8 @@ func (p Postgres) revokePermissions(ctx context.Context, admin *DatabaseUser, us
 		}
 
 		for _, schema := range schemas {
-			revokeDefaults := fmt.Sprintf("ALTER DEFAULT PRIVILEGES FOR ROLE \"%s\" IN SCHEMA \"%s\" REVOKE ALL ON TABLES FROM \"%s\";",
+			revokeDefaults := fmt.Sprintf(
+				"ALTER DEFAULT PRIVILEGES FOR ROLE \"%s\" IN SCHEMA \"%s\" REVOKE ALL ON TABLES FROM \"%s\";",
 				p.MainUser.Username,
 				schema,
 				user.Username,
@@ -739,4 +752,80 @@ func (p Postgres) deleteUser(ctx context.Context, admin *DatabaseUser, user *Dat
 		}
 	}
 	return nil
+}
+
+// GetServerVersion implements [Database].
+func (p Postgres) GetServerVersion(ctx context.Context, user *DatabaseUser) (string, error) {
+	localCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	db, err := p.getDbConn(p.Database, user.Username, user.Password)
+	if err != nil {
+		return "", err
+	}
+	defer db.Close()
+	var version string
+	err = db.QueryRowContext(localCtx, "SHOW server_version;").Scan(&version)
+	if err != nil {
+		return "", err
+	}
+	return version, nil
+}
+
+// ListDatabases implements [Database].
+func (p Postgres) ListDatabases(ctx context.Context, user *DatabaseUser) ([]string, error) {
+	db, err := p.getDbConn(p.Database, user.Username, user.Password)
+	if err != nil {
+		return nil, err
+	}
+
+	defer db.Close()
+	rows, err := db.Query(`
+		SELECT datname
+		FROM pg_database
+		ORDER BY datname;
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var databases []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		databases = append(databases, name)
+	}
+
+	return databases, rows.Err()
+}
+
+// ListUsers implements [Database].
+func (p Postgres) ListUsers(ctx context.Context, user *DatabaseUser) ([]string, error) {
+	db, err := p.getDbConn(p.Database, user.Username, user.Password)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+	rows, err := db.Query(`
+		SELECT rolname
+		FROM pg_roles
+		ORDER BY rolname;
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		users = append(users, name)
+	}
+
+	return users, rows.Err()
 }

@@ -1,0 +1,16 @@
+apiVersion: kinda.rocks/v1
+kind: DbInstance
+metadata:
+  name: mariadb
+spec:
+  engine: mysql
+  auth:
+    username:
+      value: root
+    password:
+      value: qwertyu9
+  endpoint:
+    host:
+      value: mariadb-instance.databases.svc.cluster.local
+    port:
+      value: "3306"
