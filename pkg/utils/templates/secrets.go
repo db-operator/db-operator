@@ -57,7 +57,7 @@ func getBlockedTempatedKeys() []string {
 func ParseTemplatedSecretsData(ctx context.Context, dbcr *kindav1beta1.Database, cred database.Credentials, data map[string][]byte) (database.Credentials, error) {
 	log := log.FromContext(ctx)
 	cred.TemplatedSecrets = map[string]string{}
-	for key := range dbcr.Spec.SecretsTemplates {
+	for key := range dbcr.Spec.SecretsTemplates { //nolint:staticcheck // SA1019: Required for v1beta1 secretsTemplates compatibility; remove when that field is removed.
 		// Here we can see if there are obsolete entries in the secret data
 		if secret, ok := data[key]; ok {
 			delete(data, key)
@@ -77,7 +77,7 @@ func ParseTemplatedSecretsData(ctx context.Context, dbcr *kindav1beta1.Database,
 func GenerateTemplatedSecrets(ctx context.Context, dbcr *kindav1beta1.Database, databaseCred database.Credentials, dbAddress database.DatabaseAddress) (secrets map[string][]byte, err error) {
 	log := log.FromContext(ctx)
 	secrets = map[string][]byte{}
-	templates := dbcr.Spec.SecretsTemplates
+	templates := dbcr.Spec.SecretsTemplates //nolint:staticcheck // SA1019: Required for v1beta1 secretsTemplates compatibility; remove when that field is removed.
 	// The string that's going to be generated if the default template is used:
 	// "postgresql://user:password@host:port/database"
 	dbData := SecretsTemplatesFields{

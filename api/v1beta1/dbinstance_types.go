@@ -25,22 +25,29 @@ import (
 
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// DbInstanceSpec defines the desired state of DbInstance
+// Connection settings for the database server.
 type DbInstanceSpec struct {
 	// Important: Run "make generate" to regenerate code after modifying this file
-	Engine          string                  `json:"engine"`
-	AdminUserSecret NamespacedName          `json:"adminSecretRef"`
-	Backup          DbInstanceBackup        `json:"backup,omitempty"`
-	Monitoring      DbInstanceMonitoring    `json:"monitoring,omitempty"`
-	SSLConnection   DbInstanceSSLConnection `json:"sslConnection,omitempty"`
-	// A list of privileges that are allowed to be set as Dbuser's extra privileges
+
+	// Database engine. Supported values are postgres and mysql.
+	// This field is immutable.
+	Engine string `json:"engine"`
+	// Reference to the Secret containing database administrator credentials. The optional user key
+	// defaults to postgres for PostgreSQL and root for MySQL. PostgreSQL passwords are read
+	// from password, postgresql-password, or postgresql-postgres-password; MySQL passwords
+	// are read from password or mysql-root-password.
+	AdminUserSecret NamespacedName `json:"adminSecretRef"`
+	Backup        DbInstanceBackup        `json:"backup,omitempty"`
+	Monitoring    DbInstanceMonitoring    `json:"monitoring,omitempty"`
+	SSLConnection DbInstanceSSLConnection `json:"sslConnection,omitempty"`
+	// Database roles that DbUser resources may request in extraPrivileges.
+	// ALL PRIVILEGES is not allowed.
 	AllowedPrivileges []string `json:"allowedPrivileges,omitempty"`
-	// If set to true, extra grants are enabled on the databases
-	// making it possible to provide access to any user on the database instance
+	// Permits Database resources to grant access to existing users
+	// through their extraGrants field.
 	AllowExtraGrants bool `json:"allowExtraGrants,omitempty"`
-	// InstanceVars can be used by any database/dbuser that are deployed
-	// to this instance to build templated credentials with some generic values.
-	// Can be used for example to provide a read only postgres replica url
+	// Provides values to credential templates through the InstanceVar function.
+	// For example, a template can expose the address of a read-only PostgreSQL replica.
 	InstanceVars     map[string]string `json:"instanceVars,omitempty"`
 	DbInstanceSource `json:",inline"`
 }
@@ -52,22 +59,30 @@ type DbInstanceSource struct {
 	Generic *GenericInstance `json:"generic,omitempty" protobuf:"bytes,2,opt,name=generic"`
 }
 
-// DbInstanceStatus defines the observed state of DbInstance
+// Observed state of the database server connection.
 type DbInstanceStatus struct {
 	// Important: Run "make generate" to regenerate code after modifying this file
-	Phase     string            `json:"phase"`
-	Status    bool              `json:"status"`
+
+	// One of Validating, Creating, Broadcasting, ProxyCreating, or Running.
+	Phase string `json:"phase"`
+	// True when the operator can connect to the database server.
+	Status bool `json:"status"`
+	// Contains DB_CONN, DB_PORT, and DB_PUBLIC_IP values discovered for the instance.
 	Info      map[string]string `json:"info,omitempty"`
 	Checksums map[string]string `json:"checksums,omitempty"`
 }
 
-// GoogleInstance is used when instance type is Google Cloud SQL
-// and describes necessary information to use google API to create sql instances
+// Google Cloud SQL instance managed through the Google API.
+//
+// Deprecated: Use generic instead. Google instances will be removed in v1beta2.
 type GoogleInstance struct {
-	InstanceName  string         `json:"instance"`
+	InstanceName string `json:"instance"`
+	// Reference to a ConfigMap containing the Google instance configuration.
 	ConfigmapName NamespacedName `json:"configmapRef"`
-	APIEndpoint   string         `json:"apiEndpoint,omitempty"`
-	ClientSecret  NamespacedName `json:"clientSecretRef,omitempty"`
+	// Overrides the Google SQL Admin API endpoint.
+	APIEndpoint string `json:"apiEndpoint,omitempty"`
+	// Reference to the Secret containing Google API client credentials.
+	ClientSecret NamespacedName `json:"clientSecretRef,omitempty"`
 }
 
 // BackendServer defines backend database server
@@ -78,27 +93,31 @@ type BackendServer struct {
 	ReadOnly      bool   `json:"readonly,omitempty"`
 }
 
-// GenericInstance is used when instance type is generic
-// and describes necessary information to use instance
-// generic instance can be any backend, it must be reachable by described address and port
+// Existing database server reachable by address and port.
 type GenericInstance struct {
-	Host         string   `json:"host,omitempty"`
-	HostFrom     *FromRef `json:"hostFrom,omitempty"`
-	Port         uint16   `json:"port,omitempty"`
-	PortFrom     *FromRef `json:"portFrom,omitempty"`
+	// Address db-operator uses to connect to the database server.
+	// It cannot be set with hostFrom.
+	Host     string   `json:"host,omitempty"`
+	HostFrom *FromRef `json:"hostFrom,omitempty"`
+	// Database server port. It cannot be set with portFrom.
+	Port     uint16   `json:"port,omitempty"`
+	PortFrom *FromRef `json:"portFrom,omitempty"`
+	// Externally reachable address exposed in generated credentials.
+	// It cannot be set with publicIpFrom.
 	PublicIP     string   `json:"publicIp,omitempty"`
 	PublicIPFrom *FromRef `json:"publicIpFrom,omitempty"`
-	// BackupHost address will be used for dumping database for backup
-	// Usually secondary address for primary-secondary setup or cluster lb address
-	// If it's not defined, above Host will be used as backup host address.
+	// BackupAddress used by backup jobs. When empty, backup jobs use host.
 	BackupHost string `json:"backupHost,omitempty"`
 }
 
+// Reference to one data entry in a Secret or ConfigMap.
 type FromRef struct {
+	// Referenced resource kind. Supported values are Secret and ConfigMap.
 	Kind      string `json:"kind"`
 	Name      string `json:"name"`
 	Namespace string `json:"namespace"`
-	Key       string `json:"key"`
+	// Data key whose value should be read.
+	Key string `json:"key"`
 }
 
 func (fr *FromRef) ToKubernetesType() k8stypes.NamespacedName {
@@ -112,20 +131,21 @@ func (fr *FromRef) ToKubernetesType() k8stypes.NamespacedName {
 	}
 }
 
-// DbInstanceBackup defines name of google bucket to use for storing database dumps for backup when backup is enabled
+// Storage used by Database backup jobs.
 type DbInstanceBackup struct {
 	Bucket string `json:"bucket"`
 }
 
-// DbInstanceMonitoring defines if exporter
+// Database monitoring settings.
 type DbInstanceMonitoring struct {
+	// Creates and configures a monitoring user for databases on this instance.
 	Enabled bool `json:"enabled"`
 }
 
-// DbInstanceSSLConnection defines whether connection from db-operator to instance has to be ssl or not
+// TLS settings for connections from db-operator to the database server.
 type DbInstanceSSLConnection struct {
 	Enabled bool `json:"enabled"`
-	// SkipVerify use SSL connection, but don't check against a CA
+	// Accepts a server certificate without verifying its certificate authority or hostname.
 	SkipVerify bool `json:"skip-verify"`
 }
 

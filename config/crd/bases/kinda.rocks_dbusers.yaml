@@ -58,57 +58,57 @@ spec:
           metadata:
             type: object
           spec:
-            description: DbUserSpec defines the desired state of DbUser
+            description: User and access settings for the referenced Database.
             properties:
               accessType:
-                description: |-
-                  AccessType that should be given to a user
-                  Currently only readOnly and readWrite are supported by the operator
+                description: Access level to grant. Supported values are readOnly
+                  and readWrite.
                 type: string
               cleanup:
+                description: |-
+                  Adds this DbUser as an owner of the Kubernetes resources it creates.
+                  Kubernetes garbage collection then removes those resources with the DbUser.
                 type: boolean
               credentials:
-                description: Credentials should be used to setup everything relates
-                  to k8s secrets and configmaps
+                description: Generated credential data and Secret metadata.
                 properties:
                   metadata:
-                    description: |-
-                      Metadata defines additional metadata that should be applied to
-                      k8s resources created from credentials configuration.
-
-                      For Database and DbUser, this metadata is applied to the Secret
-                      that stores generated credentials.
+                    description: Labels and annotations on the generated credential
+                      Secret.
                     properties:
                       extraAnnotations:
                         additionalProperties:
                           type: string
                         description: |-
-                          ExtraAnnotations will be merged into the annotations of the Secret
-                          created for the credentials. Existing annotations are preserved, and
-                          keys from this map will overwrite annotations with the same key on
-                          the Secret.
+                          Annotations to merge into the generated credential Secret.
+                          Values in this map replace existing values for the same keys.
                         type: object
                       extraLabels:
                         additionalProperties:
                           type: string
                         description: |-
-                          ExtraLabels will be merged into the labels of the Secret created
-                          for the credentials. Existing labels are preserved, and keys from
-                          this map will overwrite labels with the same key on the Secret.
+                          Labels to merge into the generated credential Secret.
+                          Values in this map replace existing values for the same keys.
                         type: object
                     type: object
                   templates:
-                    description: Templates to add custom entries to ConfigMaps and
-                      Secrets
+                    description: Additional data entries for generated Secrets and
+                      ConfigMaps.
                     items:
-                      description: Templates to add custom entries to ConfigMaps and
-                        Secrets
+                      description: One generated credential entry.
                       properties:
                         name:
+                          description: Data key written to the generated Secret or
+                            ConfigMap.
                           type: string
                         secret:
+                          description: |-
+                            Writes the entry to a Secret when true and to a ConfigMap when false.
+                            DbUser templates must set this field to true.
                           type: boolean
                         template:
+                          description: Go template evaluated with database connection
+                            values and template helper functions.
                           type: string
                       required:
                       - name
@@ -119,36 +119,32 @@ spec:
                 type: object
               databaseRef:
                 description: |-
-                  DatabaseRef should contain a name of a Database to create a user there
-                  Database should be in the same namespace with the user
+                  Name of the Database that the user can access.
+                  The Database must be in the same namespace as the DbUser.
                 type: string
               existingUser:
                 description: |-
-                  If specified, DB Operator will try to use an existing user to assign permissions
-                  User will not be removed, when a dbuser is removed, but the permissions added by the
-                  operator will be cleaned up
+                  Name of an existing database user to manage instead of creating a user.
+                  The operator grants and revokes permissions for this user but does not create or delete it.
                 type: string
               extraPrivileges:
-                description: A list of additional roles that should be added to the
-                  user
+                description: |-
+                  Additional database roles to grant to the user.
+                  Every role must also appear in the referenced DbInstance's allowedPrivileges list.
+                  ALL PRIVILEGES is not allowed. This feature is experimental.
                 items:
                   type: string
                 type: array
               grantToAdmin:
                 default: true
                 description: |-
-                  Should the user be granted to the admin user
-                  For example, it should be set to true on Azure instance,
-                  because the admin given by them is not a super user,
-                  but should be set to false on AWS, when rds_iam extra
-                  privilege is added
-                  By default is set to true
-                  Only applies to Postgres, doesn't have any effect on Mysql
-                        changes it's now set to true. It should be changed in
-                        in the next API version
+                  Grants the new user to the PostgreSQL administrator role.
+                  This is commonly required when the managed administrator is not a superuser,
+                  such as on Azure Database for PostgreSQL. It may need to be false when using
+                  roles such as rds_iam on Amazon RDS. It has no effect on MySQL.
                 type: boolean
               secretName:
-                description: SecretName name that should be used to save user's credentials
+                description: Name of the Secret that stores the generated user credentials.
                 type: string
             required:
             - accessType
@@ -156,10 +152,11 @@ spec:
             - secretName
             type: object
           status:
-            description: DbUserStatus defines the observed state of DbUser
+            description: Observed state of the database user.
             properties:
               created:
-                description: It's required to let the operator update users
+                description: True after the operator has created the user or begun
+                  managing an existing user.
                 type: boolean
               database:
                 type: string

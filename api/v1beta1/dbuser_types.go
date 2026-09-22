@@ -23,45 +23,45 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// DbUserSpec defines the desired state of DbUser
+// User and access settings for the referenced Database.
 type DbUserSpec struct {
-	// DatabaseRef should contain a name of a Database to create a user there
-	// Database should be in the same namespace with the user
+	// Name of the Database that the user can access.
+	// The Database must be in the same namespace as the DbUser.
 	DatabaseRef string `json:"databaseRef"`
-	// AccessType that should be given to a user
-	// Currently only readOnly and readWrite are supported by the operator
+	// Access level to grant. Supported values are readOnly and readWrite.
 	AccessType string `json:"accessType"`
-	// SecretName name that should be used to save user's credentials
+	// Name of the Secret that stores the generated user credentials.
 	SecretName string `json:"secretName"`
-	// A list of additional roles that should be added to the user
+	// Additional database roles to grant to the user.
+	// Every role must also appear in the referenced DbInstance's allowedPrivileges list.
+	// ALL PRIVILEGES is not allowed. This feature is experimental.
 	ExtraPrivileges []string    `json:"extraPrivileges,omitempty"`
 	Credentials     Credentials `json:"credentials,omitempty"`
-	Cleanup         bool        `json:"cleanup,omitempty"`
-	// Should the user be granted to the admin user
-	// For example, it should be set to true on Azure instance,
-	// because the admin given by them is not a super user,
-	// but should be set to false on AWS, when rds_iam extra
-	// privilege is added
-	// By default is set to true
-	// Only applies to Postgres, doesn't have any effect on Mysql
+	// Adds this DbUser as an owner of the Kubernetes resources it creates.
+	// Kubernetes garbage collection then removes those resources with the DbUser.
+	Cleanup bool `json:"cleanup,omitempty"`
 	// TODO: Default should be false, but not to introduce breaking
 	//       changes it's now set to true. It should be changed in
 	//       in the next API version
+
+	// Grants the new user to the PostgreSQL administrator role.
+	// This is commonly required when the managed administrator is not a superuser,
+	// such as on Azure Database for PostgreSQL. It may need to be false when using
+	// roles such as rds_iam on Amazon RDS. It has no effect on MySQL.
 	// +kubebuilder:default=true
 	// +optional
 	GrantToAdmin bool `json:"grantToAdmin"`
-	// If specified, DB Operator will try to use an existing user to assign permissions
-	// User will not be removed, when a dbuser is removed, but the permissions added by the
-	// operator will be cleaned up
+	// Name of an existing database user to manage instead of creating a user.
+	// The operator grants and revokes permissions for this user but does not create or delete it.
 	ExistingUser string `json:"existingUser,omitempty"`
 }
 
-// DbUserStatus defines the observed state of DbUser
+// Observed state of the database user.
 type DbUserStatus struct {
 	Status       bool   `json:"status"`
 	DatabaseName string `json:"database"`
 	UserName     string `json:"user,omitempty"`
-	// It's required to let the operator update users
+	// True after the operator has created the user or begun managing an existing user.
 	Created         bool   `json:"created"`
 	OperatorVersion string `json:"operatorVersion,omitempty"`
 }
@@ -114,7 +114,7 @@ func IsAccessTypeSupported(wantedAccessType string) error {
 	)
 }
 
-// DbUsers don't have cleanup feature implemented
+// IsCleanup reports whether Kubernetes resources created for this DbUser should use owner references.
 func (dbu *DbUser) IsCleanup() bool {
 	return dbu.Spec.Cleanup
 }

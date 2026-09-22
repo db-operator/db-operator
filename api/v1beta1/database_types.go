@@ -25,65 +25,86 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// DatabaseSpec defines the desired state of Database
+// Desired configuration of the database and its primary user.
 type DatabaseSpec struct {
-	SecretName        string            `json:"secretName"`
-	Instance          string            `json:"instance"`
-	DeletionProtected bool              `json:"deletionProtected"`
-	Backup            DatabaseBackup    `json:"backup,omitempty"`
-	SecretsTemplates  map[string]string `json:"secretsTemplates,omitempty"`
-	Postgres          Postgres          `json:"postgres,omitempty"`
-	Cleanup           bool              `json:"cleanup,omitempty"`
-	Credentials       Credentials       `json:"credentials,omitempty"`
-	ExtraGrants       []*ExtraGrant     `json:"extraGrants,omitempty"`
-	// If specified, DB Operator will try to use an existing user to assign permissions
-	// User will not be removed, when a database is removed, but the permissions added by the
-	// operator will be cleaned up
+	// Name of the Secret that stores the generated database credentials.
+	SecretName string `json:"secretName"`
+	// Name of the cluster-scoped DbInstance that hosts the database.
+	// This field is immutable.
+	Instance string `json:"instance"`
+	// Keeps the database and its primary user in the database backend
+	// when the Database resource is deleted.
+	DeletionProtected bool `json:"deletionProtected"`
+	Backup DatabaseBackup `json:"backup,omitempty"`
+	// Legacy credential templates indexed by Secret data key.
+	// It cannot be used with credentials.templates.
+	//
+	// Deprecated: Use credentials.templates instead.
+	SecretsTemplates map[string]string `json:"secretsTemplates,omitempty"`
+	Postgres         Postgres          `json:"postgres,omitempty"`
+	// Adds this Database as an owner of the Kubernetes resources it creates.
+	// Kubernetes garbage collection then removes those resources with the Database.
+	Cleanup     bool        `json:"cleanup,omitempty"`
+	Credentials Credentials `json:"credentials,omitempty"`
+	// Grants other existing database users access to this database.
+	// The referenced DbInstance must set allowExtraGrants to true.
+	ExtraGrants []*ExtraGrant `json:"extraGrants,omitempty"`
+	// Name of an existing database user to use as the primary user.
+	// The operator grants and revokes permissions for this user but does not create or delete it.
 	ExistingUser string `json:"existingUser,omitempty"`
 }
 
 type ExtraGrant struct {
-	User       string `json:"user"`
+	User string `json:"user"`
+	// Access level to grant. Supported values are readOnly and readWrite.
 	AccessType string `json:"accessType"`
 }
 
-// Postgres struct should be used to provide resource that only applicable to postgres
+// Settings that apply only to PostgreSQL databases.
 type Postgres struct {
 	Extensions []string `json:"extensions,omitempty"`
-	// If set to true, the public schema will be dropped after the database creation
+	// Removes the public schema after the database is created.
 	DropPublicSchema bool `json:"dropPublicSchema,omitempty"`
-	// Specify schemas to be created. The user created by db-operator will have all access on them.
+	// Schemas to create. The primary user receives full access to each schema.
 	Schemas []string `json:"schemas,omitempty"`
-	// Let user create database from template
+	// PostgreSQL template database used to create this database.
+	// This field is immutable.
 	Template string `json:"template,omitempty"`
 }
 
-// DatabaseStatus defines the observed state of Database
+// Observed state of the database.
 type DatabaseStatus struct {
 	// Important: Run "make generate" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+
+	// True after the database reconciles successfully.
 	Status                bool                `json:"status"`
 	MonitorUserSecretName string              `json:"monitorUserSecret,omitempty"`
 	ProxyStatus           DatabaseProxyStatus `json:"proxyStatus,omitempty"`
 	DatabaseName          string              `json:"database"`
 	UserName              string              `json:"user"`
 	Engine                string              `json:"engine"`
-	OperatorVersion       string              `json:"operatorVersion,omitempty"`
-	ExtraGrants           []*ExtraGrant       `json:"extraGrants,omitempty"`
+	// The db-operator version that last completed reconciliation.
+	OperatorVersion string `json:"operatorVersion,omitempty"`
+	// Records the grants applied during the last successful reconciliation.
+	ExtraGrants []*ExtraGrant `json:"extraGrants,omitempty"`
 }
 
-// DatabaseProxyStatus defines whether proxy for database is enabled or not
-// if so, provide information
+// Connection proxy state and service details.
 type DatabaseProxyStatus struct {
+	// True when the proxy is ready.
 	Status      bool   `json:"status"`
 	ServiceName string `json:"serviceName"`
 	SQLPort     int32  `json:"sqlPort"`
 }
 
-// DatabaseBackup defines the desired state of backup and schedule
+// Scheduled database dumps.
 type DatabaseBackup struct {
-	Enable        bool   `json:"enable"`
-	Cron          string `json:"cron"`
+	// Creates a CronJob that dumps the database on the configured schedule.
+	Enable bool `json:"enable"`
+	// CronJob schedule expression.
+	Cron string `json:"cron"`
+	// Name of a Secret whose data is exposed to the backup container as environment variables.
 	EnvFromSecret string `json:"envFromSecret,omitempty"`
 }
 
