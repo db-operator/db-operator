@@ -48,12 +48,14 @@ spec:
           metadata:
             type: object
           spec:
-            description: DbInstanceSpec defines the desired state of DbInstance
+            description: Connection settings for the database server.
             properties:
               adminSecretRef:
                 description: |-
-                  NamespacedName is a fork of the kubernetes api type of the same name.
-                  Sadly this is required because CRD structs must have all fields json tagged and the kubernetes type is not tagged.
+                  Reference to the Secret containing database administrator credentials. The optional user key
+                  defaults to postgres for PostgreSQL and root for MySQL. PostgreSQL passwords are read
+                  from password, postgresql-password, or postgresql-postgres-password; MySQL passwords
+                  are read from password or mysql-root-password.
                 properties:
                   Name:
                     type: string
@@ -65,18 +67,18 @@ spec:
                 type: object
               allowExtraGrants:
                 description: |-
-                  If set to true, extra grants are enabled on the databases
-                  making it possible to provide access to any user on the database instance
+                  Permits Database resources to grant access to existing users
+                  through their extraGrants field.
                 type: boolean
               allowedPrivileges:
-                description: A list of privileges that are allowed to be set as Dbuser's
-                  extra privileges
+                description: |-
+                  Database roles that DbUser resources may request in extraPrivileges.
+                  ALL PRIVILEGES is not allowed.
                 items:
                   type: string
                 type: array
               backup:
-                description: DbInstanceBackup defines name of google bucket to use
-                  for storing database dumps for backup when backup is enabled
+                description: Storage used by Database backup jobs.
                 properties:
                   bucket:
                     type: string
@@ -84,28 +86,31 @@ spec:
                 - bucket
                 type: object
               engine:
-                description: 'Important: Run "make generate" to regenerate code after
-                  modifying this file'
+                description: |-
+                  Database engine. Supported values are postgres and mysql.
+                  This field is immutable.
                 type: string
               generic:
-                description: |-
-                  GenericInstance is used when instance type is generic
-                  and describes necessary information to use instance
-                  generic instance can be any backend, it must be reachable by described address and port
+                description: Existing database server reachable by address and port.
                 properties:
                   backupHost:
-                    description: |-
-                      BackupHost address will be used for dumping database for backup
-                      Usually secondary address for primary-secondary setup or cluster lb address
-                      If it's not defined, above Host will be used as backup host address.
+                    description: BackupAddress used by backup jobs. When empty, backup
+                      jobs use host.
                     type: string
                   host:
+                    description: |-
+                      Address db-operator uses to connect to the database server.
+                      It cannot be set with hostFrom.
                     type: string
                   hostFrom:
+                    description: Reference to one data entry in a Secret or ConfigMap.
                     properties:
                       key:
+                        description: Data key whose value should be read.
                         type: string
                       kind:
+                        description: Referenced resource kind. Supported values are
+                          Secret and ConfigMap.
                         type: string
                       name:
                         type: string
@@ -118,12 +123,17 @@ spec:
                     - namespace
                     type: object
                   port:
+                    description: Database server port. It cannot be set with portFrom.
                     type: integer
                   portFrom:
+                    description: Reference to one data entry in a Secret or ConfigMap.
                     properties:
                       key:
+                        description: Data key whose value should be read.
                         type: string
                       kind:
+                        description: Referenced resource kind. Supported values are
+                          Secret and ConfigMap.
                         type: string
                       name:
                         type: string
@@ -136,12 +146,19 @@ spec:
                     - namespace
                     type: object
                   publicIp:
+                    description: |-
+                      Externally reachable address exposed in generated credentials.
+                      It cannot be set with publicIpFrom.
                     type: string
                   publicIpFrom:
+                    description: Reference to one data entry in a Secret or ConfigMap.
                     properties:
                       key:
+                        description: Data key whose value should be read.
                         type: string
                       kind:
+                        description: Referenced resource kind. Supported values are
+                          Secret and ConfigMap.
                         type: string
                       name:
                         type: string
@@ -156,15 +173,16 @@ spec:
                 type: object
               google:
                 description: |-
-                  GoogleInstance is used when instance type is Google Cloud SQL
-                  and describes necessary information to use google API to create sql instances
+                  Google Cloud SQL instance managed through the Google API.
+
+                  Deprecated: Use generic instead. Google instances will be removed in v1beta2.
                 properties:
                   apiEndpoint:
+                    description: Overrides the Google SQL Admin API endpoint.
                     type: string
                   clientSecretRef:
-                    description: |-
-                      NamespacedName is a fork of the kubernetes api type of the same name.
-                      Sadly this is required because CRD structs must have all fields json tagged and the kubernetes type is not tagged.
+                    description: Reference to the Secret containing Google API client
+                      credentials.
                     properties:
                       Name:
                         type: string
@@ -175,9 +193,8 @@ spec:
                     - Namespace
                     type: object
                   configmapRef:
-                    description: |-
-                      NamespacedName is a fork of the kubernetes api type of the same name.
-                      Sadly this is required because CRD structs must have all fields json tagged and the kubernetes type is not tagged.
+                    description: Reference to a ConfigMap containing the Google instance
+                      configuration.
                     properties:
                       Name:
                         type: string
@@ -197,27 +214,28 @@ spec:
                 additionalProperties:
                   type: string
                 description: |-
-                  InstanceVars can be used by any database/dbuser that are deployed
-                  to this instance to build templated credentials with some generic values.
-                  Can be used for example to provide a read only postgres replica url
+                  Provides values to credential templates through the InstanceVar function.
+                  For example, a template can expose the address of a read-only PostgreSQL replica.
                 type: object
               monitoring:
-                description: DbInstanceMonitoring defines if exporter
+                description: Database monitoring settings.
                 properties:
                   enabled:
+                    description: Creates and configures a monitoring user for databases
+                      on this instance.
                     type: boolean
                 required:
                 - enabled
                 type: object
               sslConnection:
-                description: DbInstanceSSLConnection defines whether connection from
-                  db-operator to instance has to be ssl or not
+                description: TLS settings for connections from db-operator to the
+                  database server.
                 properties:
                   enabled:
                     type: boolean
                   skip-verify:
-                    description: SkipVerify use SSL connection, but don't check against
-                      a CA
+                    description: Accepts a server certificate without verifying its
+                      certificate authority or hostname.
                     type: boolean
                 required:
                 - enabled
@@ -228,7 +246,7 @@ spec:
             - engine
             type: object
           status:
-            description: DbInstanceStatus defines the observed state of DbInstance
+            description: Observed state of the database server connection.
             properties:
               checksums:
                 additionalProperties:
@@ -237,12 +255,15 @@ spec:
               info:
                 additionalProperties:
                   type: string
+                description: Contains DB_CONN, DB_PORT, and DB_PUBLIC_IP values discovered
+                  for the instance.
                 type: object
               phase:
-                description: 'Important: Run "make generate" to regenerate code after
-                  modifying this file'
+                description: One of Validating, Creating, Broadcasting, ProxyCreating,
+                  or Running.
                 type: string
               status:
+                description: True when the operator can connect to the database server.
                 type: boolean
             required:
             - phase

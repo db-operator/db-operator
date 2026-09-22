@@ -53,7 +53,7 @@ type DatabaseCustomDefaulter struct{}
 func (d *DatabaseCustomDefaulter) Default(_ context.Context, obj *kindarocksv1beta1.Database) error {
 	databaselog.Info("Defaulting for Database", "name", obj.GetName())
 
-	if len(obj.Spec.SecretsTemplates) == 0 && len(obj.Spec.Credentials.Templates) == 0 {
+	if len(obj.Spec.SecretsTemplates) == 0 && len(obj.Spec.Credentials.Templates) == 0 { //nolint:staticcheck // SA1019: Required for v1beta1 secretsTemplates compatibility; remove when that field is removed.
 		obj.Spec.Credentials = kindarocksv1beta1.Credentials{
 			Templates: kindarocksv1beta1.Templates{
 				&kindarocksv1beta1.Template{
@@ -80,14 +80,14 @@ func (v *DatabaseCustomValidator) ValidateCreate(_ context.Context, obj *kindaro
 
 	var warnings []string
 	// TODO(user): fill in your validation logic upon object creation.
-	if obj.Spec.SecretsTemplates != nil && obj.Spec.Credentials.Templates != nil {
+	if obj.Spec.SecretsTemplates != nil && obj.Spec.Credentials.Templates != nil { //nolint:staticcheck // SA1019: Required for v1beta1 secretsTemplates compatibility; remove when that field is removed.
 		return nil, errors.New("using both: secretsTemplates and templates, is not allowed")
 	}
 
-	if obj.Spec.SecretsTemplates != nil {
+	if obj.Spec.SecretsTemplates != nil { //nolint:staticcheck // SA1019: Required for v1beta1 secretsTemplates compatibility; remove when that field is removed.
 		warnings = append(warnings, "secretsTemplates are deprecated, it will be removed in the next API version. Please, consider switching to templates")
 		// TODO: Migrate this logic to the webhook package
-		if err := ValidateSecretTemplates(obj.Spec.SecretsTemplates); err != nil {
+		if err := ValidateSecretTemplates(obj.Spec.SecretsTemplates); err != nil { //nolint:staticcheck // SA1019: Required for v1beta1 secretsTemplates compatibility; remove when that field is removed.
 			return warnings, err
 		}
 	}
@@ -125,15 +125,15 @@ func (v *DatabaseCustomValidator) ValidateCreate(_ context.Context, obj *kindaro
 func (v *DatabaseCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj *kindarocksv1beta1.Database) (admission.Warnings, error) {
 	databaselog.Info("Validation for Database upon update", "name", newObj.GetName())
 
-	if newObj.Spec.SecretsTemplates != nil && newObj.Spec.Credentials.Templates != nil {
+	if newObj.Spec.SecretsTemplates != nil && newObj.Spec.Credentials.Templates != nil { //nolint:staticcheck // SA1019: Required for v1beta1 secretsTemplates compatibility; remove when that field is removed.
 		return nil, errors.New("using both: secretsTemplates and templates, is not allowed")
 	}
 
 	var warnings []string
 
-	if newObj.Spec.SecretsTemplates != nil {
+	if newObj.Spec.SecretsTemplates != nil { //nolint:staticcheck // SA1019: Required for v1beta1 secretsTemplates compatibility; remove when that field is removed.
 		warnings = append(warnings, "secretsTemplates are deprecated, it will be removed in the next API version. Please, consider switching to templates")
-		err := ValidateSecretTemplates(newObj.Spec.SecretsTemplates)
+		err := ValidateSecretTemplates(newObj.Spec.SecretsTemplates) //nolint:staticcheck // SA1019: Required for v1beta1 secretsTemplates compatibility; remove when that field is removed.
 		if err != nil {
 			return warnings, err
 		}

@@ -60,66 +60,71 @@ spec:
           metadata:
             type: object
           spec:
-            description: DatabaseSpec defines the desired state of Database
+            description: Desired configuration of the database and its primary user.
             properties:
               backup:
-                description: DatabaseBackup defines the desired state of backup and
-                  schedule
+                description: Scheduled database dumps.
                 properties:
                   cron:
+                    description: CronJob schedule expression.
                     type: string
                   enable:
+                    description: Creates a CronJob that dumps the database on the
+                      configured schedule.
                     type: boolean
                   envFromSecret:
+                    description: Name of a Secret whose data is exposed to the backup
+                      container as environment variables.
                     type: string
                 required:
                 - cron
                 - enable
                 type: object
               cleanup:
+                description: |-
+                  Adds this Database as an owner of the Kubernetes resources it creates.
+                  Kubernetes garbage collection then removes those resources with the Database.
                 type: boolean
               credentials:
-                description: Credentials should be used to setup everything relates
-                  to k8s secrets and configmaps
+                description: Generated credential data and Secret metadata.
                 properties:
                   metadata:
-                    description: |-
-                      Metadata defines additional metadata that should be applied to
-                      k8s resources created from credentials configuration.
-
-                      For Database and DbUser, this metadata is applied to the Secret
-                      that stores generated credentials.
+                    description: Labels and annotations on the generated credential
+                      Secret.
                     properties:
                       extraAnnotations:
                         additionalProperties:
                           type: string
                         description: |-
-                          ExtraAnnotations will be merged into the annotations of the Secret
-                          created for the credentials. Existing annotations are preserved, and
-                          keys from this map will overwrite annotations with the same key on
-                          the Secret.
+                          Annotations to merge into the generated credential Secret.
+                          Values in this map replace existing values for the same keys.
                         type: object
                       extraLabels:
                         additionalProperties:
                           type: string
                         description: |-
-                          ExtraLabels will be merged into the labels of the Secret created
-                          for the credentials. Existing labels are preserved, and keys from
-                          this map will overwrite labels with the same key on the Secret.
+                          Labels to merge into the generated credential Secret.
+                          Values in this map replace existing values for the same keys.
                         type: object
                     type: object
                   templates:
-                    description: Templates to add custom entries to ConfigMaps and
-                      Secrets
+                    description: Additional data entries for generated Secrets and
+                      ConfigMaps.
                     items:
-                      description: Templates to add custom entries to ConfigMaps and
-                        Secrets
+                      description: One generated credential entry.
                       properties:
                         name:
+                          description: Data key written to the generated Secret or
+                            ConfigMap.
                           type: string
                         secret:
+                          description: |-
+                            Writes the entry to a Secret when true and to a ConfigMap when false.
+                            DbUser templates must set this field to true.
                           type: boolean
                         template:
+                          description: Go template evaluated with database connection
+                            values and template helper functions.
                           type: string
                       required:
                       - name
@@ -129,17 +134,24 @@ spec:
                     type: array
                 type: object
               deletionProtected:
+                description: |-
+                  Keeps the database and its primary user in the database backend
+                  when the Database resource is deleted.
                 type: boolean
               existingUser:
                 description: |-
-                  If specified, DB Operator will try to use an existing user to assign permissions
-                  User will not be removed, when a database is removed, but the permissions added by the
-                  operator will be cleaned up
+                  Name of an existing database user to use as the primary user.
+                  The operator grants and revokes permissions for this user but does not create or delete it.
                 type: string
               extraGrants:
+                description: |-
+                  Grants other existing database users access to this database.
+                  The referenced DbInstance must set allowExtraGrants to true.
                 items:
                   properties:
                     accessType:
+                      description: Access level to grant. Supported values are readOnly
+                        and readWrite.
                       type: string
                     user:
                       type: string
@@ -149,34 +161,44 @@ spec:
                   type: object
                 type: array
               instance:
+                description: |-
+                  Name of the cluster-scoped DbInstance that hosts the database.
+                  This field is immutable.
                 type: string
               postgres:
-                description: Postgres struct should be used to provide resource that
-                  only applicable to postgres
+                description: Settings that apply only to PostgreSQL databases.
                 properties:
                   dropPublicSchema:
-                    description: If set to true, the public schema will be dropped
-                      after the database creation
+                    description: Removes the public schema after the database is created.
                     type: boolean
                   extensions:
                     items:
                       type: string
                     type: array
                   schemas:
-                    description: Specify schemas to be created. The user created by
-                      db-operator will have all access on them.
+                    description: Schemas to create. The primary user receives full
+                      access to each schema.
                     items:
                       type: string
                     type: array
                   template:
-                    description: Let user create database from template
+                    description: |-
+                      PostgreSQL template database used to create this database.
+                      This field is immutable.
                     type: string
                 type: object
               secretName:
+                description: Name of the Secret that stores the generated database
+                  credentials.
                 type: string
               secretsTemplates:
                 additionalProperties:
                   type: string
+                description: |-
+                  Legacy credential templates indexed by Secret data key.
+                  It cannot be used with credentials.templates.
+
+                  Deprecated: Use credentials.templates instead.
                 type: object
             required:
             - deletionProtected
@@ -184,16 +206,20 @@ spec:
             - secretName
             type: object
           status:
-            description: DatabaseStatus defines the observed state of Database
+            description: Observed state of the database.
             properties:
               database:
                 type: string
               engine:
                 type: string
               extraGrants:
+                description: Records the grants applied during the last successful
+                  reconciliation.
                 items:
                   properties:
                     accessType:
+                      description: Access level to grant. Supported values are readOnly
+                        and readWrite.
                       type: string
                     user:
                       type: string
@@ -205,11 +231,10 @@ spec:
               monitorUserSecret:
                 type: string
               operatorVersion:
+                description: The db-operator version that last completed reconciliation.
                 type: string
               proxyStatus:
-                description: |-
-                  DatabaseProxyStatus defines whether proxy for database is enabled or not
-                  if so, provide information
+                description: Connection proxy state and service details.
                 properties:
                   serviceName:
                     type: string
@@ -217,6 +242,7 @@ spec:
                     format: int32
                     type: integer
                   status:
+                    description: True when the proxy is ready.
                     type: boolean
                 required:
                 - serviceName
@@ -224,9 +250,7 @@ spec:
                 - status
                 type: object
               status:
-                description: |-
-                  Important: Run "make generate" to regenerate code after modifying this file
-                  Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+                description: True after the database reconciles successfully.
                 type: boolean
               user:
                 type: string
