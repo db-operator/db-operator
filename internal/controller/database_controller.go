@@ -394,7 +394,7 @@ func (r *DatabaseReconciler) handleDbCreateOrUpdate(ctx context.Context, dbcr *k
 	// A temporary check that exists to avoid creating templates if secretsTemplates are used.
 	// todo: It should be removed when secretsTemlates are gone
 
-	if len(dbcr.Spec.SecretsTemplates) == 0 {
+	if len(dbcr.Spec.SecretsTemplates) == 0 { //nolint:staticcheck // SA1019: Required for v1beta1 secretsTemplates compatibility; remove when that field is removed.
 		if err := r.handleTemplatedCredentials(ctx, dbcr); err != nil {
 			return r.manageError(ctx, dbcr, err, false, phase)
 		}
@@ -447,7 +447,7 @@ func (r *DatabaseReconciler) handleDbDelete(ctx context.Context, dbcr *kindav1be
 	}
 	// A temporary check that exists to avoid creating templates if secretsTemplates are used.
 	// todo: It should be removed when secretsTemlates are gone
-	if len(dbcr.Spec.SecretsTemplates) == 0 {
+	if len(dbcr.Spec.SecretsTemplates) == 0 { //nolint:staticcheck // SA1019: Required for v1beta1 secretsTemplates compatibility; remove when that field is removed.
 		if err := r.handleTemplatedCredentials(ctx, dbcr); err != nil {
 			return r.manageError(ctx, dbcr, err, false, phase)
 		}
@@ -917,7 +917,7 @@ func (r *DatabaseReconciler) handleTemplatedCredentials(ctx context.Context, dbc
 }
 
 func (r *DatabaseReconciler) createTemplatedSecrets(ctx context.Context, dbcr *kindav1beta1.Database) error {
-	if len(dbcr.Spec.SecretsTemplates) > 0 {
+	if len(dbcr.Spec.SecretsTemplates) > 0 { //nolint:staticcheck // SA1019: Required for v1beta1 secretsTemplates compatibility; remove when that field is removed.
 		r.Recorder.Eventf(dbcr, nil, corev1.EventTypeWarning, "Deprecation", "Secrets Templates",
 			"secretsTemplates are deprecated and will be removed in the next API version. Please consider using templates",
 		)
