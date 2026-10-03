@@ -85,7 +85,6 @@ jobs:
       - uses: helm/kind-action@v1.14.0
         with:
           config: ./kind-config.yaml
-      - run: rm -rf ~/.local/share/helm/plugins/
       - uses: helmfile/helmfile-action@v2.4.8
         with:
           helmfile-auto-init: true
