@@ -30,4 +30,4 @@ jobs:
             echo "Please update generated code using 'task kubebuilder:manifests and task kubebuilder:generate' and push the changes"
             exit 1
           fi
-      - uses: suzuki-shunsuke/github-action-renovate-config-validator@v2.1.0
+      - uses: suzuki-shunsuke/github-action-renovate-config-validator@v2.3.0
