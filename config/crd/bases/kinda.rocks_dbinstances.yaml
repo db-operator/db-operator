@@ -248,13 +248,14 @@ spec:
                 - mysql
                 type: string
               grantRules:
-                description: If set, only databases from allowed namespaces will be
-                  created on the instance.
                 items:
                   description: DbInstanceGrantRule defines a rule for granting access
                     to a database.
                   properties:
                     accessLevel:
+                      enum:
+                      - readOnly
+                      - readWrite
                       type: string
                     namespace:
                       type: string
@@ -381,6 +382,9 @@ spec:
                     to a database.
                   properties:
                     accessLevel:
+                      enum:
+                      - readOnly
+                      - readWrite
                       type: string
                     namespace:
                       type: string

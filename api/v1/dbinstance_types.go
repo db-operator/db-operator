@@ -58,7 +58,7 @@ type DbInstanceAllowedPrivileges struct {
 type DbInstanceGrantRule struct {
 	NamespaceRegex string `json:"namespace"`
 	Role           string `json:"role"`
-	// +kubebuilder:validation:Enum=readOnly,readWrite
+	// +kubebuilder:validation:Enum=readOnly;readWrite
 	AccessLevel string `json:"accessLevel"`
 }
 
