@@ -171,6 +171,10 @@ spec:
 
 For production databases you might want to set `.spec.deletionProtected` to `true`. With this setting, db-operator will not remove the database from the server, if a Kubernetes resource is deleted.
 
+Without deletion protection, the operator drops the PostgreSQL database before deleting its generated main-user role. Connection and existence-query errors keep the Database finalizer in place. A confirmed absent database or role needs no further deletion.
+
+If role deletion fails, the physical database may already be gone. The finalizer keeps cleanup pending; it does not roll back deletion. `spec.existingUser` retains the role, not the database or its contents. For diagnosis and recovery, see [PostgreSQL deletion failures](dbuser.md#postgresql-deletion-failures).
+
 ### Credentials Templates
 
 DB operator is capable of generating custom connections strings using the information it has about a database, [here](./templates.md) you can read more about templates.
