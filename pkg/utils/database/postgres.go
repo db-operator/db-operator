@@ -180,6 +180,21 @@ func (p Postgres) isRowExist(ctx context.Context, database, query, user, passwor
 	return true
 }
 
+// Cleanup must distinguish an absent object from a failed query.
+func (p Postgres) queryExists(ctx context.Context, query string, admin *DatabaseUser, name string) (bool, error) {
+	db, err := p.getDbConn("postgres", admin.Username, admin.Password)
+	if err != nil {
+		return false, err
+	}
+	defer db.Close()
+
+	var exists bool
+	if err := db.QueryRowContext(ctx, query, name).Scan(&exists); err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
 func (p Postgres) dropPublicSchema(ctx context.Context, admin *DatabaseUser) error {
 	log := log.FromContext(ctx)
 	if p.Monitoring {
@@ -410,13 +425,17 @@ func (p Postgres) createDatabase(ctx context.Context, admin *DatabaseUser) error
 func (p Postgres) deleteDatabase(ctx context.Context, admin *DatabaseUser) error {
 	log := log.FromContext(ctx)
 	revoke := fmt.Sprintf("REVOKE CONNECT ON DATABASE \"%s\" FROM PUBLIC, \"%s\";", p.Database, admin.Username)
-	delete := fmt.Sprintf("DROP DATABASE \"%s\"", p.Database)
+	delete := fmt.Sprintf("DROP DATABASE IF EXISTS %s", pq.QuoteIdentifier(p.Database))
 
 	if p.ForceDelete {
 		delete = fmt.Sprintf("%s WITH (FORCE)", delete)
 	}
 
-	if p.isDbExist(ctx, admin) {
+	exists, err := p.queryExists(ctx, "SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = $1)", admin, p.Database)
+	if err != nil {
+		return fmt.Errorf("check database before deletion: %w", err)
+	}
+	if exists {
 		err := p.executeExec(ctx, "postgres", revoke, admin)
 		if err != nil {
 			log.Error(err, "failed revoking connection on database", "connection", revoke)
@@ -676,7 +695,14 @@ func (p Postgres) setUserPermission(ctx context.Context, admin *DatabaseUser, us
 }
 
 func (p Postgres) revokePermissions(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error {
-	if user.AccessType != ACCESS_TYPE_MAINUSER && p.isUserExist(ctx, admin, user) {
+	if user.AccessType == ACCESS_TYPE_MAINUSER {
+		return nil
+	}
+	exists, err := p.queryExists(ctx, "SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = $1)", admin, user.Username)
+	if err != nil {
+		return fmt.Errorf("check role before revoking permissions: %w", err)
+	}
+	if exists {
 		log := log.FromContext(ctx)
 		schemas := p.Schemas
 		if !p.DropPublicSchema {
@@ -693,9 +719,20 @@ func (p Postgres) revokePermissions(ctx context.Context, admin *DatabaseUser, us
 		if !user.GrantToAdmin && user.GrantToAdminOnDelete {
 			log.Info("Granting user to admin", "user", user.Username)
 			assignRoleToAdmin := fmt.Sprintf("GRANT \"%s\" TO \"%s\";", user.Username, admin.Username)
-			if err := p.executeExec(ctx, p.Database, assignRoleToAdmin, admin); err != nil {
+			if err := p.executeExec(ctx, "postgres", assignRoleToAdmin, admin); err != nil {
 				log.Error(err, "failed granting user to admin", "username", user.Username, "admin", admin.Username)
+				return err
 			}
+		}
+
+		// A removed database has no local privileges left to revoke. Membership
+		// in extra roles is cluster-wide, so revoke it before checking the database.
+		databaseExists, err := p.queryExists(ctx, "SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = $1)", admin, p.Database)
+		if err != nil {
+			return fmt.Errorf("check database before revoking permissions: %w", err)
+		}
+		if !databaseExists {
+			return nil
 		}
 
 		for _, schema := range schemas {
@@ -724,19 +761,14 @@ func (p Postgres) revokePermissions(ctx context.Context, admin *DatabaseUser, us
 }
 
 func (p Postgres) deleteUser(ctx context.Context, admin *DatabaseUser, user *DatabaseUser) error {
-	log := log.FromContext(ctx)
-	delete := fmt.Sprintf("DROP USER \"%s\";", user.Username)
-	if p.isUserExist(ctx, admin, user) {
-		err := p.executeExec(ctx, "postgres", delete, admin)
-		if err != nil {
-			pqErr := err.(*pq.Error)
-			if pqErr.Code == "2BP01" {
-				// 2BP01 dependent_objects_still_exist
-				log.Error(err, "dependent objects still exist")
-				return nil
-			}
-			return err
-		}
+	exists, err := p.queryExists(ctx, "SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = $1)", admin, user.Username)
+	if err != nil {
+		return fmt.Errorf("check role before deletion: %w", err)
 	}
-	return nil
+	if !exists {
+		return nil
+	}
+
+	delete := fmt.Sprintf("DROP USER IF EXISTS %s;", pq.QuoteIdentifier(user.Username))
+	return p.executeExec(ctx, "postgres", delete, admin)
 }

@@ -22,7 +22,9 @@ import (
 	"time"
 
 	"github.com/db-operator/db-operator/v2/pkg/test"
+	"github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func testPostgres() (*Postgres, *DatabaseUser) {
@@ -666,15 +668,22 @@ func TestPostgresSchemas(t *testing.T) {
 	assert.NoError(t, p.checkSchemas(context.TODO(), dbu))
 }
 
-func TestPostgresDeleteUser(t *testing.T) {
+func TestPostgresDeleteUserWithDependencies(t *testing.T) {
 	admin := getPostgresAdmin()
 	p, dbu := testPostgres()
 
 	err := p.revokePermissions(context.TODO(), admin, dbu)
 	assert.NoErrorf(t, err, "Unexpected error %v", err)
 
+	// The shared main user still has dependencies in the fixture databases.
 	err = p.deleteUser(context.TODO(), admin, dbu)
-	assert.NoErrorf(t, err, "Unexpected error %v", err)
+	var postgresError *pq.Error
+	require.ErrorAs(t, err, &postgresError)
+	assert.Equal(t, pq.ErrorCode("2BP01"), postgresError.Code)
+
+	exists, err := p.queryExists(context.TODO(), "SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = $1)", admin, dbu.Username)
+	require.NoError(t, err)
+	assert.True(t, exists, "a role with remaining dependencies must not be removed")
 }
 
 func TestPostgresDeleteDatabase(t *testing.T) {
