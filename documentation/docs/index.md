@@ -11,6 +11,8 @@ Once connected to a server, you can manage databases and users through Custom Re
 
 ## Quick install
 
+For an existing installation, follow the [DbUser deletion upgrade and rollback checks](upgrades.md) before changing the controller image.
+
 ### Helm
 
 The officially supported way to install DB Operator is using a helm chart.

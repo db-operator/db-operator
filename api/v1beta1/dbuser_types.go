@@ -21,6 +21,7 @@ import (
 	"slices"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // User and access settings for the referenced Database.
@@ -64,6 +65,13 @@ type DbUserStatus struct {
 	// True after the operator has created the user or begun managing an existing user.
 	Created         bool   `json:"created"`
 	OperatorVersion string `json:"operatorVersion,omitempty"`
+	// UID of the Database used for the backend cleanup calls that succeeded.
+	// Recorded after releasing the credential Secret if this DbUser still owns it,
+	// before removing finalizers so deletion can resume without the Database.
+	CleanupDatabaseUID types.UID `json:"cleanupDatabaseUID,omitempty"`
+	// Name of the Database recorded with cleanupDatabaseUID after backend cleanup.
+	// Retries use this name instead of spec.databaseRef.
+	CleanupDatabaseName string `json:"cleanupDatabaseName,omitempty"`
 }
 
 //+kubebuilder:object:root=true
