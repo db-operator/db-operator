@@ -78,6 +78,20 @@ When using an existing user, DB Operator is not aware of the password anymore, h
 
 It's also important to understand, that when you are switching **from/to** existing user **to/from** a generated one, you need to remove the Secret from the cluster, so it's recreated, otherwise it's either going to be empty for a generated user, or filled for an existing one. It will most probably be fixed in future versions.
 
+## Deleting a DbUser
+
+Deleting a `DbUser` removes its database user, or revokes access when it manages an existing user. The referenced `Database` retains a `dbuser.<name>` finalizer until this cleanup succeeds.
+
+Once the backend cleanup calls succeed, the operator releases its labels on the credential Secret if it still owns that Secret. It then records the Database UID and name in `status.cleanupDatabaseUID` and `status.cleanupDatabaseName`. This checkpoint does not confirm that credential template entries were removed.
+
+On the next reconciliation, the operator removes the Database dependency finalizer before removing the DbUser finalizer. If an update fails or the operator restarts, it resumes from the checkpoint without accessing the credential Secret or database server, even if the Database has disappeared or `spec.databaseRef` or `spec.secretName` has changed.
+
+Install the updated DbUser CRD before upgrading the controller. An older CRD can discard the checkpoint fields, so the controller keeps both finalizers until it can read back the saved checkpoint. Follow the [upgrade and rollback checks](upgrades.md) to verify the installed schema and avoid downgrading during an unfinished deletion.
+
+If the Database is missing and no checkpoint exists, deletion stops because the operator cannot confirm that the external user was cleaned up. This also applies to resources left behind by older operator versions. Do not set the checkpoint or remove finalizers to bypass this check without verifying external cleanup.
+
+Before a checkpoint exists, deletion also stops if the stored user identity is missing and the credential Secret has been released or belongs to another resource. The operator cannot safely use that Secret to choose a database user to delete. For legacy resources in this state, verify the original database and user identity before repairing their status; don't copy credentials from the reused Secret.
+
 ## Experimental features
 
 Experimental features are added via annotations, the following features are available for `DbUsers`

@@ -51,6 +51,7 @@ type DbUserReconciler struct {
 	Recorder     events.EventRecorder
 	CheckChanges bool
 	kubeHelper   *kubehelper.KubeHelper
+	apiReader    client.Reader
 }
 
 // +kubebuilder:rbac:groups=kinda.rocks,resources=dbusers,verbs=get;list;watch;create;update;patch;delete
@@ -86,14 +87,14 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	// Init the kubehelper object
 	r.kubeHelper = kubehelper.NewKubeHelper(r.Client, r.Recorder, dbusercr)
+	if dbusercr.IsDeleted() {
+		return r.handleDbUserDelete(ctx, dbusercr)
+	}
 
 	// Get the DB by the reference provided in the manifest
 	dbcr := &kindav1beta1.Database{}
 	if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: dbusercr.Spec.DatabaseRef}, dbcr); err != nil {
 		return r.manageError(ctx, dbusercr, err, false)
-	}
-	if dbusercr.IsDeleted() {
-		return r.handleDbUserDelete(ctx, dbusercr, dbcr)
 	}
 
 	userSecret, err := r.getDbUserSecret(ctx, dbusercr)
@@ -232,11 +233,22 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	return reconcileResult, nil
 }
 
-func (r *DbUserReconciler) handleDbUserDelete(ctx context.Context, dbusercr *kindav1beta1.DbUser, dbcr *kindav1beta1.Database) (reconcile.Result, error) {
+func (r *DbUserReconciler) handleDbUserDelete(ctx context.Context, dbusercr *kindav1beta1.DbUser) (reconcile.Result, error) {
 	reconcileResult := reconcile.Result{RequeueAfter: r.Interval}
 	finalizer := "dbuser." + dbusercr.Name
 	if !commonhelper.ContainsString(dbusercr.Finalizers, finalizer) {
 		return reconcileResult, nil
+	}
+	if dbusercr.Status.CleanupDatabaseUID != "" {
+		if dbusercr.Status.CleanupDatabaseName == "" {
+			return r.manageError(ctx, dbusercr, errors.New("cleanup checkpoint is missing the Database name"), false)
+		}
+		return r.finishDbUserDelete(ctx, dbusercr)
+	}
+
+	dbcr := &kindav1beta1.Database{}
+	if err := r.Get(ctx, types.NamespacedName{Namespace: dbusercr.Namespace, Name: dbusercr.Spec.DatabaseRef}, dbcr); err != nil {
+		return r.manageError(ctx, dbusercr, err, false)
 	}
 
 	userSecret, err := r.getDbUserSecret(ctx, dbusercr)
@@ -284,22 +296,91 @@ func (r *DbUserReconciler) handleDbUserDelete(ctx context.Context, dbusercr *kin
 		return r.manageError(ctx, dbusercr, err, false)
 	}
 
-	if userSecret != nil {
-		if err := r.kubeHelper.HandleDelete(ctx, userSecret); err != nil && !k8serrors.IsNotFound(err) {
+	return r.completeDbUserCleanup(ctx, dbusercr, dbcr)
+}
+
+func (r *DbUserReconciler) completeDbUserCleanup(ctx context.Context, dbusercr *kindav1beta1.DbUser, dbcr *kindav1beta1.Database) (reconcile.Result, error) {
+	// Release the original Secret before saving the checkpoint. A retry after the
+	// checkpoint must not follow a changed spec.secretName.
+	if err := r.releaseDbUserSecret(ctx, dbusercr); err != nil {
+		return r.manageError(ctx, dbusercr, err, false)
+	}
+	// Keep the Database until this checkpoint is durable. A retry must not need
+	// database credentials after the Database's dependency finalizer is removed.
+	completed := dbusercr.DeepCopy()
+	completed.Status.CleanupDatabaseUID = dbcr.UID
+	completed.Status.CleanupDatabaseName = dbcr.Name
+	completed.Status.Status = false
+	if err := r.Status().Update(ctx, completed); err != nil {
+		return r.manageError(ctx, dbusercr, err, false)
+	}
+	if completed.Status.CleanupDatabaseUID == "" || completed.Status.CleanupDatabaseUID != dbcr.UID || completed.Status.CleanupDatabaseName != dbcr.Name {
+		return r.manageError(ctx, dbusercr, errors.New("cleanup checkpoint was not persisted; update the DbUser CRD before upgrading the controller"), false)
+	}
+	*dbusercr = *completed
+	// Read the checkpoint in a new reconciliation before releasing finalizers.
+	// Older CRDs can prune unknown status fields even when the update succeeds.
+	return reconcile.Result{Requeue: true}, nil
+}
+
+func (r *DbUserReconciler) finishDbUserDelete(ctx context.Context, dbusercr *kindav1beta1.DbUser) (reconcile.Result, error) {
+	dbcr := &kindav1beta1.Database{}
+	err := r.Get(ctx, types.NamespacedName{Namespace: dbusercr.Namespace, Name: dbusercr.Status.CleanupDatabaseName}, dbcr)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return r.manageError(ctx, dbusercr, err, false)
+	}
+	finalizer := "dbuser." + dbusercr.Name
+	// A missing Database is safe only after cleanup was recorded. A replacement
+	// with the same name is a different resource and must not be changed.
+	if err == nil && dbcr.UID == dbusercr.Status.CleanupDatabaseUID {
+		kci.RemoveFinalizer(&dbcr.ObjectMeta, finalizer)
+		// Update even if the cache has no finalizer. A stale resourceVersion must
+		// conflict before we can release the child's finalizer.
+		if err := r.Update(ctx, dbcr); err != nil && !k8serrors.IsNotFound(err) {
 			return r.manageError(ctx, dbusercr, err, false)
 		}
-	}
-
-	kci.RemoveFinalizer(&dbcr.ObjectMeta, finalizer)
-	if err := r.Update(ctx, dbcr); err != nil {
-		return r.manageError(ctx, dbusercr, err, false)
 	}
 	kci.RemoveFinalizer(&dbusercr.ObjectMeta, finalizer)
 	if err := r.Update(ctx, dbusercr); err != nil {
 		return r.manageError(ctx, dbusercr, err, false)
 	}
 
-	return reconcileResult, nil
+	return reconcile.Result{RequeueAfter: r.Interval}, nil
+}
+
+func (r *DbUserReconciler) releaseDbUserSecret(ctx context.Context, dbusercr *kindav1beta1.DbUser) error {
+	// A cached absence or ownership result can predate the initial ownership write.
+	// Confirm the API state before recording that the Secret has been released.
+	reader := r.apiReader
+	if reader == nil {
+		// Directly constructed test reconcilers use their uncached client.
+		reader = r.Client
+	}
+	secret := &corev1.Secret{}
+	err := reader.Get(ctx, types.NamespacedName{Namespace: dbusercr.Namespace, Name: dbusercr.Spec.SecretName}, secret)
+	if err != nil {
+		return client.IgnoreNotFound(err)
+	}
+	// Releasing the Secret may have succeeded before an earlier attempt failed.
+	// Don't reclaim it, or edit it if another resource now owns it.
+	if !isDbUserSecret(dbusercr, secret) {
+		return nil
+	}
+	r.kubeHelper.DeleteUsedByLabels(secret)
+	return client.IgnoreNotFound(r.Update(ctx, secret))
+}
+
+func isDbUserSecret(dbusercr *kindav1beta1.DbUser, secret *corev1.Secret) bool {
+	// Typed clients need not retain TypeMeta, so use the known resource kind.
+	if secret.Labels[consts.USED_BY_KIND_LABEL_KEY] != "DbUser" || secret.Labels[consts.USED_BY_NAME_LABEL_KEY] != dbusercr.Name {
+		return false
+	}
+	for _, owner := range secret.OwnerReferences {
+		if owner.Kind == "DbUser" && owner.UID != dbusercr.UID {
+			return false
+		}
+	}
+	return true
 }
 
 func dbUserDeleteCredentials(dbusercr *kindav1beta1.DbUser, dbcr *kindav1beta1.Database, userSecret *corev1.Secret) (database.Credentials, error) {
@@ -308,6 +389,9 @@ func dbUserDeleteCredentials(dbusercr *kindav1beta1.DbUser, dbcr *kindav1beta1.D
 		Username: dbusercr.Status.UserName,
 	}
 	if userSecret != nil && (creds.Name == "" || creds.Username == "") {
+		if !isDbUserSecret(dbusercr, userSecret) {
+			return creds, errors.New("deletion identity is missing from status and the credential Secret is no longer owned by this DbUser")
+		}
 		secretCreds, err := parseDbUserSecretData(dbcr.Status.Engine, userSecret.Data)
 		if err != nil {
 			return creds, err
@@ -370,6 +454,7 @@ func configureDbUser(ctx context.Context, dbusercr *kindav1beta1.DbUser, dbuser 
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DbUserReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.apiReader = mgr.GetAPIReader()
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&kindav1beta1.DbUser{}).
 		Complete(r)
@@ -480,14 +565,17 @@ func (r *DbUserReconciler) getAdminSecret(ctx context.Context, dbcr *kindav1beta
 	return secret, nil
 }
 
-// If dbuser has a deletion timestamp, this function will remove all the templated fields from
-// secrets and configmaps, so it's a generic function that can be used for both:
-// creating and removing
-// It's mostly a copy-paste from the database controller, maybe it might be refactored
+// handleTemplatedCredentials renders credentials for active users. During deletion
+// it passes an empty template list to the renderer; this does not remove existing entries.
 func (r *DbUserReconciler) handleTemplatedCredentials(ctx context.Context, dbcr *kindav1beta1.Database, dbusercr *kindav1beta1.DbUser, dbuser *database.DatabaseUser) error {
 	databaseSecret, err := r.getDbUserSecret(ctx, dbusercr)
 	if err != nil {
 		return err
+	}
+	// A failed checkpoint write can leave the Secret released or adopted by
+	// another resource. Don't reclaim it when deletion retries.
+	if dbusercr.IsDeleted() && !isDbUserSecret(dbusercr, databaseSecret) {
+		return nil
 	}
 
 	databaseConfigMap, err := r.getDatabaseConfigMap(ctx, dbcr)
@@ -521,7 +609,6 @@ func (r *DbUserReconciler) handleTemplatedCredentials(ctx context.Context, dbcr 
 			return err
 		}
 	} else {
-		// Render with an empty slice, so templated entries are removed from Data and Annotations
 		if err := templateds.Render(kindav1beta1.Templates{}); err != nil {
 			return err
 		}

@@ -127,3 +127,5 @@ jobs:
           helm-plugins: ""
           helmfile-args: sync --wait
       - run: task test:postgres
+      - name: Test DbUser deletion after a finalizer conflict
+        run: task test:postgres-controller

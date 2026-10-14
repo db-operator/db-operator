@@ -154,6 +154,17 @@ spec:
           status:
             description: Observed state of the database user.
             properties:
+              cleanupDatabaseName:
+                description: |-
+                  Name of the Database recorded with cleanupDatabaseUID after backend cleanup.
+                  Retries use this name instead of spec.databaseRef.
+                type: string
+              cleanupDatabaseUID:
+                description: |-
+                  UID of the Database used for the backend cleanup calls that succeeded.
+                  Recorded after releasing the credential Secret if this DbUser still owns it,
+                  before removing finalizers so deletion can resume without the Database.
+                type: string
               created:
                 description: True after the operator has created the user or begun
                   managing an existing user.

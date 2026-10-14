@@ -8,6 +8,14 @@ vars:
   GOLANGCI_LINT: "{{.LOCALBIN}}/golangci-lint"
   KUSTOMIZE: "{{.LOCALBIN}}/kustomize"
   ENVTEST: "{{.LOCALBIN}}/setup-envtest"
+  ENVTEST_K8S_VERSION:
+    sh: |
+      v=$(go list -m -f '{{`{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}`}}' k8s.io/api 2>/dev/null)
+      if [ -z "$v" ]; then
+        echo "Set ENVTEST_K8S_VERSION manually (k8s.io/api replace has no tag)" >&2
+        exit 1
+      fi
+      printf '%s\n' "$v" | sed -E 's/^v?[0-9]+\.([0-9]+).*/1.\1/'
   # Tool versions
   CONTROLLER_TOOLS_VERSION: v0.20.1
   GOLANGCI_LINT_VERSION: v2.12.2
@@ -28,6 +36,15 @@ tasks:
     desc: Run postgres tests
     cmd: go test -count=1 -tags tests -run "TestPostgres" ./... -v -cover
 
+  postgres-controller:
+    desc: Test DbUser deletion against PostgreSQL and an isolated API server
+    deps:
+      - envtest
+    cmd: |
+      set -eu
+      assets=$("{{.ENVTEST}}" use "{{.ENVTEST_K8S_VERSION}}" --bin-dir "{{.LOCALBIN}}" -p path)
+      KUBEBUILDER_ASSETS="$assets" go test -count=1 -tags tests -run '^TestIntegrationDbUserDeleteRetryAfterParentRemoval$' ./internal/controller -v
+
   mysql:
     desc: Run mysql tests
     cmd: go test -count=1 -tags tests -run "TestMysql" ./... -v -cover
@@ -36,15 +53,6 @@ tasks:
     desc: Run kubernetes integration tests
     deps:
       - setup-envtest
-    vars:
-      ENVTEST_K8S_VERSION:
-        sh: |
-          v=$(go list -m -f '{{`{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}`}}' k8s.io/api 2>/dev/null)
-          if [ -z "$v" ]; then
-            echo "Set ENVTEST_K8S_VERSION manually (k8s.io/api replace has no tag)" >&2
-            exit 1
-          fi
-          printf '%s\n' "$v" | sed -E 's/^v?[0-9]+\.([0-9]+).*/1.\1/'
     cmds:
       - go test -tags tests -run "TestKubernetes" ./... -v -cover
 

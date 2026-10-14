@@ -4,13 +4,13 @@ icon: lucide/flask-conical
 
 # Database tests
 
-We have a pretty good test coverage of the Database packages. These tests need an accessible database instance to run.
+The database package suites and the DbUser deletion regression need an accessible database server.
 
-Tests are not performing any clean-up logic, so once tests are executed, you'll have to clean the database up on your own. So it's recommended not to use any 'real' databases.
+Some database suites retain their fixtures after a run. Use a disposable database server, and clean up any remaining test databases and roles before reusing it.
 
 ## Postgres
 
-All the names of postgres-related test functions must start with `TestPostgres`, only then they will be executed as part of Postgres test suites in CI.
+The backend PostgreSQL suite selects test functions whose names start with `TestPostgres`. The [DbUser deletion regression](#dbuser-deletion-regression) runs separately through `task test:postgres-controller`.
 
 ### Generic Postgres
 
@@ -64,6 +64,34 @@ export POSTGRES_HOST=<Postgres host>
 export POSTGRES_USER=<Admin username>
 export POSTGRES_PASSWORD=<Admin password>
 ```
+
+### DbUser deletion regression
+
+The PostgreSQL CI job also runs `task test:postgres-controller`. This test removes a real PostgreSQL role, releases the parent Database, and forces a resource-version conflict on the DbUser update. It then starts a fresh reconciler and checks that deletion finishes without the parent or administrator Secret. The task downloads matching envtest binaries and starts an isolated API server; it does not use your kubeconfig or an existing cluster.
+
+To run it locally, use the Go version in `go.mod`, Task, and an isolated PostgreSQL server with an administrator who can create databases and roles. For example, start a disposable server with Docker:
+
+```sh
+docker run --detach --rm --name db-operator-delete-test \
+  --publish 127.0.0.1:55432:5432 \
+  --env POSTGRES_PASSWORD=test1234 postgres:18
+docker exec db-operator-delete-test pg_isready -U postgres
+```
+
+Wait until `pg_isready` reports that the server accepts connections, then run this from the repository root:
+
+```sh
+POSTGRES_HOST=127.0.0.1 POSTGRES_PORT=55432 \
+POSTGRES_USER=postgres POSTGRES_PASSWORD=test1234 \
+  task test:postgres-controller
+```
+
+Success ends with `PASS`. The test removes the database and role it created and stops its API server. Stop the disposable PostgreSQL container afterward:
+
+```sh
+docker stop db-operator-delete-test
+```
+
 ### Cloud-provider specific instances
 
 Officially we do not support any cloud-provider integration, but we expect though, that it must be possible to use the DB Operator in any environment.

@@ -16,6 +16,7 @@ DB Operator provides following features:
 * [Configure instances](./documentation/docs/dbinstances.md)
 * [Manage databases](./documentation/docs/database.md)
 * [Manage users](./documentation/docs/dbuser.md)
+* [Upgrade DbUser deletion checkpoints](./documentation/docs/upgrades.md)
 * [A deeper look at templates](./documentation/docs/templates.md)
 
 ## Quickstart
