@@ -152,6 +152,7 @@ jobs:
           config: ./kind-config.yaml
       - uses: helmfile/helmfile-action@v2.4.7
         with:
+          helm-plugins: ""
           helmfile-auto-init: true
           helmfile-args: sync --wait
       - run: task test:controllers
