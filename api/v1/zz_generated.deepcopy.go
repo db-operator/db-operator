@@ -336,8 +336,8 @@ func (in *DbInstanceStatus) DeepCopyInto(out *DbInstanceStatus) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	if in.AutoGrantRules != nil {
-		in, out := &in.AutoGrantRules, &out.AutoGrantRules
+	if in.GrantRules != nil {
+		in, out := &in.GrantRules, &out.GrantRules
 		*out = make([]*DbInstanceGrantRule, len(*in))
 		for i := range *in {
 			if (*in)[i] != nil {

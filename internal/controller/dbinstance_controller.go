@@ -46,10 +46,10 @@ import (
 )
 
 var (
-	conditionTypeCredentialsFound = "CredentialsFound"
-	conditionTypeEndpointFound    = "EndpointFound"
-	conditionTypeHealthy          = "Healthy"
-	conditionGrantRulesVerified   = "GrantRulesVerified"
+	conditionTypeCredentialsFound   = "CredentialsFound"
+	conditionTypeEndpointFound      = "EndpointFound"
+	conditionTypeHealthy            = "Healthy"
+	conditionTypeGrantRulesVerified = "GrantRulesVerified"
 )
 
 // DbInstanceReconciler reconciles a DbInstance object
@@ -199,8 +199,7 @@ func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			return ctrl.Result{}, err
 		}
 
-		count := len(databases)
-		dbin.Status.ServerStatus.DatabasesCount = count
+		dbin.Status.ServerStatus.DatabasesCount = len(databases)
 		dbin.Status.ServerStatus.Databases = databases
 		// We need users for grants, but if the database awareness is disabled
 		// we don't store them into crds
@@ -212,10 +211,10 @@ func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			if !slices.Contains(users, rule.Role) {
 				err := fmt.Errorf("user %s specified in grant rules does not exist", rule.Role)
 				meta.SetStatusCondition(&dbin.Status.Conditions, metav1.Condition{
-					Type:    conditionGrantRulesVerified,
+					Type:    conditionTypeGrantRulesVerified,
 					Status:  metav1.ConditionFalse,
 					Reason:  "RoleNotFound",
-					Message: fmt.Sprintf("Grant roles can't be enabled for missing roles: %s", err.Error()),
+					Message: fmt.Sprintf("Grant Rules are configured to assing a missing role, please create a role first: %s", err.Error()),
 				})
 				dbin.Status.Ready = false
 				log.Error(err, "Grant rule user does not exist")
@@ -223,7 +222,7 @@ func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			}
 		}
 		meta.SetStatusCondition(&dbin.Status.Conditions, metav1.Condition{
-			Type:    conditionGrantRulesVerified,
+			Type:    conditionTypeGrantRulesVerified,
 			Status:  metav1.ConditionTrue,
 			Reason:  "GrantRulesConfigured",
 			Message: "Grant rules verified successfully",
@@ -256,18 +255,12 @@ func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		dbin.Status.NamespaceFilters = dbin.Spec.NamespaceFilters
 	}
 
-	dbin.Status.AutoGrantRules = []*kindav1.DbInstanceGrantRule{}
+	dbin.Status.GrantRules = []*kindav1.DbInstanceGrantRule{}
 	if dbin.Spec.GrantRules != nil {
-		dbin.Status.AutoGrantRules = dbin.Spec.GrantRules
+		dbin.Status.GrantRules = dbin.Spec.GrantRules
 	}
 
-	status := true
-	dbin.Status.Ready = status
-	if err := r.Client.Status().Update(ctx, dbin); err != nil {
-		log.Error(err, "Failed to set DbInstance status to ready")
-		return ctrl.Result{}, err
-	}
-
+	dbin.Status.Ready = true
 	return reconcileRequeue, nil
 }
 
@@ -329,7 +322,7 @@ func (r *DbInstanceReconciler) labelReferencedResources(ctx context.Context, dbi
 	}
 
 	for _, resource := range referencedResources {
-		obj, err := helpers.GetResourceFromValueSource(ctx, r.Client, resource)
+		obj, err := helpers.ObjectFromValueSource(ctx, r.Client, resource)
 		if err != nil {
 			return err
 		}
@@ -343,19 +336,19 @@ func (r *DbInstanceReconciler) labelReferencedResources(ctx context.Context, dbi
 		}
 	}
 
-	current := make(map[string]struct{}, len(currentlyWatchedResources))
+	currentReferences := make(map[string]struct{}, len(currentlyWatchedResources))
 	for _, e := range currentlyWatchedResources {
-		current[e] = struct{}{}
+		currentReferences[e] = struct{}{}
 	}
 
-	var stale []string
+	var staleReferences []string
 	for _, e := range dbin.Status.WatchedResources {
-		if _, ok := current[e]; !ok {
-			stale = append(stale, e)
+		if _, ok := currentReferences[e]; !ok {
+			staleReferences = append(staleReferences, e)
 		}
 	}
 
-	for _, resourceEntry := range stale {
+	for _, resourceEntry := range staleReferences {
 		obj, err := helpers.ObjectFromFormattedString(resourceEntry)
 		if err != nil {
 			return err

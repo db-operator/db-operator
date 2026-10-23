@@ -551,7 +551,7 @@ func (r *DatabaseReconciler) createDatabase(ctx context.Context, dbcr *kindav1be
 		}
 	}
 
-	for _, grantRules := range instance.Status.AutoGrantRules {
+	for _, grantRules := range instance.Status.GrantRules {
 		isRuleApplied, err := helpers.CheckGrantRules(grantRules, dbcr.Namespace)
 		if err != nil {
 			return err

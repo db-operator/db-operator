@@ -132,7 +132,7 @@ type DbInstanceStatus struct {
 	// WatchedResources is a list of resources that are being watched by the db-operator for this instance.
 	WatchedResources []string               `json:"watchedResources,omitempty"`
 	NamespaceFilters []string               `json:"namespaceFilters,omitempty"`
-	AutoGrantRules   []*DbInstanceGrantRule `json:"autoGrantRules,omitempty"`
+	GrantRules       []*DbInstanceGrantRule `json:"grantRules,omitempty"`
 	// conditions represent the current state of the DbInstance resource.
 	// Each condition has a unique type and reflects the status of a specific aspect of the resource.
 	//
