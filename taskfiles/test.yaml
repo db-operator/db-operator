@@ -40,7 +40,7 @@ tasks:
       MYSQL_USER: root
       MYSQL_HOST: localhost
       MYSQL_PORT: 30306
-    cmd: go test -count=1 -tags tests -run "TestMysql" ./... -v
+    cmd: go test -count=1 -tags tests -run "TestMysql" ./...
 
   controllers:
     desc: Run controller integration tests
@@ -55,7 +55,7 @@ tasks:
       POSTGRES_USER: db-operator
       POSTGRES_HOST: localhost
       POSTGRES_PORT: 30432
-    cmd: go test -count=1 -tags tests -run "TestControllers" -v ./...
+    cmd: go test -count=1 -tags tests -run "TestControllers" ./...
 
   kubernetes:
     desc: Run kubernetes integration tests

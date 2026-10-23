@@ -377,7 +377,7 @@ func TestUnitGetResourceFromValueSource(t *testing.T) {
 
 	t.Parallel()
 	t.Run("Value from is nil", func(t *testing.T) {
-		result, err := helpers.GetResourceFromValueSource(t.Context(), client, nil)
+		result, err := helpers.ObjectFromValueSource(t.Context(), client, nil)
 		assert.Error(t, err)
 		assert.ErrorContains(t, err, "valueFrom can't be nil")
 		assert.Equal(t, nil, result)
@@ -385,7 +385,7 @@ func TestUnitGetResourceFromValueSource(t *testing.T) {
 
 	t.Run("Value from is empty", func(t *testing.T) {
 		valueFrom := &kindav1.ValueFrom{}
-		result, err := helpers.GetResourceFromValueSource(t.Context(), client, valueFrom)
+		result, err := helpers.ObjectFromValueSource(t.Context(), client, valueFrom)
 		assert.Error(t, err)
 		assert.ErrorContains(t, err, "valueFrom must have either secretKeyRef or configMapKeyRef")
 		assert.Equal(t, nil, result)
@@ -400,7 +400,7 @@ func TestUnitGetResourceFromValueSource(t *testing.T) {
 				Key:       &secretKey,
 			},
 		}
-		result, err := helpers.GetResourceFromValueSource(t.Context(), client, valueFrom)
+		result, err := helpers.ObjectFromValueSource(t.Context(), client, valueFrom)
 		assert.Error(t, err)
 		assert.ErrorContains(t, err, "not found")
 		assert.Equal(t, nil, result)
@@ -413,7 +413,7 @@ func TestUnitGetResourceFromValueSource(t *testing.T) {
 				Key:  &secretKey,
 			},
 		}
-		result, err := helpers.GetResourceFromValueSource(t.Context(), client, valueFrom)
+		result, err := helpers.ObjectFromValueSource(t.Context(), client, valueFrom)
 		assert.Error(t, err)
 		assert.ErrorContains(t, err, "secretKeyRef must have both namespace and name")
 		assert.Equal(t, nil, result)
@@ -426,7 +426,7 @@ func TestUnitGetResourceFromValueSource(t *testing.T) {
 				Key:       &secretKey,
 			},
 		}
-		result, err := helpers.GetResourceFromValueSource(t.Context(), client, valueFrom)
+		result, err := helpers.ObjectFromValueSource(t.Context(), client, valueFrom)
 		assert.Error(t, err)
 		assert.ErrorContains(t, err, "secretKeyRef must have both namespace and name")
 		assert.Equal(t, nil, result)
@@ -440,7 +440,7 @@ func TestUnitGetResourceFromValueSource(t *testing.T) {
 				Key:       &secretKey,
 			},
 		}
-		result, err := helpers.GetResourceFromValueSource(t.Context(), client, valueFrom)
+		result, err := helpers.ObjectFromValueSource(t.Context(), client, valueFrom)
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 		assert.Equal(t, secretName, result.GetName())
@@ -457,7 +457,7 @@ func TestUnitGetResourceFromValueSource(t *testing.T) {
 				Key:       &configMapName,
 			},
 		}
-		result, err := helpers.GetResourceFromValueSource(t.Context(), client, valueFrom)
+		result, err := helpers.ObjectFromValueSource(t.Context(), client, valueFrom)
 		assert.Error(t, err)
 		assert.ErrorContains(t, err, "not found")
 		assert.Equal(t, nil, result)
@@ -470,7 +470,7 @@ func TestUnitGetResourceFromValueSource(t *testing.T) {
 				Key:  &configMapKey,
 			},
 		}
-		result, err := helpers.GetResourceFromValueSource(t.Context(), client, valueFrom)
+		result, err := helpers.ObjectFromValueSource(t.Context(), client, valueFrom)
 		assert.Error(t, err)
 		assert.ErrorContains(t, err, "configMapKeyRef must have both namespace and name")
 		assert.Equal(t, nil, result)
@@ -483,7 +483,7 @@ func TestUnitGetResourceFromValueSource(t *testing.T) {
 				Key:       &configMapKey,
 			},
 		}
-		result, err := helpers.GetResourceFromValueSource(t.Context(), client, valueFrom)
+		result, err := helpers.ObjectFromValueSource(t.Context(), client, valueFrom)
 		assert.Error(t, err)
 		assert.ErrorContains(t, err, "configMapKeyRef must have both namespace and name")
 		assert.Equal(t, nil, result)
@@ -497,7 +497,7 @@ func TestUnitGetResourceFromValueSource(t *testing.T) {
 				Key:       &configMapKey,
 			},
 		}
-		result, err := helpers.GetResourceFromValueSource(t.Context(), client, valueFrom)
+		result, err := helpers.ObjectFromValueSource(t.Context(), client, valueFrom)
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 		assert.Equal(t, configMapName, result.GetName())

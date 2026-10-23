@@ -105,8 +105,8 @@ func GetValueFromSource(ctx context.Context, client client.Client, valueFrom *ki
 	return "", errors.New("valueSource must have either value or valueFrom")
 }
 
-// GetResourceFromValueSource returns an object that is referenced by a ValueSource, which can be either a Secret or a ConfigMap.
-func GetResourceFromValueSource(ctx context.Context, client client.Client, valueFrom *kindav1.ValueFrom) (client.Object, error) {
+// ObjectFromValueSource returns an object that is referenced by a ValueSource, which can be either a Secret or a ConfigMap.
+func ObjectFromValueSource(ctx context.Context, client client.Client, valueFrom *kindav1.ValueFrom) (client.Object, error) {
 	if valueFrom == nil {
 		return nil, errors.New("valueFrom can't be nil")
 	}

@@ -1,6 +1,7 @@
 ---
 icon: lucide/server
 ---
+
 # Database Instances
 
 DbInstance is a resource that connects the operator to a Database server and defines some rules for Database/DbUser management.
@@ -13,35 +14,35 @@ A lot of DbInstance values are using the internal `ValueSource` type, so once yo
 
 ### ValueSource
 
-Value source allows user to either set a value directly or read a value from any ConfigMap or Secret in the cluster. For example, let's have a look at the admin username:
+Value source allows user to either set a value directly or read a value from any ConfigMap or Secret in the cluster.
 
-This will read a key "user" from a secret named "my-secret" from the "my-namespace" namespace:
+For example, this reads a key "user" from a secret named "my-secret" from the "my-namespace" namespace:
 
 ```yaml
-   username:
-      valueFrom:
-        secret:
-          key: user
-          name: my-secret
-          namespace: my-namespace
+username:
+  valueFrom:
+    secret:
+      key: user
+      name: my-secret
+      namespace: my-namespace
 ```
 
-This will do the same, but with a configmap instead of a secret:
+This does the same, but with a configmap instead of a secret:
 
 ```yaml
-   username:
-      valueFrom:
-        configMap:
-          key: user
-          name: my-secret
-          namespace: my-namespace
+username:
+  valueFrom:
+    configMap:
+      key: user
+      name: my-secret
+      namespace: my-namespace
 ```
 
-And this one will simple set a value directly from the DbInstance manifest:
+And this one sets a value directly from the DbInstance manifest:
 
 ```yaml
-   username:
-      value: my-username
+username:
+  value: my-username
 ```
 
 Value can only be a string, so if you define a port as a value, you should use quotation marks: `"5432"`
@@ -49,8 +50,6 @@ Value can only be a string, so if you define a port as a value, you should use q
 If you have a db-operator webhook enabled, it will only allow reading password from a secret.
 
 ### Creating a DbInstance
-
-Now let's get started:
 
 ```yaml
 apiVersion: kinda.rocks/v1
@@ -85,7 +84,7 @@ The `DbInstance` controller automatically reconciles when referenced `Secrets` o
 
 ### NamespaceFilters
 
-DbInstance can only allow the operator to create Databases only from specified namespaces:
+By default the operator is allowed to create Databases in all namespaces. You can specify allowed namespaces per instance using `.namespaceFilters`
 
 ```yaml
 kind: DbInstance
@@ -94,11 +93,11 @@ spec:
     - test-*
 ```
 
-Would only allow Databases that match the `test-*` regex
+Would only allow Databases in namespaces that match the `test-*` regex
 
 ### GrantRules
 
-It's possible to set rules to automatically add extra grants to Databases. It can be used, if for example developers connect to a database server with a "developer" role, and you would like all dev Databases to be available for them:
+It's possible to set rules to automatically add extra grants to Databases. It can be used, if for example developers connect to a database server with a "developer" role, and you would like all Databases deployed to the `dev-*` namespaces to be available for them:
 
 ```yaml
 kind: DbInstance
@@ -121,11 +120,11 @@ spec:
     allowedPrivileges:
       - namespace: dev-*
         role: readOnlyAdmin
-      - namespace: '*'
+      - namespace: "*"
         role: rds-iam
 ```
 
-Then you will be able to assigned these roles to DbUsers. The roles are not managed by the operator, they must be already present on a server when a user is created.
+Then you will be able to assign these roles to DbUsers. The roles are not managed by the operator, they must be already present on a server when a user is created.
 
 ### Instance Vars
 
@@ -152,6 +151,7 @@ spec:
 ```
 
 And then later use it in a template like that:
+
 ```yaml
 templates:
   - name: PG_READONLYHOST
@@ -169,8 +169,8 @@ To use ssl connection, set `sslConnection.enabled` to `true` in `DbInstance` spe
 
 #### No SSL
 
-* postgres: disable
-* mysql: disabled
+- postgres: disable
+- mysql: disabled
 
 ```YAML
 apiVersion: kinda.rocks/v1beta1
@@ -188,8 +188,8 @@ spec:
 
 #### Always SSL (skip verification)
 
-* postgres: require
-* mysql: required
+- postgres: require
+- mysql: required
 
 ```YAML
 apiVersion: kinda.rocks/v1beta1
@@ -207,8 +207,8 @@ spec:
 
 #### Always SSL (verify that the certificate presented by the server was signed by a trusted CA)
 
-* postgres: verify-ca
-* mysql: verify_ca
+- postgres: verify-ca
+- mysql: verify_ca
 
 ```YAML
 apiVersion: kinda.rocks/v1beta1

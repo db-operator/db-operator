@@ -376,26 +376,6 @@ spec:
           status:
             description: status defines the observed state of DbInstance
             properties:
-              autoGrantRules:
-                items:
-                  description: DbInstanceGrantRule defines a rule for granting access
-                    to a database.
-                  properties:
-                    accessLevel:
-                      enum:
-                      - readOnly
-                      - readWrite
-                      type: string
-                    namespace:
-                      type: string
-                    role:
-                      type: string
-                  required:
-                  - accessLevel
-                  - namespace
-                  - role
-                  type: object
-                type: array
               conditions:
                 description: |-
                   conditions represent the current state of the DbInstance resource.
@@ -471,6 +451,26 @@ spec:
                 - postgres
                 - mysql
                 type: string
+              grantRules:
+                items:
+                  description: DbInstanceGrantRule defines a rule for granting access
+                    to a database.
+                  properties:
+                    accessLevel:
+                      enum:
+                      - readOnly
+                      - readWrite
+                      type: string
+                    namespace:
+                      type: string
+                    role:
+                      type: string
+                  required:
+                  - accessLevel
+                  - namespace
+                  - role
+                  type: object
+                type: array
               mainEndpoint:
                 description: MainEndpoint contains information about the host and
                   port of this instance.
