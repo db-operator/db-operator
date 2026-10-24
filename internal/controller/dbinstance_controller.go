@@ -214,7 +214,7 @@ func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 					Type:    conditionTypeGrantRulesVerified,
 					Status:  metav1.ConditionFalse,
 					Reason:  "RoleNotFound",
-					Message: fmt.Sprintf("Grant Rules are configured to assing a missing role, please create a role first: %s", err.Error()),
+					Message: fmt.Sprintf("Grant Rules are configured to assign a missing role, please create a role first: %s", err.Error()),
 				})
 				dbin.Status.Ready = false
 				log.Error(err, "Grant rule user does not exist")
