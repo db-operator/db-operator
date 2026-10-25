@@ -72,13 +72,13 @@ spec:
                   properties:
                     namespace:
                       type: string
-                    role:
+                    roles:
                       items:
                         type: string
                       type: array
                   required:
                   - namespace
-                  - role
+                  - roles
                   type: object
                 type: array
               auth:
