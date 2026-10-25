@@ -51,7 +51,7 @@ type DbInstanceSpec struct {
 
 type DbInstanceAllowedPrivileges struct {
 	NamespaceRegex string   `json:"namespace"`
-	Roles          []string `json:"role"`
+	Roles          []string `json:"roles"`
 }
 
 // DbInstanceGrantRule defines a rule for granting access to a database.
