@@ -17,12 +17,14 @@ package v1
 import (
 	"context"
 	"errors"
+	"strings"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	kindarocksv1 "github.com/db-operator/db-operator/v2/api/v1"
+	"github.com/db-operator/db-operator/v2/pkg/consts"
 )
 
 // nolint:unused
@@ -85,10 +87,28 @@ func validatePasswordValue(val *kindarocksv1.ValueSource) error {
 	return nil
 }
 
+func validateAllowedPrivileges(privileges []kindarocksv1.DbInstanceAllowedPrivileges) error {
+	for _, privilege := range privileges {
+		for _, role := range privilege.Roles {
+			// Normalize whitespace (spaces, tabs, newlines, leading/trailing) so
+			// that variants of "ALL PRIVILEGES" cannot bypass the check.
+			normalized := strings.ToUpper(strings.Join(strings.Fields(role), " "))
+			if normalized == consts.ALL_PRIVILEGES {
+				return errors.New("it's not allowed to grant ALL PRIVILEGES")
+			}
+		}
+	}
+	return nil
+}
+
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type DbInstance.
 func (v *DbInstanceCustomValidator) ValidateCreate(_ context.Context, obj *kindarocksv1.DbInstance) (admission.Warnings, error) {
 	dbinstancelog.Info("Validation for DbInstance upon creation", "name", obj.GetName())
 	if err := validatePasswordValue(obj.Spec.Auth.Password); err != nil {
+		return nil, err
+	}
+
+	if err := validateAllowedPrivileges(obj.Spec.AllowedPrivileges); err != nil {
 		return nil, err
 	}
 
@@ -99,6 +119,10 @@ func (v *DbInstanceCustomValidator) ValidateCreate(_ context.Context, obj *kinda
 func (v *DbInstanceCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj *kindarocksv1.DbInstance) (admission.Warnings, error) {
 	dbinstancelog.Info("Validation for DbInstance upon update", "name", newObj.GetName())
 	if err := validatePasswordValue(newObj.Spec.Auth.Password); err != nil {
+		return nil, err
+	}
+
+	if err := validateAllowedPrivileges(newObj.Spec.AllowedPrivileges); err != nil {
 		return nil, err
 	}
 
