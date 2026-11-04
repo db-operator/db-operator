@@ -193,18 +193,12 @@ func main() {
 		}
 	case "webhook":
 		setupLog.Info("Starting webhook server")
-		setupLog.Info("Registering Database webhook")
 		// nolint:goconst
 		if err := webhookv1beta1.SetupDatabaseWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "Unable to create webhook", "webhook", "database")
 			os.Exit(1)
 		}
-		setupLog.Info("Registering DbInstance webhook")
-		// nolint:goconst
-		if err := webhookv1beta1.SetupDbUserWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "DbUser")
-			os.Exit(1)
-		}
+
 		// nolint:goconst
 		if err := webhookv1.SetupDbInstanceWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "DbInstance")
@@ -215,19 +209,10 @@ func main() {
 			setupLog.Error(err, "Unable to create webhook", "webhook", "DbInstance")
 			os.Exit(1)
 		}
-		setupLog.Info("Registering DbUser webhook")
+
 		// nolint:goconst
 		if err := webhookv1beta1.SetupDbUserWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "Unable to create webhook", "webhook", "DbUser")
-			os.Exit(1)
-		}
-		// nolint:goconst
-		if err := webhookv1beta1.SetupDbUserWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "DbUser")
-			os.Exit(1)
-		}
-		if err := webhookv1.SetupDbInstanceWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "Failed to create webhook", "webhook", "DbInstance")
 			os.Exit(1)
 		}
 	default:
