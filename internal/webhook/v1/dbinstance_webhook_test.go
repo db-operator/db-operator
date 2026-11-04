@@ -162,6 +162,85 @@ var _ = Describe("DbInstance Webhook", func() {
 			}
 			Expect(validator.ValidateUpdate(GinkgoT().Context(), oldObj, obj)).Error().To(Not(HaveOccurred()))
 		})
+		It("Should allow a legit role name to be set in allowedPrivileges", func() {
+			obj := obj.DeepCopy()
+
+			ns := "namespace"
+			name := "name"
+			key := "key"
+			obj.Spec.Auth = &kindarocksv1.DbInstanceAuth{
+				Password: &kindarocksv1.ValueSource{
+					ValueFrom: &kindarocksv1.ValueFrom{
+						SecretKeyRef: &kindarocksv1.SecretOrCMRef{
+							Namespace: &ns,
+							Name:      &name,
+							Key:       &key,
+						},
+					},
+				},
+			}
+			obj.Spec.AllowedPrivileges = []kindarocksv1.DbInstanceAllowedPrivileges{
+				{
+					NamespaceRegex: "default",
+					Roles: []string{
+						"test",
+						"admin",
+					},
+				},
+			}
+			Expect(validator.ValidateUpdate(GinkgoT().Context(), oldObj, obj)).Error().To(Not(HaveOccurred()))
+			Expect(validator.ValidateCreate(GinkgoT().Context(), obj)).Error().To(Not(HaveOccurred()))
+		})
+		It("Should fail if a user tries to set 'All Privileges'", func() {
+			obj := obj.DeepCopy()
+			ns := "namespace"
+			name := "name"
+			key := "key"
+			obj.Spec.Auth = &kindarocksv1.DbInstanceAuth{
+				Password: &kindarocksv1.ValueSource{
+					ValueFrom: &kindarocksv1.ValueFrom{
+						SecretKeyRef: &kindarocksv1.SecretOrCMRef{
+							Namespace: &ns,
+							Name:      &name,
+							Key:       &key,
+						},
+					},
+				},
+			}
+			obj.Spec.AllowedPrivileges = []kindarocksv1.DbInstanceAllowedPrivileges{
+				{
+					NamespaceRegex: "default",
+					Roles: []string{
+						"test",
+						"ALL PRIVILEGES",
+					},
+				},
+			}
+			Expect(validator.ValidateUpdate(GinkgoT().Context(), oldObj, obj)).Error().To(HaveOccurred())
+			Expect(validator.ValidateCreate(GinkgoT().Context(), obj)).Error().To(HaveOccurred())
+			obj.Spec.AllowedPrivileges = []kindarocksv1.DbInstanceAllowedPrivileges{
+				{
+					NamespaceRegex: "default",
+					Roles: []string{
+						"test",
+						"ALL PRIVILEGES ",
+					},
+				},
+			}
+			Expect(validator.ValidateUpdate(GinkgoT().Context(), oldObj, obj)).Error().To(HaveOccurred())
+			Expect(validator.ValidateCreate(GinkgoT().Context(), obj)).Error().To(HaveOccurred())
+			obj.Spec.AllowedPrivileges = []kindarocksv1.DbInstanceAllowedPrivileges{
+				{
+					NamespaceRegex: "default",
+					Roles: []string{
+						"test",
+						"ALL  privileges",
+					},
+				},
+			}
+			Expect(validator.ValidateUpdate(GinkgoT().Context(), oldObj, obj)).Error().To(HaveOccurred())
+			Expect(validator.ValidateCreate(GinkgoT().Context(), obj)).Error().To(HaveOccurred())
+		})
 	})
 
 	Context("When deleting DbInstance under Validating Webhook", func() {
