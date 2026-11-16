@@ -21,6 +21,14 @@ environments:
             ssl:
               enabled: true
               skipVerify: false
+          clickhouse:
+            installed: {{ env "CLICKHOUSE_INSTALL" | default false }}
+            username: {{ env "CLICKHOUSE_USER" | default "admin" }}
+            password: {{ env "CLICKHOUSE_PASSWORD" | default "qwertyu9" }}
+            nativeNodePort: 30900
+            httpNodePort: 30123
+            imageTag: {{ env "CLICKHOUSE_VERSION" | default "26.8" }}
+            cluster: {{ env "CLICKHOUSE_CLUSTER" | default "test_cluster" }}
 ---
 repositories:
   - name: jetstack
@@ -163,3 +171,21 @@ releases:
             # Allow connections from any host with password authentication
             host    all             all             all                     md5
       {{- end }}
+
+  - name: clickhouse-instance
+    namespace: databases
+    chart: ./test/charts/clickhouse
+    installed: {{ .Values.databases.clickhouse.installed }}
+    createNamespace: true
+    values:
+      - image:
+          tag: {{ .Values.databases.clickhouse.imageTag | quote }}
+      - auth:
+          username: {{ .Values.databases.clickhouse.username }}
+          password: {{ .Values.databases.clickhouse.password }}
+      - cluster:
+          name: {{ .Values.databases.clickhouse.cluster }}
+      - service:
+          type: NodePort
+          nativeNodePort: {{ .Values.databases.clickhouse.nativeNodePort }}
+          httpNodePort: {{ .Values.databases.clickhouse.httpNodePort }}

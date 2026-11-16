@@ -1,0 +1,6 @@
+apiVersion: v2
+name: clickhouse
+description: A single node ClickHouse with an embedded Keeper for db-operator tests
+type: application
+version: 0.1.0
+appVersion: "26.8"

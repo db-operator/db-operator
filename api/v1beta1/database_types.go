@@ -144,7 +144,7 @@ func (db *Database) GetProtocol() (string, error) {
 	switch db.Status.Engine {
 	case consts.ENGINE_POSTGRES:
 		return "postgresql", nil
-	case consts.ENGINE_MYSQL:
+	case consts.ENGINE_MYSQL, consts.ENGINE_CLICKHOUSE:
 		return db.Status.Engine, nil
 	default:
 		return "", fmt.Errorf("unknown engine %s", db.Status.Engine)

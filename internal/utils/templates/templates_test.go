@@ -110,6 +110,18 @@ var secretMysql *corev1.Secret = &corev1.Secret{
 	},
 }
 
+var secretClickhouse *corev1.Secret = &corev1.Secret{
+	ObjectMeta: v1.ObjectMeta{
+		Name:        "creds",
+		Annotations: map[string]string{},
+	},
+	Data: map[string][]byte{
+		consts.CLICKHOUSE_USER:     []byte("testusername"),
+		consts.CLICKHOUSE_PASSWORD: []byte("testpassword"),
+		consts.CLICKHOUSE_DB:       []byte("database"),
+	},
+}
+
 var db database.Database = database.New("dummy")
 
 func TestUnitTemplatedCredsDS(t *testing.T) {
@@ -528,4 +540,27 @@ func TestUnitTemplatesRender(t *testing.T) {
 			assert.ErrorContains(t, err, "not allowed for templating", name)
 		}
 	})
+}
+
+func TestUnitTemplatesClickhouse(t *testing.T) {
+	databaseNew := databaseK8s.DeepCopy()
+	databaseNew.Status.Engine = consts.ENGINE_CLICKHOUSE
+	templateds, err := templates.NewTemplateDataSource(databaseNew, nil, secretClickhouse, configmapK8s, db, nil, nil)
+	assert.NoError(t, err)
+
+	proto, err := templateds.Protocol()
+	assert.NoError(t, err)
+	assert.Equal(t, "clickhouse", proto)
+
+	username, err := templateds.Username()
+	assert.NoError(t, err)
+	assert.Equal(t, "testusername", username)
+
+	password, err := templateds.Password()
+	assert.NoError(t, err)
+	assert.Equal(t, "testpassword", password)
+
+	database, err := templateds.Database()
+	assert.NoError(t, err)
+	assert.Equal(t, "database", database)
 }

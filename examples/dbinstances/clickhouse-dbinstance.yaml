@@ -1,0 +1,20 @@
+apiVersion: kinda.rocks/v1
+kind: DbInstance
+metadata:
+  name: clickhouse
+  annotations:
+    kinda.rocks/clickhouse-cluster: test_cluster
+spec:
+  engine: clickhouse
+  auth:
+    username:
+      value: admin
+    password:
+      value: qwertyu9
+  endpoint:
+    host:
+      value: clickhouse-instance.databases.svc.cluster.local
+    port:
+      value: "9000"
+  instanceVars:
+    HTTP_PORT: "8123"

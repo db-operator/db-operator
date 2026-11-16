@@ -8,7 +8,7 @@ DbInstance is a resource that connects the operator to a Database server and def
 
 ## How to configure a DbInstance
 
-You need to have a **PostgreSQL** or a **MySQL** server running, and it has to be accessible by the operator. You also need a user with sufficient permissions, if it's fine in your environment, I would suggest to use an admin user.
+You need to have a **PostgreSQL**, a **MySQL** or a **ClickHouse** server running, and it has to be accessible by the operator. You also need a user with sufficient permissions, if it's fine in your environment, I would suggest to use an admin user.
 
 A lot of DbInstance values are using the internal `ValueSource` type, so once you know how to use it, you can configure a DbInstance resource.
 
@@ -73,6 +73,44 @@ spec:
       value: "5432"
   engine: postgres
 ```
+
+### ClickHouse
+
+Set `engine` to `clickhouse` and point the endpoint to the native protocol port (9000 by default).
+The admin user needs `access_management` and the rights it grants to others, for example `GRANT ALL ON *.* WITH GRANT OPTION`.
+
+ClickHouse clusters are an experimental feature, so the cluster name is set with the `kinda.rocks/clickhouse-cluster` annotation for now. When it is set, databases are created with the `Replicated` engine and `ON CLUSTER`, and users and grants are created with `ON CLUSTER` too.
+The cluster has to be defined in `remote_servers`, ClickHouse Keeper (or ZooKeeper) has to be configured, and every node needs the `{shard}` and `{replica}` macros.
+Without the annotation, databases and users are created on the node the operator is connected to.
+
+```yaml
+apiVersion: kinda.rocks/v1
+kind: DbInstance
+metadata:
+  name: clickhouse
+  annotations:
+    kinda.rocks/clickhouse-cluster: default
+spec:
+  auth:
+    username:
+      value: admin
+    password:
+      valueFrom:
+        secret:
+          namespace: databases
+          name: clickhouse-admin-creds
+          key: password
+  endpoint:
+    host:
+      value: clickhouse.databases.svc.cluster.local
+    port:
+      value: "9000"
+  engine: clickhouse
+  instanceVars:
+    HTTP_PORT: "8123"
+```
+
+The operator only uses the native port. If applications need the HTTP port, it can be passed through `instanceVars` and used in credentials templates as `{{ .InstanceVar "HTTP_PORT" }}`.
 
 ## Automatic Reconciliation on Resource Changes
 
@@ -171,6 +209,7 @@ To use ssl connection, set `sslConnection.enabled` to `true` in `DbInstance` spe
 
 - postgres: disable
 - mysql: disabled
+- clickhouse: false
 
 ```YAML
 apiVersion: kinda.rocks/v1beta1
@@ -190,6 +229,7 @@ spec:
 
 - postgres: require
 - mysql: required
+- clickhouse: true
 
 ```YAML
 apiVersion: kinda.rocks/v1beta1
@@ -209,6 +249,7 @@ spec:
 
 - postgres: verify-ca
 - mysql: verify_ca
+- clickhouse: true
 
 ```YAML
 apiVersion: kinda.rocks/v1beta1

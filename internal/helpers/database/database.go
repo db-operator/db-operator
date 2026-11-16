@@ -109,6 +109,17 @@ func FetchDatabaseData(ctx context.Context, dbcr *kindav1beta1.Database, dbCred 
 		}
 
 		return db, dbuser, nil
+	case "clickhouse":
+		db := database.Clickhouse{
+			Host:         host,
+			Port:         port,
+			Database:     dbCred.Name,
+			Cluster:      instance.Annotations[consts.CLICKHOUSE_CLUSTER],
+			SSLEnabled:   instance.Status.MainEndpoint.SSLConnection.Enabled,
+			SkipCAVerify: instance.Status.MainEndpoint.SSLConnection.SkipVerify,
+		}
+
+		return db, dbuser, nil
 	default:
 		err := errors.New("not supported engine type")
 		return nil, nil, err
@@ -159,6 +170,26 @@ func ParseDatabaseSecretData(dbcr *kindav1beta1.Database, data map[string][]byte
 		}
 
 		return cred, nil
+	case "clickhouse":
+		if name, ok := data[consts.CLICKHOUSE_DB]; ok {
+			cred.Name = string(name)
+		} else {
+			return cred, errors.New("CLICKHOUSE_DB key does not exist in secret data")
+		}
+
+		if user, ok := data[consts.CLICKHOUSE_USER]; ok {
+			cred.Username = string(user)
+		} else {
+			return cred, errors.New("CLICKHOUSE_USER key does not exist in secret data")
+		}
+
+		if pass, ok := data[consts.CLICKHOUSE_PASSWORD]; ok {
+			cred.Password = string(pass)
+		} else {
+			return cred, errors.New("CLICKHOUSE_PASSWORD key does not exist in secret data")
+		}
+
+		return cred, nil
 	default:
 		return cred, errors.New("not supported engine type")
 	}
@@ -203,6 +234,13 @@ func GenerateDatabaseSecretData(objectMeta metav1.ObjectMeta, engine, dbName, ex
 			consts.MYSQL_PASSWORD: []byte(dbPassword),
 		}
 		return data, nil
+	case "clickhouse":
+		data := map[string][]byte{
+			consts.CLICKHOUSE_DB:       []byte(dbName),
+			consts.CLICKHOUSE_USER:     []byte(dbUser),
+			consts.CLICKHOUSE_PASSWORD: []byte(dbPassword),
+		}
+		return data, nil
 	default:
 		return nil, errors.New("not supported engine type")
 	}
@@ -221,6 +259,8 @@ func GenerateDatabaseUsername(objectMeta metav1.ObjectMeta, engine, existingUser
 	case "mysql":
 		// https://dev.mysql.com/doc/refman/5.7/en/replication-features-user-names.html
 		return kci.StringSanitize(username, 32), nil
+	case "clickhouse":
+		return username, nil
 	default:
 		return "", fmt.Errorf("unknown database engine: %s", engine)
 	}
@@ -251,6 +291,15 @@ func GetSSLMode(dbcr *kindav1beta1.Database, instance *kindav1.DbInstance) (stri
 			return "required", nil
 		case consts.SSL_VERIFY_CA:
 			return "verify_ca", nil
+		}
+	}
+
+	if dbcr.Status.Engine == "clickhouse" {
+		switch genericSSL {
+		case consts.SSL_DISABLED:
+			return "false", nil
+		case consts.SSL_REQUIRED, consts.SSL_VERIFY_CA:
+			return "true", nil
 		}
 	}
 
