@@ -6,7 +6,7 @@ icon: lucide/flask-conical
 
 We have a pretty good test coverage of the Database packages. These tests need an accessible database instance to run.
 
-Tests are not performing any clean-up logic, so once tests are executed, you'll have to clean the database up on your own. So it's recommended not to use any 'real' databases.
+Some database suites retain their fixtures after a run. Use a disposable database server, and clean up any remaining test databases and roles before reusing it.
 
 ## Postgres
 

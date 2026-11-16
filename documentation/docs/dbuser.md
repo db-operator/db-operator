@@ -78,6 +78,20 @@ When using an existing user, DB Operator is not aware of the password anymore, h
 
 It's also important to understand, that when you are switching **from/to** existing user **to/from** a generated one, you need to remove the Secret from the cluster, so it's recreated, otherwise it's either going to be empty for a generated user, or filled for an existing one. It will most probably be fixed in future versions.
 
+### PostgreSQL deletion failures
+
+Deleting a generated `DbUser` must remove its PostgreSQL role. If PostgreSQL cannot confirm whether the role exists, or refuses to drop it, the operator reports the error and retains the finalizer for another attempt. A role confirmed absent needs no further cleanup or role-deletion privileges.
+
+DbUser permission cleanup can run [`DROP OWNED`](https://www.postgresql.org/docs/current/sql-drop-owned.html) in the managed database. That can delete objects owned there and revoke grants on shared objects, including other databases. `spec.existingUser` preserves the role, not its owned objects or grants. Completed cleanup is not rolled back if a later step fails.
+
+The operator does not run object cleanup in other databases. Owned objects or grants on local objects there can still block role deletion with a dependency error (`2BP01`). Older versions treated that error as success, which could leave the role behind after removing the Kubernetes resource.
+
+To unblock deletion:
+
+1. Read the affected resource's Warning events and the operator's controller logs. Record its `.status.user` to identify the role. For a `DbUser`, follow `.spec.databaseRef` to the `Database` in the same namespace; that Database's `.status.database` records the PostgreSQL database name.
+2. Ask the database administrator to restore any missing access or arrange owner-approved dependency cleanup. Follow PostgreSQL's [role-removal guidance](https://www.postgresql.org/docs/current/role-removal.html) to reassign objects that must survive before removing dependencies. Do not remove the finalizer as a substitute for cleanup.
+3. Let the operator retry, then verify that the Kubernetes resource disappears. Confirm that a generated role is absent from `pg_roles`. For `spec.existingUser`, confirm that the role remains and its managed access has been revoked.
+
 ## Experimental features
 
 Experimental features are added via annotations, the following features are available for `DbUsers`
