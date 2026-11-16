@@ -72,7 +72,7 @@ func DetectEngine(ctx context.Context, in *Generic, dbuser *database.DatabaseUse
 	// If engine is explicitly set, only try that one.
 	if in.Engine != "" {
 		switch in.Engine {
-		case "postgres", "mysql":
+		case "postgres", "mysql", "clickhouse":
 			return detect(in.Engine)
 		default:
 			return nil, fmt.Errorf("unsupported engine %q", in.Engine)
@@ -104,6 +104,15 @@ func MakeInterface(in *Generic) (database.Database, error) {
 			Host:         in.Host,
 			Port:         in.Port,
 			Database:     "mysql",
+			SSLEnabled:   in.SSLEnabled,
+			SkipCAVerify: in.SkipCAVerify,
+		}
+		return db, nil
+	case "clickhouse":
+		db := database.Clickhouse{
+			Host:         in.Host,
+			Port:         in.Port,
+			Database:     "system",
 			SSLEnabled:   in.SSLEnabled,
 			SkipCAVerify: in.SkipCAVerify,
 		}
@@ -165,6 +174,16 @@ func TestGenericMysqlInstance() *Generic {
 		Engine:   "mysql",
 		User:     "root",
 		Password: test.GetMysqlAdminPassword(),
+	}
+}
+
+func TestGenericClickhouseInstance() *Generic {
+	return &Generic{
+		Host:     test.GetClickhouseHost(),
+		Port:     test.GetClickhousePort(),
+		Engine:   "clickhouse",
+		User:     test.GetClickhouseAdminUser(),
+		Password: test.GetClickhouseAdminPassword(),
 	}
 }
 

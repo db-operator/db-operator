@@ -246,6 +246,7 @@ spec:
                 enum:
                 - postgres
                 - mysql
+                - clickhouse
                 type: string
               grantRules:
                 items:
@@ -450,6 +451,7 @@ spec:
                 enum:
                 - postgres
                 - mysql
+                - clickhouse
                 type: string
               grantRules:
                 items:

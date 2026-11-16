@@ -45,6 +45,16 @@ tasks:
       MYSQL_PORT: 30306
     cmd: go test -count=1 -tags tests -run "TestMysql" ./...
 
+  clickhouse:
+    desc: Run clickhouse tests
+    env:
+      CLICKHOUSE_PASSWORD: qwertyu9
+      CLICKHOUSE_USER: admin
+      CLICKHOUSE_HOST: localhost
+      CLICKHOUSE_PORT: 30900
+      CLICKHOUSE_CLUSTER: test_cluster
+    cmd: go test -count=1 -tags tests -run "TestClickhouse" ./...
+
   controllers:
     desc: Run controller integration tests
     deps:

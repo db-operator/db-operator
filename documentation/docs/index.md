@@ -3,7 +3,7 @@ icon: lucide/package-open
 ---
 # Getting Started
 
-**DB Operator** is a Kubernetes operator for managing **MySQL** and **PostgreSQL** databases through **CRDs**.
+**DB Operator** is a Kubernetes operator for managing **MySQL**, **PostgreSQL** and **ClickHouse** databases through **CRDs**.
 
 This operator does not launch database servers. Instead, it connects to existing ones. Because of this, the database does not need to run inside Kubernetes, the operator can work with any database server that is reachable from within the cluster.
 

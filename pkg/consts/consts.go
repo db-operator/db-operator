@@ -18,18 +18,22 @@ package consts
 
 // Database Related Consts
 const (
-	POSTGRES_DB       = "POSTGRES_DB"
-	POSTGRES_USER     = "POSTGRES_USER"
-	POSTGRES_PASSWORD = "POSTGRES_PASSWORD"
-	MYSQL_DB          = "DB"
-	MYSQL_USER        = "USER"
-	MYSQL_PASSWORD    = "PASSWORD"
+	POSTGRES_DB         = "POSTGRES_DB"
+	POSTGRES_USER       = "POSTGRES_USER"
+	POSTGRES_PASSWORD   = "POSTGRES_PASSWORD"
+	MYSQL_DB            = "DB"
+	MYSQL_USER          = "USER"
+	MYSQL_PASSWORD      = "PASSWORD"
+	CLICKHOUSE_DB       = "CLICKHOUSE_DB"
+	CLICKHOUSE_USER     = "CLICKHOUSE_USER"
+	CLICKHOUSE_PASSWORD = "CLICKHOUSE_PASSWORD"
 )
 
 // Database engines
 const (
-	ENGINE_POSTGRES = "postgres"
-	ENGINE_MYSQL    = "mysql"
+	ENGINE_POSTGRES   = "postgres"
+	ENGINE_MYSQL      = "mysql"
+	ENGINE_CLICKHOUSE = "clickhouse"
 )
 
 // SSL modes
@@ -65,6 +69,7 @@ const (
 	// Delete a postgres database with present connections,
 	// might be useful when pgbouncer is used
 	POSTGRES_FORCE_DELETE_DB = "kinda.rocks/postgres-force-delete-db"
+	CLICKHOUSE_CLUSTER       = "kinda.rocks/clickhouse-cluster"
 )
 
 // Kubernetes Labels

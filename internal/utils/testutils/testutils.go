@@ -32,8 +32,9 @@ const (
 )
 
 var (
-	postgresEngine = "postgres"
-	mysqlEngine    = "mysql"
+	postgresEngine   = "postgres"
+	mysqlEngine      = "mysql"
+	clickhouseEngine = "clickhouse"
 )
 
 func NewPostgresTestDbInstanceCr() kindav1.DbInstance {
@@ -88,6 +89,49 @@ func NewMysqlTestDbInstanceCr() kindav1.DbInstance {
 				Port:          port,
 				SSLConnection: kindav1.DbInstanceSSLConnection{},
 			},
+		},
+	}
+}
+
+func NewClickhouseTestDbInstanceCr() kindav1.DbInstance {
+	host := test.GetClickhouseHost()
+	port := test.GetClickhousePort()
+	portStr := strconv.FormatUint(uint64(port), 10)
+
+	return kindav1.DbInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				consts.CLICKHOUSE_CLUSTER: "test_cluster",
+			},
+		},
+		Spec: kindav1.DbInstanceSpec{
+			Engine: &clickhouseEngine,
+			Endpoint: &kindav1.DbInstanceEndpoint{
+				Host: &kindav1.ValueSource{
+					Value: &host,
+				},
+				Port: &kindav1.ValueSource{
+					Value: &portStr,
+				},
+				SSLConnection: &kindav1.DbInstanceSSLConnection{},
+			},
+		},
+		Status: kindav1.DbInstanceStatus{
+			MainEndpoint: &kindav1.DbInstanceServerData{
+				Host:          host,
+				Port:          port,
+				SSLConnection: kindav1.DbInstanceSSLConnection{},
+			},
+		},
+	}
+}
+
+func NewClickhouseTestDbCr() *kindav1beta1.Database {
+	return &kindav1beta1.Database{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "TestNS"},
+		Spec:       kindav1beta1.DatabaseSpec{SecretName: "TestSec"},
+		Status: kindav1beta1.DatabaseStatus{
+			Engine: consts.ENGINE_CLICKHOUSE,
 		},
 	}
 }
