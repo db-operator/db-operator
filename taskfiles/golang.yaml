@@ -9,7 +9,7 @@ vars:
   KUSTOMIZE: "{{.LOCALBIN}}/kustomize"
   # Tool versions
   # renovate: datasource=go depName=github.com/golangci/golangci-lint/v2
-  GOLANGCI_LINT_VERSION: v2.12.2
+  GOLANGCI_LINT_VERSION: v2.15.0
 
 includes:
   shared:
