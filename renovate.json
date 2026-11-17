@@ -10,6 +10,16 @@
   "pre-commit": {
     "enabled": true
   },
+  "customManagers": [
+    {
+      "description": "Tool versions in taskfiles, annotated with a '# renovate:' comment",
+      "customType": "regex",
+      "managerFilePatterns": ["/^taskfiles/.+\\.ya?ml$/"],
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)(?:\\s+versioning=(?<versioning>\\S+))?\\s*\\n\\s*[A-Z0-9_]+_VERSION:\\s*\"?(?<currentValue>[^\"\\s]+)\"?"
+      ]
+    }
+  ],
   "packageRules": [
     {
       "description": "Go toolchain: the go.mod directive and the builder image",
@@ -86,6 +96,11 @@
     {
       "groupName": "test environment charts",
       "matchManagers": ["helmfile"]
+    },
+    {
+      "groupName": "dev tools",
+      "matchManagers": ["custom.regex"],
+      "matchFileNames": ["taskfiles/**"]
     },
     {
       "groupName": "pre-commit hooks",
