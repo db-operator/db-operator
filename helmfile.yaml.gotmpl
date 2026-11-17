@@ -35,7 +35,7 @@ releases:
     chart: jetstack/cert-manager
     namespace: cert-manager
     installed: {{ .Values.certManager.installed }}
-    version: v1.21.2
+    version: v1.21.3
     createNamespace: true
     values:
       - crds:
@@ -56,7 +56,7 @@ releases:
     needs:
       - cert-manager/cert-manager
     {{- end }}
-    version: 0.16.15
+    version: 0.17.0
     values:
       - image:
           tag: {{ .Values.databases.mariadb.imageTag | quote }}
@@ -79,7 +79,7 @@ releases:
   - name: postgres-instance
     namespace: databases
     chart: cloudpirates/postgres
-    version: 0.20.6
+    version: 0.22.1
     {{- if .Values.certManager.installed }}
     needs:
       - cert-manager/cert-manager
