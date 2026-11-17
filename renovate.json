@@ -7,6 +7,9 @@
   "postUpdateOptions": [
     "gomodTidy"
   ],
+  "pre-commit": {
+    "enabled": true
+  },
   "packageRules": [
     {
       "description": "Go toolchain: the go.mod directive and the builder image",
@@ -83,6 +86,10 @@
     {
       "groupName": "test environment charts",
       "matchManagers": ["helmfile"]
+    },
+    {
+      "groupName": "pre-commit hooks",
+      "matchManagers": ["pre-commit"]
     },
     {
       "groupName": "documentation",
