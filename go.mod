@@ -6,7 +6,7 @@ go 1.26.10
 
 require (
 	github.com/GoogleCloudPlatform/cloudsql-proxy v1.38.3
-	github.com/alecthomas/kong v1.16.1
+	github.com/alecthomas/kong v1.17.0
 	github.com/db-operator/can-haz-password v0.1.1
 	github.com/go-logr/logr v1.4.4
 	github.com/go-sql-driver/mysql v1.10.1
