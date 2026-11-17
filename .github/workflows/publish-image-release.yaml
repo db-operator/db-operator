@@ -62,4 +62,4 @@ jobs:
           IMAGE: ${{ steps.push-to-ghcr.outputs.registry-path }}
         run: |
           cosign sign --yes ${IMAGE}@${DIGEST}
-          cosign attest --type vuln --predicate report.json ${IMAGE}@${DIGEST}
+          cosign attest yes --type vuln --predicate report.json ${IMAGE}@${DIGEST}
