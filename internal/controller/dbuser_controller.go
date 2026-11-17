@@ -91,7 +91,7 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	// Get the DB by the reference provided in the manifest
 	dbcr := &kindav1beta1.Database{}
 	if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: dbusercr.Spec.DatabaseRef}, dbcr); err != nil {
-		return r.manageError(ctx, dbusercr, err, false)
+		return r.manageError(ctx, dbusercr, err)
 	}
 	if dbusercr.IsDeleted() {
 		return r.handleDbUserDelete(ctx, dbusercr, dbcr)
@@ -104,12 +104,12 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			secretData, err := dbhelper.GenerateDatabaseSecretData(dbusercr.ObjectMeta, dbcr.Status.Engine, dbName, dbusercr.Spec.ExistingUser)
 			if err != nil {
 				log.Error(err, "Could not generate credentials for database")
-				return r.manageError(ctx, dbusercr, err, false)
+				return r.manageError(ctx, dbusercr, err)
 			}
 			userSecret = kci.SecretBuilder(dbusercr.Spec.SecretName, dbusercr.Namespace, secretData)
 		} else {
 			log.Error(err, "Could not get database secret")
-			return r.manageError(ctx, dbusercr, err, true)
+			return r.manageError(ctx, dbusercr, err)
 		}
 	}
 
@@ -141,12 +141,12 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	err = r.kubeHelper.HandleCreateOrUpdate(ctx, userSecret)
 	if err != nil {
 		// failed to create secret
-		return r.manageError(ctx, dbusercr, err, false)
+		return r.manageError(ctx, dbusercr, err)
 	}
 
 	creds, err := parseDbUserSecretData(dbcr.Status.Engine, userSecret.Data)
 	if err != nil {
-		return r.manageError(ctx, dbusercr, err, false)
+		return r.manageError(ctx, dbusercr, err)
 	}
 	if dbusercr.Status.Status && dbusercr.Status.UserName == "" {
 		dbusercr.Status.UserName = creds.Username
@@ -160,23 +160,23 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if !dbusercr.Status.Status {
 		instance := &kindav1.DbInstance{}
 		if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
-			return r.manageError(ctx, dbusercr, err, false)
+			return r.manageError(ctx, dbusercr, err)
 		}
 		// Check if chosen ExtraPrivileges are allowed on the instance
 		for _, priv := range dbusercr.Spec.ExtraPrivileges {
 			isRoleAllowed, err := helpers.CheckAllowedPrivileges(priv, dbusercr.Namespace, instance.Spec.AllowedPrivileges)
 			if err != nil {
-				return r.manageError(ctx, dbusercr, err, false)
+				return r.manageError(ctx, dbusercr, err)
 			}
 			if !isRoleAllowed {
 				err := fmt.Errorf("role %s is not allowed on the instance %s", priv, instance.Name)
-				return r.manageError(ctx, dbusercr, err, false)
+				return r.manageError(ctx, dbusercr, err)
 			}
 		}
 		db, dbuser, err := dbhelper.FetchDatabaseData(ctx, dbcr, creds, instance)
 		if err != nil {
 			// failed to determine database type
-			return r.manageError(ctx, dbusercr, err, false)
+			return r.manageError(ctx, dbusercr, err)
 		}
 
 		existingUser := configureDbUser(ctx, dbusercr, dbuser, creds)
@@ -184,18 +184,18 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		adminSecretResource, err := r.getAdminSecret(ctx, dbcr)
 		if err != nil {
 			// failed to get admin secret
-			return r.manageError(ctx, dbusercr, err, false)
+			return r.manageError(ctx, dbusercr, err)
 		}
 
 		adminCred, err := db.ParseAdminCredentials(ctx, adminSecretResource.Data)
 		if err != nil {
 			// failed to parse database admin secret
-			return r.manageError(ctx, dbusercr, err, false)
+			return r.manageError(ctx, dbusercr, err)
 		}
 
 		if !dbcr.Status.Status {
 			err := fmt.Errorf("database %s is not ready yet", dbcr.Name)
-			return r.manageError(ctx, dbusercr, err, true)
+			return r.manageError(ctx, dbusercr, err)
 		}
 
 		// If allow existing is set to true, always execute UpdateOrCreate,
@@ -203,31 +203,31 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		if existingUser {
 			log.Info("existing user management is allowed")
 			if err := database.SetPermissions(ctx, db, dbuser, adminCred); err != nil {
-				return r.manageError(ctx, dbusercr, err, false)
+				return r.manageError(ctx, dbusercr, err)
 			}
 			if err = r.addFinalizers(ctx, dbusercr, dbcr); err != nil {
-				return r.manageError(ctx, dbusercr, err, false)
+				return r.manageError(ctx, dbusercr, err)
 			}
 			dbusercr.Status.Created = true
 		} else {
 			if !dbusercr.Status.Created {
 				log.Info("creating a user", "name", dbusercr.GetName())
 				if err := database.CreateUser(ctx, db, dbuser, adminCred); err != nil {
-					return r.manageError(ctx, dbusercr, err, false)
+					return r.manageError(ctx, dbusercr, err)
 				}
 				if err = r.addFinalizers(ctx, dbusercr, dbcr); err != nil {
-					return r.manageError(ctx, dbusercr, err, false)
+					return r.manageError(ctx, dbusercr, err)
 				}
 				dbusercr.Status.Created = true
 			} else {
 				log.Info("updating a user", "name", dbusercr.GetName())
 				if err := database.UpdateUser(ctx, db, dbuser, adminCred); err != nil {
-					return r.manageError(ctx, dbusercr, err, false)
+					return r.manageError(ctx, dbusercr, err)
 				}
 			}
 		}
 		if err := r.handleTemplatedCredentials(ctx, dbcr, dbusercr, dbuser); err != nil {
-			return r.manageError(ctx, dbusercr, err, true)
+			return r.manageError(ctx, dbusercr, err)
 		}
 		dbusercr.Status.OperatorVersion = commonhelper.OperatorVersion
 		dbusercr.Status.Status = true
@@ -246,7 +246,7 @@ func (r *DbUserReconciler) handleDbUserDelete(ctx context.Context, dbusercr *kin
 
 	userSecret, err := r.getDbUserSecret(ctx, dbusercr)
 	if err != nil && !k8serrors.IsNotFound(err) {
-		return r.manageError(ctx, dbusercr, err, true)
+		return r.manageError(ctx, dbusercr, err)
 	}
 	if k8serrors.IsNotFound(err) {
 		userSecret = nil
@@ -254,54 +254,54 @@ func (r *DbUserReconciler) handleDbUserDelete(ctx context.Context, dbusercr *kin
 
 	creds, err := dbUserDeleteCredentials(dbusercr, dbcr, userSecret)
 	if err != nil {
-		return r.manageError(ctx, dbusercr, err, false)
+		return r.manageError(ctx, dbusercr, err)
 	}
 
 	instance := &kindav1.DbInstance{}
 	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, instance); err != nil {
-		return r.manageError(ctx, dbusercr, err, false)
+		return r.manageError(ctx, dbusercr, err)
 	}
 	db, dbuser, err := dbhelper.FetchDatabaseData(ctx, dbcr, creds, instance)
 	if err != nil {
-		return r.manageError(ctx, dbusercr, err, false)
+		return r.manageError(ctx, dbusercr, err)
 	}
 	existingUser := configureDbUser(ctx, dbusercr, dbuser, creds)
 
 	adminSecretResource, err := r.getAdminSecret(ctx, dbcr)
 	if err != nil {
-		return r.manageError(ctx, dbusercr, err, false)
+		return r.manageError(ctx, dbusercr, err)
 	}
 	adminCred, err := db.ParseAdminCredentials(ctx, adminSecretResource.Data)
 	if err != nil {
-		return r.manageError(ctx, dbusercr, err, false)
+		return r.manageError(ctx, dbusercr, err)
 	}
 
 	if userSecret != nil {
 		if err := r.handleTemplatedCredentials(ctx, dbcr, dbusercr, dbuser); err != nil && !k8serrors.IsNotFound(err) {
-			return r.manageError(ctx, dbusercr, err, true)
+			return r.manageError(ctx, dbusercr, err)
 		}
 	}
 	if existingUser {
 		if err := database.RevokePermissions(ctx, db, dbuser, adminCred); err != nil {
-			return r.manageError(ctx, dbusercr, err, false)
+			return r.manageError(ctx, dbusercr, err)
 		}
 	} else if err := database.DeleteUser(ctx, db, dbuser, adminCred); err != nil {
-		return r.manageError(ctx, dbusercr, err, false)
+		return r.manageError(ctx, dbusercr, err)
 	}
 
 	if userSecret != nil {
 		if err := r.kubeHelper.HandleDelete(ctx, userSecret); err != nil && !k8serrors.IsNotFound(err) {
-			return r.manageError(ctx, dbusercr, err, false)
+			return r.manageError(ctx, dbusercr, err)
 		}
 	}
 
 	kci.RemoveFinalizer(&dbcr.ObjectMeta, finalizer)
 	if err := r.Update(ctx, dbcr); err != nil {
-		return r.manageError(ctx, dbusercr, err, false)
+		return r.manageError(ctx, dbusercr, err)
 	}
 	kci.RemoveFinalizer(&dbusercr.ObjectMeta, finalizer)
 	if err := r.Update(ctx, dbusercr); err != nil {
-		return r.manageError(ctx, dbusercr, err, false)
+		return r.manageError(ctx, dbusercr, err)
 	}
 
 	return reconcileResult, nil
@@ -405,7 +405,7 @@ func (r *DbUserReconciler) getDbUserSecret(ctx context.Context, dbucr *kindav1be
 	return secret, nil
 }
 
-func (r *DbUserReconciler) manageError(ctx context.Context, dbucr *kindav1beta1.DbUser, issue error, requeue bool) (reconcile.Result, error) {
+func (r *DbUserReconciler) manageError(ctx context.Context, dbucr *kindav1beta1.DbUser, issue error) (reconcile.Result, error) {
 	log := log.FromContext(ctx)
 	dbucr.Status.Status = false
 	log.Error(issue, "an error occurred during the reconciliation")
@@ -416,7 +416,6 @@ func (r *DbUserReconciler) manageError(ctx context.Context, dbucr *kindav1beta1.
 	// TODO: implementing reschedule calculation based on last updated time
 	return reconcile.Result{
 		RequeueAfter: retryInterval,
-		Requeue:      requeue,
 	}, issue
 }
 

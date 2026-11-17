@@ -117,10 +117,10 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	isNsAllowed, err := helpers.CheckNamespaceFilter(instance.Status.NamespaceFilters, dbcr.Namespace)
 	if err != nil {
-		return r.manageError(ctx, dbcr, err, false, dbPhaseReconcile)
+		return r.manageError(ctx, dbcr, err, dbPhaseReconcile)
 	} else if !isNsAllowed {
 		err = fmt.Errorf("namespace %s is not allowed on the instance", dbcr.Namespace)
-		return r.manageError(ctx, dbcr, err, false, dbPhaseReconcile)
+		return r.manageError(ctx, dbcr, err, dbPhaseReconcile)
 	}
 
 	// Init the kubehelper object
@@ -153,7 +153,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	 * ------------------------------------------------------------- */
 	mustReconile, err := r.isFullReconcile(ctx, dbcr)
 	if err != nil {
-		return r.manageError(ctx, dbcr, err, true, phase)
+		return r.manageError(ctx, dbcr, err, phase)
 	}
 
 	return r.handleDbCreateOrUpdate(ctx, dbcr, instance, mustReconile)
@@ -306,14 +306,14 @@ func (r *DatabaseReconciler) handleDbCreateOrUpdate(ctx context.Context, dbcr *k
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			if err := r.setEngine(ctx, dbcr, instance); err != nil {
-				return r.manageError(ctx, dbcr, err, true, phase)
+				return r.manageError(ctx, dbcr, err, phase)
 			}
 			dbSecret, err = r.createSecret(ctx, dbcr)
 			if err != nil {
-				return r.manageError(ctx, dbcr, err, false, phase)
+				return r.manageError(ctx, dbcr, err, phase)
 			}
 		} else {
-			return r.manageError(ctx, dbcr, err, false, phase)
+			return r.manageError(ctx, dbcr, err, phase)
 		}
 	}
 
@@ -342,28 +342,28 @@ func (r *DatabaseReconciler) handleDbCreateOrUpdate(ctx context.Context, dbcr *k
 	}
 
 	if err := r.kubeHelper.ModifyObject(ctx, dbSecret); err != nil {
-		return r.manageError(ctx, dbcr, err, true, phase)
+		return r.manageError(ctx, dbcr, err, phase)
 	}
 
 	// Create
 	if mustReconcile {
 		if err := r.setEngine(ctx, dbcr, instance); err != nil {
-			return r.manageError(ctx, dbcr, err, false, phase)
+			return r.manageError(ctx, dbcr, err, phase)
 		}
 
 		if err := r.createDatabase(ctx, dbcr, dbSecret, instance); err != nil {
 			// when database creation failed, don't requeue request. to prevent exceeding api limit (ex: against google api)
-			return r.manageError(ctx, dbcr, err, false, phase)
+			return r.manageError(ctx, dbcr, err, phase)
 		}
 	}
 
 	phase = dbPhaseSecretsTemplating
 	if err = r.createTemplatedSecrets(ctx, dbcr, instance); err != nil {
-		return r.manageError(ctx, dbcr, err, true, phase)
+		return r.manageError(ctx, dbcr, err, phase)
 	}
 	phase = dbPhaseConfigMap
 	if err = r.handleInfoConfigMap(ctx, dbcr, instance); err != nil {
-		return r.manageError(ctx, dbcr, err, true, phase)
+		return r.manageError(ctx, dbcr, err, phase)
 	}
 	phase = dbPhaseTemplating
 
@@ -372,7 +372,7 @@ func (r *DatabaseReconciler) handleDbCreateOrUpdate(ctx context.Context, dbcr *k
 
 	if len(dbcr.Spec.SecretsTemplates) == 0 { //nolint:staticcheck // SA1019: Required for v1beta1 secretsTemplates compatibility; remove when that field is removed.
 		if err := r.handleTemplatedCredentials(ctx, dbcr, instance); err != nil {
-			return r.manageError(ctx, dbcr, err, false, phase)
+			return r.manageError(ctx, dbcr, err, phase)
 		}
 	}
 
@@ -382,7 +382,7 @@ func (r *DatabaseReconciler) handleDbCreateOrUpdate(ctx context.Context, dbcr *k
 	err = r.Status().Update(ctx, dbcr)
 	if err != nil {
 		log.Error(err, "error status subresource updating")
-		return r.manageError(ctx, dbcr, err, true, phase)
+		return r.manageError(ctx, dbcr, err, phase)
 	}
 
 	return reconcileResult, nil
@@ -399,7 +399,7 @@ func (r *DatabaseReconciler) handleDbDelete(ctx context.Context, dbcr *kindav1be
 	// that we can retry during the next reconciliation.
 	if commonhelper.SliceContainsSubString(dbcr.Finalizers, "dbuser.") {
 		err := errors.New("database can't be removed, while there are DbUser referencing it")
-		return r.manageError(ctx, dbcr, err, true, phase)
+		return r.manageError(ctx, dbcr, err, phase)
 	}
 
 	if commonhelper.ContainsString(dbcr.Finalizers, "db."+dbcr.Name) {
@@ -407,36 +407,36 @@ func (r *DatabaseReconciler) handleDbDelete(ctx context.Context, dbcr *kindav1be
 		if err != nil {
 			log.Error(err, "failed deleting database")
 			// when database deletion failed, don't requeue request. to prevent exceeding api limit (ex: against google api)
-			return r.manageError(ctx, dbcr, err, false, phase)
+			return r.manageError(ctx, dbcr, err, phase)
 		}
 		kci.RemoveFinalizer(&dbcr.ObjectMeta, "db."+dbcr.Name)
 		err = r.Update(ctx, dbcr)
 		if err != nil {
 			log.Error(err, "error resource updating")
-			return r.manageError(ctx, dbcr, err, true, phase)
+			return r.manageError(ctx, dbcr, err, phase)
 		}
 	}
 	// A temporary check that exists to avoid creating templates if secretsTemplates are used.
 	// todo: It should be removed when secretsTemlates are gone
 	if len(dbcr.Spec.SecretsTemplates) == 0 { //nolint:staticcheck // SA1019: Required for v1beta1 secretsTemplates compatibility; remove when that field is removed.
 		if err := r.handleTemplatedCredentials(ctx, dbcr, instance); err != nil {
-			return r.manageError(ctx, dbcr, err, false, phase)
+			return r.manageError(ctx, dbcr, err, phase)
 		}
 	}
 
 	if err := r.handleInfoConfigMap(ctx, dbcr, instance); err != nil {
-		return r.manageError(ctx, dbcr, err, true, phase)
+		return r.manageError(ctx, dbcr, err, phase)
 	}
 
 	dbSecret, err := r.getDatabaseSecret(ctx, dbcr)
 
 	if err != nil {
 		if !k8serrors.IsNotFound(err) {
-			return r.manageError(ctx, dbcr, err, true, phase)
+			return r.manageError(ctx, dbcr, err, phase)
 		}
 	} else {
 		if err := r.kubeHelper.ModifyObject(ctx, dbSecret); err != nil {
-			return r.manageError(ctx, dbcr, err, true, phase)
+			return r.manageError(ctx, dbcr, err, phase)
 		}
 	}
 
@@ -818,7 +818,7 @@ func (r *DatabaseReconciler) getAdminSecret(ctx context.Context, dbcr *kindav1be
 	return dbuser, nil
 }
 
-func (r *DatabaseReconciler) manageError(ctx context.Context, dbcr *kindav1beta1.Database, issue error, requeue bool, phase string) (reconcile.Result, error) {
+func (r *DatabaseReconciler) manageError(ctx context.Context, dbcr *kindav1beta1.Database, issue error, phase string) (reconcile.Result, error) {
 	dbcr.Status.Status = false
 	log := log.FromContext(ctx)
 	log.Error(issue, "an error occurred during the reconciliation")
@@ -832,14 +832,12 @@ func (r *DatabaseReconciler) manageError(ctx context.Context, dbcr *kindav1beta1
 		log.Error(err, "unable to update status")
 		return reconcile.Result{
 			RequeueAfter: retryInterval,
-			Requeue:      requeue,
 		}, nil
 	}
 
 	// TODO: implementing reschedule calculation based on last updated time
 	return reconcile.Result{
 		RequeueAfter: retryInterval,
-		Requeue:      requeue,
 	}, nil
 }
 
