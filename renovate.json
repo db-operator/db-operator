@@ -6,5 +6,87 @@
   ],
   "postUpdateOptions": [
     "gomodTidy"
+  ],
+  "packageRules": [
+    {
+      "description": "Go toolchain: the go.mod directive and the builder image",
+      "groupName": "go",
+      "matchDatasources": ["golang-version"]
+    },
+    {
+      "description": "Go toolchain: the go.mod directive and the builder image",
+      "groupName": "go",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["/(^|/)golang$/"]
+    },
+    {
+      "description": "Kubernetes libraries and controller-runtime must move together",
+      "groupName": "kubernetes",
+      "matchManagers": ["gomod"],
+      "matchPackageNames": ["k8s.io/**", "sigs.k8s.io/**"]
+    },
+    {
+      "groupName": "google cloud",
+      "matchManagers": ["gomod"],
+      "matchPackageNames": [
+        "cloud.google.com/**",
+        "google.golang.org/**",
+        "github.com/GoogleCloudPlatform/**",
+        "github.com/googleapis/**"
+      ]
+    },
+    {
+      "groupName": "golang.org/x",
+      "matchManagers": ["gomod"],
+      "matchPackageNames": ["golang.org/x/**"]
+    },
+    {
+      "groupName": "prometheus",
+      "matchManagers": ["gomod"],
+      "matchPackageNames": [
+        "github.com/prometheus/**",
+        "github.com/prometheus-operator/**"
+      ]
+    },
+    {
+      "groupName": "opentelemetry",
+      "matchManagers": ["gomod"],
+      "matchPackageNames": ["go.opentelemetry.io/**"]
+    },
+    {
+      "groupName": "go-openapi",
+      "matchManagers": ["gomod"],
+      "matchPackageNames": ["github.com/go-openapi/**"]
+    },
+    {
+      "groupName": "database drivers",
+      "matchManagers": ["gomod"],
+      "matchPackageNames": [
+        "github.com/go-sql-driver/mysql",
+        "github.com/lib/pq"
+      ]
+    },
+    {
+      "groupName": "test frameworks",
+      "matchManagers": ["gomod"],
+      "matchPackageNames": [
+        "github.com/onsi/**",
+        "github.com/stretchr/testify"
+      ]
+    },
+    {
+      "description": "Major action updates stay separate so breaking changes are reviewed one by one",
+      "groupName": "github actions",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch", "digest"]
+    },
+    {
+      "groupName": "test environment charts",
+      "matchManagers": ["helmfile"]
+    },
+    {
+      "groupName": "documentation",
+      "matchFileNames": ["documentation/**"]
+    }
   ]
 }
