@@ -283,6 +283,13 @@ func (c Clickhouse) revokePermissions(ctx context.Context, admin *DatabaseUser, 
 		return nil
 	}
 
+	for _, role := range user.ExtraPrivileges {
+		revokeRole := fmt.Sprintf("REVOKE%s %s FROM %s", c.onCluster(), clickhouseQuoteIdent(role), clickhouseQuoteIdent(user.Username))
+		if err := c.executeQuery(ctx, revokeRole, admin); err != nil {
+			return err
+		}
+	}
+
 	revoke := fmt.Sprintf(
 		"REVOKE%s ALL ON %s.* FROM %s",
 		c.onCluster(), clickhouseQuoteIdent(c.Database), clickhouseQuoteIdent(user.Username),

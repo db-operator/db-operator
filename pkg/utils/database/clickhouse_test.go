@@ -247,6 +247,37 @@ func TestClickhouseRevokePermissions(t *testing.T) {
 	assert.NoError(t, c.deleteDatabase(context.TODO(), admin))
 }
 
+func TestClickhouseExtraPrivileges(t *testing.T) {
+	admin := getClickhouseAdmin()
+	c, _ := testClickhouse()
+	c.Database = "extraprivilegestest"
+	shared := &Clickhouse{Host: c.Host, Port: c.Port, Database: "extraprivilegesshared", Cluster: c.Cluster}
+	assert.NoError(t, c.createDatabase(context.TODO(), admin))
+	assert.NoError(t, shared.createDatabase(context.TODO(), admin))
+	assert.NoError(t, c.executeQuery(context.TODO(), "CREATE TABLE extraprivilegesshared.test_1 (id UInt32) ENGINE = MergeTree ORDER BY id", admin))
+	assert.NoError(t, c.executeQuery(context.TODO(), "CREATE ROLE IF NOT EXISTS extra_reader"+c.onCluster(), admin))
+	assert.NoError(t, c.executeQuery(context.TODO(), "GRANT"+c.onCluster()+" SELECT ON extraprivilegesshared.* TO extra_reader", admin))
+
+	readonlyUser := &DatabaseUser{
+		Username:        "readonlyextra",
+		Password:        "123123",
+		AccessType:      ACCESS_TYPE_READONLY,
+		ExtraPrivileges: []string{"extra_reader"},
+	}
+
+	assert.NoError(t, c.createOrUpdateUser(context.TODO(), admin, readonlyUser))
+	assert.NoError(t, c.execAsUser(context.TODO(), "SELECT * FROM extraprivilegesshared.test_1", readonlyUser))
+
+	assert.NoError(t, c.revokePermissions(context.TODO(), admin, readonlyUser))
+	assert.Error(t, c.execAsUser(context.TODO(), "SELECT * FROM extraprivilegesshared.test_1", readonlyUser))
+	assert.Error(t, c.CheckStatus(context.TODO(), readonlyUser))
+
+	assert.NoError(t, c.deleteUser(context.TODO(), admin, readonlyUser))
+	assert.NoError(t, c.executeQuery(context.TODO(), "DROP ROLE IF EXISTS extra_reader"+c.onCluster(), admin))
+	assert.NoError(t, shared.deleteDatabase(context.TODO(), admin))
+	assert.NoError(t, c.deleteDatabase(context.TODO(), admin))
+}
+
 func TestClickhouseDeleteUser(t *testing.T) {
 	admin := getClickhouseAdmin()
 	c, dbu := testClickhouse()
