@@ -45,3 +45,15 @@ func TestMysqlDetect(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "mysql", engine.Engine)
 }
+
+func TestClickhouseDetect(t *testing.T) {
+	instance := dbinstance.TestGenericClickhouseInstance()
+	dbuser := &database.DatabaseUser{
+		Username: instance.User,
+		Password: instance.Password,
+	}
+	engine, err := dbinstance.DetectEngine(t.Context(), instance, dbuser)
+	assert.NoError(t, err)
+	assert.Equal(t, "clickhouse", engine.Engine)
+	assert.NotEmpty(t, engine.Version)
+}

@@ -85,3 +85,39 @@ func GetPostgresAdminUsername() string {
 	}
 	return "postgres"
 }
+
+func GetClickhouseHost() string {
+	if value, ok := os.LookupEnv("CLICKHOUSE_HOST"); ok {
+		return value
+	}
+	return "127.0.0.1"
+}
+
+func GetClickhousePort() uint16 {
+	if value, ok := os.LookupEnv("CLICKHOUSE_PORT"); ok {
+		port, err := strconv.ParseUint(value, 10, 16)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return uint16(port)
+	}
+	return 9000
+}
+
+func GetClickhouseAdminUser() string {
+	if value, ok := os.LookupEnv("CLICKHOUSE_USER"); ok {
+		return value
+	}
+	return "default"
+}
+
+func GetClickhouseAdminPassword() string {
+	if value, ok := os.LookupEnv("CLICKHOUSE_PASSWORD"); ok {
+		return value
+	}
+	return "test1234"
+}
+
+func GetClickhouseCluster() string {
+	return os.Getenv("CLICKHOUSE_CLUSTER")
+}

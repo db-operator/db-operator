@@ -387,3 +387,67 @@ func TestUnitGetSSLModeMysql(t *testing.T) {
 	}
 	assert.Equal(t, "verify_ca", mode)
 }
+
+func TestUnitDeterminClickhouseType(t *testing.T) {
+	clickhouseDbCr := testutils.NewClickhouseTestDbCr()
+	instance := testutils.NewClickhouseTestDbInstanceCr()
+	db, _, err := dbhelper.FetchDatabaseData(ctx, clickhouseDbCr, testDbcred, &instance)
+	assert.NoError(t, err)
+	ch, ok := db.(database.Clickhouse)
+	assert.True(t, ok)
+	assert.Equal(t, "test_cluster", ch.Cluster)
+	assert.Equal(t, testDbcred.Name, ch.Database)
+
+	delete(instance.Annotations, consts.CLICKHOUSE_CLUSTER)
+	db, _, err = dbhelper.FetchDatabaseData(ctx, clickhouseDbCr, testDbcred, &instance)
+	assert.NoError(t, err)
+	assert.Equal(t, "", db.(database.Clickhouse).Cluster)
+}
+
+func TestUnitParseClickhouseSecretData(t *testing.T) {
+	clickhouseDbCr := testutils.NewClickhouseTestDbCr()
+
+	_, err := dbhelper.ParseDatabaseSecretData(clickhouseDbCr, map[string][]byte{"DB": []byte("testdb")})
+	assert.Error(t, err)
+
+	validData := map[string][]byte{
+		consts.CLICKHOUSE_DB:       []byte("testdb"),
+		consts.CLICKHOUSE_USER:     []byte("testuser"),
+		consts.CLICKHOUSE_PASSWORD: []byte("testpassword"),
+	}
+	cred, err := dbhelper.ParseDatabaseSecretData(clickhouseDbCr, validData)
+	assert.NoError(t, err)
+	assert.Equal(t, "testdb", cred.Name)
+	assert.Equal(t, "testuser", cred.Username)
+	assert.Equal(t, "testpassword", cred.Password)
+}
+
+func TestUnitGenerateClickhouseSecretData(t *testing.T) {
+	objectMeta := metav1.ObjectMeta{Namespace: "tenant", Name: "analytics"}
+
+	data, err := dbhelper.GenerateDatabaseSecretData(objectMeta, "clickhouse", "", "")
+	assert.NoError(t, err)
+	assert.Equal(t, "tenant-analytics", string(data[consts.CLICKHOUSE_DB]))
+	assert.Equal(t, "tenant-analytics", string(data[consts.CLICKHOUSE_USER]))
+	assert.NotEmpty(t, data[consts.CLICKHOUSE_PASSWORD])
+}
+
+func TestUnitGetSSLModeClickhouse(t *testing.T) {
+	clickhouseDbCR := testutils.NewClickhouseTestDbCr()
+	instance := testutils.NewClickhouseTestDbInstanceCr()
+
+	mode, err := dbhelper.GetSSLMode(clickhouseDbCR, &instance)
+	assert.NoError(t, err)
+	assert.Equal(t, "false", mode)
+
+	instance.Status.MainEndpoint.SSLConnection.Enabled = true
+	instance.Status.MainEndpoint.SSLConnection.SkipVerify = true
+	mode, err = dbhelper.GetSSLMode(clickhouseDbCR, &instance)
+	assert.NoError(t, err)
+	assert.Equal(t, "true", mode)
+
+	instance.Status.MainEndpoint.SSLConnection.SkipVerify = false
+	mode, err = dbhelper.GetSSLMode(clickhouseDbCR, &instance)
+	assert.NoError(t, err)
+	assert.Equal(t, "true", mode)
+}

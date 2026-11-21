@@ -42,6 +42,9 @@ func getBlockedTempatedKeys() []string {
 		consts.MYSQL_DB,
 		consts.MYSQL_PASSWORD,
 		consts.MYSQL_USER,
+		consts.CLICKHOUSE_DB,
+		consts.CLICKHOUSE_PASSWORD,
+		consts.CLICKHOUSE_USER,
 	}
 }
 
@@ -199,6 +202,8 @@ func (tds *TemplateDataSources) Username() (string, error) {
 		return tds.Secret(consts.POSTGRES_USER)
 	case "mysql":
 		return tds.Secret(consts.MYSQL_USER)
+	case "clickhouse":
+		return tds.Secret(consts.CLICKHOUSE_USER)
 	default:
 		return "", fmt.Errorf("unknown engine: %s", tds.DatabaseK8sObj.Status.Engine)
 	}
@@ -212,6 +217,8 @@ func (tds *TemplateDataSources) Password() (string, error) {
 		return tds.Secret(consts.POSTGRES_PASSWORD)
 	case "mysql":
 		return tds.Secret(consts.MYSQL_PASSWORD)
+	case "clickhouse":
+		return tds.Secret(consts.CLICKHOUSE_PASSWORD)
 	default:
 		return "", fmt.Errorf("unknown engine: %s", tds.DatabaseK8sObj.Status.Engine)
 	}
@@ -223,6 +230,8 @@ func (tds *TemplateDataSources) Database() (string, error) {
 		return tds.Secret(consts.POSTGRES_DB)
 	case "mysql":
 		return tds.Secret(consts.MYSQL_DB)
+	case "clickhouse":
+		return tds.Secret(consts.CLICKHOUSE_DB)
 	default:
 		return "", fmt.Errorf("unknown engine: %s", tds.DatabaseK8sObj.Status.Engine)
 	}

@@ -181,15 +181,9 @@ func (r *DbUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 		existingUser := configureDbUser(ctx, dbusercr, dbuser, creds)
 
-		adminSecretResource, err := r.getAdminSecret(ctx, dbcr)
+		adminCred, err := r.getAdminCredentials(ctx, instance)
 		if err != nil {
-			// failed to get admin secret
-			return r.manageError(ctx, dbusercr, err)
-		}
-
-		adminCred, err := db.ParseAdminCredentials(ctx, adminSecretResource.Data)
-		if err != nil {
-			// failed to parse database admin secret
+			// failed to get admin credentials
 			return r.manageError(ctx, dbusercr, err)
 		}
 
@@ -267,11 +261,7 @@ func (r *DbUserReconciler) handleDbUserDelete(ctx context.Context, dbusercr *kin
 	}
 	existingUser := configureDbUser(ctx, dbusercr, dbuser, creds)
 
-	adminSecretResource, err := r.getAdminSecret(ctx, dbcr)
-	if err != nil {
-		return r.manageError(ctx, dbusercr, err)
-	}
-	adminCred, err := db.ParseAdminCredentials(ctx, adminSecretResource.Data)
+	adminCred, err := r.getAdminCredentials(ctx, instance)
 	if err != nil {
 		return r.manageError(ctx, dbusercr, err)
 	}
@@ -463,25 +453,45 @@ func parseDbUserSecretData(engine string, data map[string][]byte) (database.Cred
 		}
 
 		return cred, nil
+	case "clickhouse":
+		if name, ok := data["CLICKHOUSE_DB"]; ok {
+			cred.Name = string(name)
+		} else {
+			return cred, errors.New("CLICKHOUSE_DB key does not exist in secret data")
+		}
+
+		if user, ok := data["CLICKHOUSE_USER"]; ok {
+			cred.Username = string(user)
+		} else {
+			return cred, errors.New("CLICKHOUSE_USER key does not exist in secret data")
+		}
+
+		if pass, ok := data["CLICKHOUSE_PASSWORD"]; ok {
+			cred.Password = string(pass)
+		} else {
+			return cred, errors.New("CLICKHOUSE_PASSWORD key does not exist in secret data")
+		}
+
+		return cred, nil
 	default:
 		return cred, errors.New("not supported engine type")
 	}
 }
 
-func (r *DbUserReconciler) getAdminSecret(ctx context.Context, dbcr *kindav1beta1.Database) (*corev1.Secret, error) {
-	instance := kindav1beta1.DbInstance{}
-	if err := r.Get(ctx, types.NamespacedName{Name: dbcr.Spec.Instance}, &instance); err != nil {
+func (r *DbUserReconciler) getAdminCredentials(ctx context.Context, instance *kindav1.DbInstance) (*database.DatabaseUser, error) {
+	username, err := helpers.GetValueFromSource(ctx, r.Client, instance.Spec.Auth.Username)
+	if err != nil {
+		return nil, err
+	}
+	password, err := helpers.GetValueFromSource(ctx, r.Client, instance.Spec.Auth.Password)
+	if err != nil {
 		return nil, err
 	}
 
-	// get database admin credentials
-	secret := &corev1.Secret{}
-
-	if err := r.Get(ctx, instance.Spec.AdminUserSecret.ToKubernetesType(), secret); err != nil {
-		return nil, err
-	}
-
-	return secret, nil
+	return &database.DatabaseUser{
+		Username: username,
+		Password: password,
+	}, nil
 }
 
 // If dbuser has a deletion timestamp, this function will remove all the templated fields from

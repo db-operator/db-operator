@@ -1,0 +1,16 @@
+image:
+  repository: clickhouse/clickhouse-server
+  tag: "26.8"
+  pullPolicy: IfNotPresent
+
+auth:
+  username: admin
+  password: qwertyu9
+
+cluster:
+  name: test_cluster
+
+service:
+  type: NodePort
+  nativeNodePort: 30900
+  httpNodePort: 30123

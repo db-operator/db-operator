@@ -22,7 +22,7 @@ import (
 // DbInstanceSpec defines the desired state of DbInstance
 type DbInstanceSpec struct {
 	// When not set, db-operator will try to determine the engine itself.
-	// +kubebuilder:validation:Enum=postgres;mysql
+	// +kubebuilder:validation:Enum=postgres;mysql;clickhouse
 	Engine *string `json:"engine"`
 	// How the operator should authenticate to the database instance.
 	Auth *DbInstanceAuth `json:"auth"`
@@ -113,7 +113,7 @@ type SecretOrCMRef struct {
 // DbInstanceStatus defines the observed state of DbInstance.
 type DbInstanceStatus struct {
 	// Which engine is used as a backend for this instance
-	// +kubebuilder:validation:Enum=postgres;mysql
+	// +kubebuilder:validation:Enum=postgres;mysql;clickhouse
 	Engine string `json:"engine,omitempty"`
 	// Which version of the engine is used as a backend for this instance
 	Version string `json:"version,omitempty"`

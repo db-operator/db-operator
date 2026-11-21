@@ -64,7 +64,7 @@ func GenerateChecksumSecretValue(databaseSecret *corev1.Secret) string {
 	}
 
 	// Not all the fields must be stored in the checksum, because templates are appending new entries, that should not trigger a new recocniliation
-	relevantKeys := []string{consts.POSTGRES_DB, consts.POSTGRES_PASSWORD, consts.POSTGRES_USER, consts.MYSQL_DB, consts.MYSQL_PASSWORD, consts.MYSQL_USER}
+	relevantKeys := []string{consts.POSTGRES_DB, consts.POSTGRES_PASSWORD, consts.POSTGRES_USER, consts.MYSQL_DB, consts.MYSQL_PASSWORD, consts.MYSQL_USER, consts.CLICKHOUSE_DB, consts.CLICKHOUSE_PASSWORD, consts.CLICKHOUSE_USER}
 	relevantData := map[string][]byte{}
 	for key, value := range databaseSecret.Data {
 		if slices.Contains(relevantKeys, key) {

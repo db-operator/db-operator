@@ -1,0 +1,33 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: clickhouse-admin-creds
+  namespace: db-operator-system
+stringData:
+  password: qwertyu9
+---
+apiVersion: kinda.rocks/v1
+kind: DbInstance
+metadata:
+  name: clickhouse
+  annotations:
+    kinda.rocks/clickhouse-cluster: test_cluster
+spec:
+  engine: clickhouse
+  auth:
+    username:
+      value: admin
+    password:
+      valueFrom:
+        secret:
+          name: clickhouse-admin-creds
+          namespace: db-operator-system
+          key: password
+  endpoint:
+    host:
+      value: clickhouse-instance.databases.svc.cluster.local
+    port:
+      value: "9000"
+  instanceVars:
+    HTTP_PORT: "8123"
