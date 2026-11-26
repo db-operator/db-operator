@@ -76,6 +76,10 @@ type DbInstanceCustomValidator struct {
 
 // Password value should be always retrieved from a secret
 func validatePasswordValue(val *kindarocksv1.ValueSource) error {
+	if val == nil {
+		return nil
+	}
+
 	if val.Value != nil {
 		return errors.New("password can only be read from a secret")
 	}
@@ -101,14 +105,29 @@ func validateAllowedPrivileges(privileges []kindarocksv1.DbInstanceAllowedPrivil
 	return nil
 }
 
-// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type DbInstance.
-func (v *DbInstanceCustomValidator) ValidateCreate(_ context.Context, obj *kindarocksv1.DbInstance) (admission.Warnings, error) {
-	dbinstancelog.Info("Validation for DbInstance upon creation", "name", obj.GetName())
+// validateSpec runs the checks shared by create and update.
+func validateSpec(obj *kindarocksv1.DbInstance) error {
+	// spec.auth is required by the v1 schema, but DbInstances created as
+	// v1beta1 are served as v1 without conversion and come back without it.
+	if obj.Spec.Auth == nil {
+		return errors.New("spec.auth is required")
+	}
+
 	if err := validatePasswordValue(obj.Spec.Auth.Password); err != nil {
-		return nil, err
+		return err
 	}
 
 	if err := validateAllowedPrivileges(obj.Spec.AllowedPrivileges); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type DbInstance.
+func (v *DbInstanceCustomValidator) ValidateCreate(_ context.Context, obj *kindarocksv1.DbInstance) (admission.Warnings, error) {
+	dbinstancelog.Info("Validation for DbInstance upon creation", "name", obj.GetName())
+	if err := validateSpec(obj); err != nil {
 		return nil, err
 	}
 
@@ -118,11 +137,14 @@ func (v *DbInstanceCustomValidator) ValidateCreate(_ context.Context, obj *kinda
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type DbInstance.
 func (v *DbInstanceCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj *kindarocksv1.DbInstance) (admission.Warnings, error) {
 	dbinstancelog.Info("Validation for DbInstance upon update", "name", newObj.GetName())
-	if err := validatePasswordValue(newObj.Spec.Auth.Password); err != nil {
-		return nil, err
+
+	// Don't block updates to an object that is being deleted (e.g. removing
+	// finalizers), even if its spec would no longer pass validation.
+	if newObj.GetDeletionTimestamp() != nil {
+		return nil, nil
 	}
 
-	if err := validateAllowedPrivileges(newObj.Spec.AllowedPrivileges); err != nil {
+	if err := validateSpec(newObj); err != nil {
 		return nil, err
 	}
 
