@@ -242,8 +242,7 @@ func (r *DbInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 	dbin.Status.ServerStatus.ManagedDatabasesCount = managedDBCount
 
-	dbin.Status.MainEndpoint.Host = genericDB.Host
-	dbin.Status.MainEndpoint.Port = genericDB.Port
+	dbin.Status.MainEndpoint = mainEndpointStatus(genericDB)
 
 	if err := r.labelReferencedResources(ctx, dbin); err != nil {
 		log.Error(err, "Failed to label referenced resources")
@@ -426,4 +425,18 @@ func (r *DbInstanceReconciler) fetchEndpoint(ctx context.Context, dbin *kindav1.
 	}
 
 	return genericDB, nil
+}
+
+// mainEndpointStatus builds the status representation of the main endpoint.
+// Other controllers (e.g. the Database controller) connect to the instance
+// using this data, so it must carry the SSL settings along with host and port.
+func mainEndpointStatus(genericDB *dbinstance.Generic) *kindav1.DbInstanceServerData {
+	return &kindav1.DbInstanceServerData{
+		Host: genericDB.Host,
+		Port: genericDB.Port,
+		SSLConnection: kindav1.DbInstanceSSLConnection{
+			Enabled:    genericDB.SSLEnabled,
+			SkipVerify: genericDB.SkipCAVerify,
+		},
+	}
 }
