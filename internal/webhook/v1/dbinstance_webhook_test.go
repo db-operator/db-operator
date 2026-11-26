@@ -243,6 +243,32 @@ var _ = Describe("DbInstance Webhook", func() {
 		})
 	})
 
+	Context("When validating a DbInstance without spec.auth (e.g. created as v1beta1)", func() {
+		It("Should deny creation without panicking", func() {
+			obj := obj.DeepCopy()
+			Expect(validator.ValidateCreate(GinkgoT().Context(), obj)).Error().To(MatchError("spec.auth is required"))
+		})
+		It("Should deny update without panicking", func() {
+			obj := obj.DeepCopy()
+			Expect(validator.ValidateUpdate(GinkgoT().Context(), oldObj, obj)).Error().To(MatchError("spec.auth is required"))
+		})
+		It("Should allow update of an object that is being deleted", func() {
+			By("simulating a finalizer removal on a DbInstance with a deletion timestamp")
+			oldObj := oldObj.DeepCopy()
+			now := metav1.Now()
+			oldObj.DeletionTimestamp = &now
+			oldObj.Finalizers = []string{"foregroundDeletion"}
+			obj := oldObj.DeepCopy()
+			obj.Finalizers = nil
+			Expect(validator.ValidateUpdate(GinkgoT().Context(), oldObj, obj)).Error().To(Not(HaveOccurred()))
+		})
+		It("Should allow creation when spec.auth has no password", func() {
+			obj := obj.DeepCopy()
+			obj.Spec.Auth = &kindarocksv1.DbInstanceAuth{}
+			Expect(validator.ValidateCreate(GinkgoT().Context(), obj)).Error().To(Not(HaveOccurred()))
+		})
+	})
+
 	Context("When deleting DbInstance under Validating Webhook", func() {
 		It("Should simply remove a DbInstance", func() {
 			By("simulating a deletion creation scenario")
