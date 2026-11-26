@@ -8,6 +8,7 @@ import (
 
 	kindav1 "github.com/db-operator/db-operator/v2/api/v1"
 	"github.com/db-operator/db-operator/v2/pkg/consts"
+	"github.com/db-operator/db-operator/v2/pkg/utils/dbinstance"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -426,4 +427,37 @@ func TestUnitReconcilerSuite(t *testing.T) {
 			assert.ErrorIs(t, err, expectedErrUpdate)
 		})
 	})
+}
+
+func TestUnitMainEndpointStatus(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name       string
+		sslEnabled bool
+		skipVerify bool
+	}{
+		{name: "SSL disabled", sslEnabled: false, skipVerify: false},
+		{name: "SSL enabled", sslEnabled: true, skipVerify: false},
+		{name: "SSL enabled, skip verify", sslEnabled: true, skipVerify: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			genericDB := &dbinstance.Generic{
+				Host:         "db.example.com",
+				Port:         5432,
+				SSLEnabled:   tc.sslEnabled,
+				SkipCAVerify: tc.skipVerify,
+			}
+
+			result := mainEndpointStatus(genericDB)
+			assert.Equal(t, &kindav1.DbInstanceServerData{
+				Host: "db.example.com",
+				Port: 5432,
+				SSLConnection: kindav1.DbInstanceSSLConnection{
+					Enabled:    tc.sslEnabled,
+					SkipVerify: tc.skipVerify,
+				},
+			}, result)
+		})
+	}
 }
